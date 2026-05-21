@@ -1,0 +1,9 @@
+device S32K312
+si JTAG
+speed 4000
+r
+h
+loadfile bin/justboot.hex
+r
+g
+q
