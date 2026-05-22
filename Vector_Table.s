@@ -26,9 +26,7 @@
 .align 2
 .thumb
 .globl undefined_handler
-.globl undefined_handler
 .globl VTABLE
-.globl _core_loop
 .globl __Stack_start_c0          /* Top of Stack for Initial Stack Pointer */
 .globl Reset_Handler             /* Reset Handler */
 .globl NMI_Handler               /* NMI Handler */
@@ -44,11 +42,7 @@
 VTABLE:
 
 .long __Stack_start_c0          /* Top of Stack for Initial Stack Pointer */
-#ifdef MCAL_TESTING_ENVIRONMENT
-.long _core_loop+1              /* Set an infinte loop as entry point which will be changed by the debugger */
-#else
 .long Reset_Handler+1           /* Reset Handler need plus 1 because Reset_Handler is generated with LSB bit =0*/
-#endif
 .long NMI_Handler               /* NMI Handler */
 .long HardFault_Handler         /* Hard Fault Handler */
 .long MemManage_Handler         /* Reserved */

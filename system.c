@@ -62,10 +62,6 @@ void init_data_bss(void)
     }
 }
 
-void startup_go_to_user_mode(void)
-{
-}
-
 void SystemInit(void)
 {
 }

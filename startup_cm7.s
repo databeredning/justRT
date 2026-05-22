@@ -1,40 +1,6 @@
-/*==================================================================================================
-*   Project              : RTD AUTOSAR 4.4
-*   Platform             : CORTEXM
-*   Peripheral           : 
-*   Dependencies         : none
-*
-*   Autosar Version      : 4.4.0
-*   Autosar Revision     : ASR_REL_4_4_REV_0000
-*   Autosar Conf.Variant :
-*   SW Version           : 2.0.0
-*   Build Version        : S32K3_RTD_2_0_0_D2203_ASR_REL_4_4_REV_0000_20220331
-*
-*   (c) Copyright 2020 - 2022 NXP Semiconductors
-*   All Rights Reserved.
-*
-*   NXP Confidential. This software is owned or controlled by NXP and may only be
-*   used strictly in accordance with the applicable license terms. By expressly
-*   accepting such terms or by downloading, installing, activating and/or otherwise
-*   using the software, you are agreeing that you have read, and that you agree to
-*   comply with and are bound by, such license terms. If you do not agree to be
-*   bound by the applicable license terms, then you may not retain, install,
-*   activate or otherwise use the software.
-==================================================================================================*/
-
-#ifdef MULTIPLE_IMAGE
-	#define RAM_DATA_INIT_ON_ALL_CORES
-#endif
-
-/* If this is a secodary core, it shall wait for the MSCM clock to be initialized */
-#if defined(CORE1)
-	#define NO_MSCM_CLOCK_INIT
-#endif
-
 #define MAIN_CORE 0
 #define MCME_CTL_KEY    0x402DC000
 #define MCME_PRTN1_PUPD 0x402DC304
-#define MCME_PRTN1_STAT 0x402DC308
 #define MCME_PRTN1_COFB0_CLKEN 0x402DC330
 #define MCME_PRTN1_COFB0_STAT 0x402DC310
 #define MCME_MSCM_REQ (1 << 24)
@@ -48,9 +14,7 @@
 #define CM7_1_ENABLE_SHIFT (1)
 
 #define CM7_0_ENABLE            (1)
-#ifndef CM7_1_ENABLE
-	#define CM7_1_ENABLE            (0)
-#endif
+#define CM7_1_ENABLE            (0)
 #define CM7_0_VTOR_ADDR         (__CORE0_VTOR)
 #define CM7_1_VTOR_ADDR         (__CORE1_VTOR)
 #define XRDC_CONFIG_ADDR        (0)
@@ -58,7 +22,11 @@
 
     .syntax unified
     .arch armv7-m
-/* Table for copying and zeroing */
+/*
+ * Runtime init tables consumed by init_data_bss() in system.c:
+ * - .init_table describes ROM->RAM copy ranges for initialized data
+ * - .zero_table describes RAM ranges to clear for BSS
+ */
 /* Copy table:
   - Table entries count
     - entry one ram start
@@ -97,18 +65,8 @@
   .long __BSS_SRAM_END
 
 .globl RESET_CATCH_CORE
-.globl _core_loop
-.section ".core_loop","ax"
-.thumb
-
-_core_loop:
-    nop
-    nop
-    nop
-    nop
-    b _core_loop
-
 .section ".boot_header","ax"
+  /* Boot header consumed by device boot ROM / SBAF. */
   .long SBAF_BOOT_MARKER /* IVT marker */
   .long (CM7_0_ENABLE << CM7_0_ENABLE_SHIFT) | (CM7_1_ENABLE << CM7_1_ENABLE_SHIFT) /* Boot configuration word */
   .long 0 /* Reserved */
@@ -121,36 +79,17 @@ _core_loop:
   .long LF_CONFIG_ADDR /* Lifecycle configuration pointer */
   .long 0 /* Reserved */
 
-.globl VTABLE
 .section ".startup","ax"
 .thumb
-/************************************************************************/
-/* Autosar synopsis of startup code (See MCU Specification):            */
-/*                                                                      */
-/*   Before the MCU driver can be initialized, a basic initialization   */
-/*   of the MCU has to be executed. This MCU specific initialization is */
-/*   typically executed in a start-up code. The start-up code of the    */
-/*   MCU shall be executed after power up and any kind of micro-        */
-/*   controller reset. It shall perform very basic and microcontroller   */
-/*   specific start-up initialization and shall be kept short, because   */
-/*   the MCU clock and PLL is not yet initialized. The start-up code    */
-/*   shall cover MCU specific initialization, which is not part of      */
-/*   other MCU services or other MCAL drivers. The following steps      */
-/*   summarizes basic functionality which shall be included in the      */
-/*   start-up code. They are listed for guidance, because some          */
-/*   functionality might not be supported. No code will be found in     */
-/*   case.                                                              */
-/************************************************************************/
 .set VTOR_REG, 0xE000ED08
-.thumb 
 .thumb_func
 .globl Reset_Handler
-.globl _start
-_start:
 Reset_Handler:
-/*****************************************************/
-/* Skip normal entry point as nothing is initialized */
-/*****************************************************/
+/*
+ * Reset entry:
+ * - keep interrupts masked during low-level init
+ * - clear caller-saved registers to start from known state
+ */
  cpsid i
  mov   r0, #0
  mov   r1, #0
@@ -161,9 +100,7 @@ Reset_Handler:
  mov   r6, #0
  mov   r7, #0
 
-#ifndef NO_MSCM_CLOCK_INIT
-InitMSCMClock:
-  /* If the MSCM clock is enabled, skip this sequence */
+  /* If MSCM clock is already enabled, skip the update sequence. */
   ldr r0, =MCME_PRTN1_COFB0_STAT
   ldr r1, [r0]
   ldr r2, =MCME_MSCM_REQ
@@ -171,28 +108,27 @@ InitMSCMClock:
   cmp r1, 0
   bne SetVTOR
 
-  /* Enable clock in PRTN1 */
+  /* Request MSCM clock in partition 1 clock enable register. */
   ldr r0, =MCME_PRTN1_COFB0_CLKEN
   ldr r1, [r0]
   ldr r2, =MCME_MSCM_REQ
   orr r1, r2
   str r1, [r0]
 
-  /* Set PUPD field */
+  /* Mark partition update pending. */
   ldr r0, =MCME_PRTN1_PUPD
   ldr r1, [r0]
   ldr r2, =1
   orr r1, r2 
   str r1, [r0]
 
-  /* Trigger update */
+  /* Commit partition update using key + inverse key sequence. */
   ldr r0, =MCME_CTL_KEY
   ldr r1, =MCME_KEY
   str r1, [r0]
   ldr r1, =MCME_INV_KEY
   str r1, [r0]
-#endif
-/* Check MSCM clock in PRTN1 */
+/* Wait until hardware reports MSCM clock is active. */
 WaitForClock:
   ldr r0, =MCME_PRTN1_COFB0_STAT
   ldr r1, [r0]
@@ -201,50 +137,13 @@ WaitForClock:
   cmp r1, 0
   beq WaitForClock
 
-/*******************************************************************/
-/* NXP Guidance 1 - Init registers to avoid lock-step issues */
-/* N/A                                                             */
-/*******************************************************************/
-
-/*******************************************************************/
-/* NXP Guidance 2 - MMU Initialization for CPU               */
-/*  TLB0 - PbridgeB                                                */
-/*  TLB1 - Internal Flash                                          */
-/*  TLB2 - External SRAM                                           */
-/*  TLB3 - Internal SRAM                                           */
-/*  TLB4 - PbridgeA                                                */
-/*******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 1 - The start-up code shall initialize the    */
-/* base addresses for interrupt and trap vector tables. These base*/
-/* addresses are provided as configuration parameters or linker/   */
-/* locator setting.                                                */
-/******************************************************************/
-
 SetVTOR:
-/* relocate vector table to RAM */
+/* Relocate vector table base to RAM interrupt table. */
 ldr  r0, =VTOR_REG
 ldr  r1, =__RAM_INTERRUPT_START
 str  r1,[r0]
 
-/******************************************************************/
-/* Autosar Guidance 2 - The start-up code shall initialize the    */
-/* interrupt stack pointer, if an interrupt stack is              */
-/* supported by the MCU. The interrupt stack pointer base address */
-/* and the stack size are provided as configuration parameter or  */
-/* linker/locator setting.                                        */
-/*                                                                */
-/******************************************************************/
-
-
-/******************************************************************/
-/* Autosar Guidance 3 - The start-up code shall initialize the    */
-/* user stack pointer. The user stack pointer base address and    */
-/* the stack size are provided as configuration parameter or      */
-/* linker/locator setting.                                        */
-/******************************************************************/
-/*GetCoreID*/
+/* Read core ID and choose the core-specific stack pointer. */
 ldr  r0, =0x40260004
 ldr  r1,[r0]
 
@@ -254,40 +153,18 @@ beq	 SetCore0Stack
 b SetCore1Stack
 
 SetCore0Stack:
-  /* set up stack; r13 SP*/
+  /* Set Main Stack Pointer for core 0, then disable SWT0. */
   ldr  r0, =__Stack_start_c0
   msr MSP, r0
   b DisableSWT0
 
 SetCore1Stack:
-  /* set up stack; r13 SP*/
+  /* Set Main Stack Pointer for core 1 and continue memory init. */
   ldr  r0, =__Stack_start_c1
   msr MSP, r0
-#ifdef RAM_DATA_INIT_ON_ALL_CORES
-  b RamInit
-#else
   b DTCM_Init /* SWT1 clock is disabled at startup */
-#endif
 
-/******************************************************************/
-/* Autosar Guidance 4 - If the MCU supports context save          */
-/* operation, the start-up code shall initialize the memory which */
-/* is used for context save operation. The maximum amount of      */
-/* consecutive context save operations is provided as             */
-/* configuration parameter or linker/locator setting.             */
-/*                                                                */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 5 - The start-up code shall ensure that the   */
-/* MCU internal watchdog shall not be serviced until the watchdog */
-/* is initialized from the MCAL watchdog driver. This can be      */
-/* done for example by increasing the watchdog service time.      */
-/*                                                                */
-/******************************************************************/
-
-/* Note from manual: For any operation to be performed on an SWT  */
-/* instance, its respective core must be enabled.                 */
+/* Disable SWT0 watchdog on core 0 path. */
 DisableSWT0:
   ldr  r0, =0x40270010
   ldr  r1, =0xC520
@@ -298,23 +175,8 @@ DisableSWT0:
   ldr  r1, =0xFF000040
   str  r1, [r0]
   b    RamInit
-  
-DisableSWT1:
-  ldr  r0, =0x4046C010
-  ldr  r1, =0xC520
-  str  r1, [r0]
-  ldr  r1, =0xD928
-  str  r1, [r0]
-  ldr  r0, =0x4046C000
-  ldr  r1, =0xFF000040
-  str  r1, [r0]
-  b    RamInit
 
-/******************************************************************/
-/* Autosar Guidance 13 - The start-up code shall initialize a     */
-/* minimum amount of RAM in order to allow proper execution of    */
-/* the MCU driver services and the caller of these services.      */
-/******************************************************************/
+/* Initialize SRAM contents to seed ECC before first normal accesses. */
 RamInit:
     /* Initialize SRAM ECC */
     ldr  r0, =__RAM_INIT
@@ -337,7 +199,7 @@ SRAM_LOOP:
 SRAM_LOOP_END:
 
 DTCM_Init:
-    /* Initialize DTCM ECC */
+  /* Initialize DTCM and seed ECC. */
     ldr  r0, =__DTCM_INIT
     cmp  r0, 0
     /* Skip if __DTCM_INIT is not set */
@@ -365,7 +227,7 @@ DTCM_LOOP:
 DTCM_LOOP_END:
 
 ITCM_Init:
-    /* Initialize ITCM ECC */
+  /* Initialize ITCM and seed ECC. */
     ldr  r0, =__ITCM_INIT
     cmp  r0, 0
     /* Skip if __TCM_INIT is not set */
@@ -394,88 +256,31 @@ ITCM_LOOP:
 ITCM_LOOP_END:
 
 DebuggerHeldCoreLoop:
+  /* Optional debugger gate: hold here while RESET_CATCH_CORE is magic value. */
   ldr  r0, =RESET_CATCH_CORE
   ldr  r0, [r0]
   ldr  r1, =0x5A5A5A5A
   cmp  r0, r1
   beq	DebuggerHeldCoreLoop
 
-/************************/
-/* Erase ".bss Section" */
-/************************/
+/* Main core performs data copy and BSS clear; secondary core skips it. */
 _DATA_INIT:
-#ifndef RAM_DATA_INIT_ON_ALL_CORES
-    /* If this is the primary core, initialize data and bss */
-    ldr  r0, =0x40260004
-    ldr  r1,[r0]
+  /* If this is the primary core, initialize data and bss */
+  ldr  r0, =0x40260004
+  ldr  r1,[r0]
 
-    ldr  r0, =MAIN_CORE
-    cmp  r1,r0
-    beq	 _INIT_DATA_BSS
-    b    __SYSTEM_INIT
-#endif
+  ldr  r0, =MAIN_CORE
+  cmp  r1,r0
+  beq	 _INIT_DATA_BSS
+  b    __SYSTEM_INIT
 
 _INIT_DATA_BSS:
+  /* Copy initialized data and zero BSS using linker-generated tables. */
   bl init_data_bss
 
-
-/******************************************************************/
-/* Autosar Guidance 6 - If the MCU supports cache memory for data */
-/* and/or code, it shall be initialized and enabled in the        */
-/* start-up code.                                                 */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 7 - The start-up code shall initialize MCU    */
-/* specific features of internal memory like memory protection.   */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 8 - If external memory is used, the memory    */
-/* shall be initialized in the start-up code. The start-up code   */
-/* shall be prepared to support different memory configurations   */
-/* depending on code location. Different configuration options    */
-/* shall be taken into account for code execution from            */
-/* external/internal memory.                                      */
-/* N/A - external memory is not used                              */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 9 - The settings of the different memories    */
-/* shall be provided to the start-up code as configuration        */
-/* parameters.                                                    */
-/* N/A - all memories are already configured                      */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 10 - In the start-up code a default           */
-/* initialization of the MCU clock system shall be performed      */
-/* including global clock prescalers.                             */
-/******************************************************************/
 __SYSTEM_INIT:
+  /* Hook for clock/peripheral setup if needed by the project. */
   bl SystemInit
-
-/******************************************************************/
-/* Autosar Guidance 5 - The start-up code shall ensure that the   */
-/* MCU internal watchdog shall not be serviced until the watchdog */
-/* is initialized from the MCAL watchdog driver. This can be      */
-/* done for example by increasing the watchdog service time.      */
-/*                                                                */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 11 - The start-up code shall enable           */
-/* protection mechanisms for special function registers(SFR's),   */
-/* if supported by the MCU.                                       */
-/* N/A - will be handled by Autosar OS                            */
-/******************************************************************/
-
-/******************************************************************/
-/* Autosar Guidance 12 - The start-up code shall initialize all   */
-/* necessary write once registers or registers common to several  */
-/* drivers where one write, rather than repeated writes, to the   */
-/* register is required or highly desirable.                      */
-/******************************************************************/
 
 /*********************************/
 /* Set the small ro data pointer */
@@ -490,13 +295,7 @@ __SYSTEM_INIT:
 /* Call Main Routine                                              */
 /******************************************************************/
 _MAIN:
-/* TODO S32: If 'cpsie i' is executed (enables interrupts) here and we have
-   jumped from Boot to App, the next branch instruction will trigger exception
-   undefined_handler(). Can be avoided by not executing the instruction in application */
-#ifdef BOOT_MODE
-  cpsie i
-#endif
-  bl startup_go_to_user_mode
+  /* Application entry point. Interrupts remain masked unless app enables them. */
   bl main
 
 /******************************************************************/
@@ -504,14 +303,10 @@ _MAIN:
 /******************************************************************/
 .globl MCAL_LTB_TRACE_OFF
  MCAL_LTB_TRACE_OFF:
+  /* Reserved trace hook label kept for compatibility. */
     nop
 
-#ifdef CCOV_ENABLE
-    /* code coverage is requested */
-    bl ccov_main
-#endif
-
-    /*BKPT #1 - removed to avoid debug fault being escalated to hardfault when debugger is not attached or on VDK*/ /* last instruction for the debugger to dump results data */
+  /* Safety fallback if main() returns. */
 .globl _end_of_eunit_test
 _end_of_eunit_test:
     b .
