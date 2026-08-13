@@ -73,8 +73,4 @@ void undefined_handler(void)
 }
 
 void NMI_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void HardFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void MemManage_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void BusFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void UsageFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void DebugMon_Handler(void) __attribute__((weak, alias("undefined_handler")));
