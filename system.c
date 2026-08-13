@@ -33,6 +33,7 @@ volatile uint32_t RESET_CATCH_CORE;
 volatile uint32_t g_tick_count;
 volatile uint32_t g_pendsv_count;
 volatile uint32_t g_systick_armed;
+extern volatile uint32_t g_yield_count;
 
 extern uint32_t *kernel_pendsv_switch(uint32_t *current_sp);
 
@@ -112,12 +113,17 @@ void HardFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void MemManage_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void BusFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void UsageFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void SVC_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void DebugMon_Handler(void) __attribute__((weak, alias("undefined_handler")));
 
 void SysTick_Handler(void)
 {
     g_tick_count++;
+    kernel_request_context_switch();
+}
+
+void SVC_Handler(void)
+{
+    g_yield_count++;
     kernel_request_context_switch();
 }
 

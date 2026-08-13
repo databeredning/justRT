@@ -3,6 +3,13 @@
 extern void kernel_tick_init(void);
 extern uint32_t *kernel_pendsv_switch(uint32_t *current_sp);
 
+volatile uint32_t g_yield_count = 0U;
+
+static inline void kernel_yield(void)
+{
+    __asm volatile ("svc 0" : : : "memory");
+}
+
 typedef void (*kernel_task_entry_t)(void);
 
 typedef struct
@@ -81,6 +88,10 @@ static void task0_body(void)
         g_active_task_tag = 0xA0U;
         g_task0_runs++;
         g_boot_counter++;
+        if ((g_task0_runs & 0xFFU) == 0U)
+        {
+            kernel_yield();
+        }
     }
 }
 
@@ -91,6 +102,10 @@ static void task1_body(void)
         g_active_task_tag = 0xB1U;
         g_task1_runs++;
         g_boot_counter++;
+        if ((g_task1_runs & 0xFFU) == 0U)
+        {
+            kernel_yield();
+        }
     }
 }
 
