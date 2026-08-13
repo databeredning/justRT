@@ -31,6 +31,8 @@ volatile uint32_t g_tick_count;
 volatile uint32_t g_pendsv_count;
 volatile uint32_t g_systick_armed;
 
+extern void kernel_dispatch_from_pendsv(void);
+
 void kernel_tick_init(void)
 {
     SYST_RVR = 15999UL;
@@ -116,4 +118,5 @@ void SysTick_Handler(void)
 void PendSV_Handler(void)
 {
     g_pendsv_count++;
+    kernel_dispatch_from_pendsv();
 }

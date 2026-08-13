@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 extern void kernel_tick_init(void);
+extern void kernel_dispatch_from_pendsv(void);
 
 typedef void (*kernel_task_entry_t)(void);
 
@@ -50,19 +51,24 @@ static void task1_step(void)
     g_boot_counter++;
 }
 
-static void kernel_scheduler_test(void)
+static void kernel_idle_loop(void)
 {
     g_boot_stage = 5U;
 
     while (1)
     {
-        g_current_task = &g_tasks[g_current_task_index];
-        g_current_task->state = 1U;
-        g_current_task->entry();
-        g_current_task->run_count++;
-        g_schedule_count++;
-        g_current_task_index ^= 1U;
+        __asm volatile ("wfi" : : : "memory");
     }
+}
+
+void kernel_dispatch_from_pendsv(void)
+{
+    g_current_task = &g_tasks[g_current_task_index];
+    g_current_task->state = 1U;
+    g_current_task->entry();
+    g_current_task->run_count++;
+    g_schedule_count++;
+    g_current_task_index ^= 1U;
 }
 
 static void kernel_enter(void)
@@ -77,7 +83,7 @@ static void kernel_enter(void)
     g_boot_stage = 4U;
     kernel_tick_init();
     __asm volatile ("cpsie i" : : : "memory");
-    kernel_scheduler_test();
+    kernel_idle_loop();
 }
 
 int main(void)
