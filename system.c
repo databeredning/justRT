@@ -127,12 +127,12 @@ void PendSV_Handler(void)
 {
     __asm volatile (
         "mrs r0, psp\n"
-        "push {lr}\n"
+        "push {r3, lr}\n"
         "stmdb r0!, {r4-r11}\n"
         "bl kernel_pendsv_switch\n"
         "ldmia r0!, {r4-r11}\n"
         "msr psp, r0\n"
-        "pop {r3}\n"
-        "bx r3\n"
+        "pop {r3, lr}\n"
+        "bx lr\n"
     );
 }
