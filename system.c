@@ -10,6 +10,8 @@
 #define SYST_CSR_TICKINT (1UL << 1)
 #define SYST_CSR_CLKSOURCE (1UL << 2)
 #define SCB_ICSR_PENDSVSET (1UL << 28)
+#define SCB_SHPR3_PENDSV_SHIFT 16U
+#define SCB_SHPR3_SYSTICK_SHIFT 24U
 
 typedef struct
 {
@@ -36,7 +38,9 @@ extern uint32_t *kernel_pendsv_switch(uint32_t *current_sp);
 
 void kernel_tick_init(void)
 {
-    SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL) | (0xFFUL << 24) | (0xFFUL << 16);
+    SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL)
+        | (0xFFUL << SCB_SHPR3_PENDSV_SHIFT)
+        | (0xFEUL << SCB_SHPR3_SYSTICK_SHIFT);
     SYST_RVR = 15999UL;
     SYST_CVR = 0UL;
     SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
