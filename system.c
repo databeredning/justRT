@@ -1,5 +1,15 @@
 #include <stdint.h>
 
+#define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
+#define SYST_RVR (*(volatile uint32_t *)0xE000E014U)
+#define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
+#define SCB_ICSR (*(volatile uint32_t *)0xE000ED04U)
+
+#define SYST_CSR_ENABLE (1UL << 0)
+#define SYST_CSR_TICKINT (1UL << 1)
+#define SYST_CSR_CLKSOURCE (1UL << 2)
+#define SCB_ICSR_PENDSVSET (1UL << 28)
+
 typedef struct
 {
     uint8_t *ram_start;
@@ -17,6 +27,22 @@ extern uint32_t __INIT_TABLE[];
 extern uint32_t __ZERO_TABLE[];
 
 volatile uint32_t RESET_CATCH_CORE;
+volatile uint32_t g_tick_count;
+volatile uint32_t g_pendsv_count;
+volatile uint32_t g_systick_armed;
+
+void kernel_tick_init(void)
+{
+    SYST_RVR = 15999UL;
+    SYST_CVR = 0UL;
+    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
+    g_systick_armed = 1U;
+}
+
+void kernel_request_context_switch(void)
+{
+    SCB_ICSR = SCB_ICSR_PENDSVSET;
+}
 
 void init_data_bss(void)
 {
@@ -80,5 +106,14 @@ void BusFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void UsageFault_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void SVC_Handler(void) __attribute__((weak, alias("undefined_handler")));
 void DebugMon_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void PendSV_Handler(void) __attribute__((weak, alias("undefined_handler")));
-void SysTick_Handler(void) __attribute__((weak, alias("undefined_handler")));
+
+void SysTick_Handler(void)
+{
+    g_tick_count++;
+    kernel_request_context_switch();
+}
+
+void PendSV_Handler(void)
+{
+    g_pendsv_count++;
+}
