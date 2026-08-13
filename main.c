@@ -51,23 +51,25 @@ static uint32_t *kernel_build_initial_stack(uint32_t *stack_top, kernel_task_ent
 {
     uint32_t *stack = stack_top;
 
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
+    /* Hardware exception frame restored by exception return. */
+    *--stack = 0x01000000U;
+    *--stack = ((uint32_t)entry) | 1U;
+    *--stack = ((uint32_t)task_exit_trap) | 1U;
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
 
+    /* Software-saved frame restored by PendSV (r4-r11). */
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
-    *--stack = ((uint32_t)task_exit_trap) | 1U;
-    *--stack = ((uint32_t)entry) | 1U;
-    *--stack = 0x01000000U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
 
     return stack;
 }
