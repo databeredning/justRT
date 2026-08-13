@@ -4,12 +4,20 @@
 
 typedef void (*task_entry_t)(void);
 
+enum
+{
+    TASK_READY = 0U,
+    TASK_RUNNING = 1U,
+    TASK_SLEEPING = 2U
+};
+
 typedef struct
 {
     uint32_t *stack_bottom;
     uint32_t *stack_top;
     uint32_t *sp;
     uint32_t state;
+    uint32_t sleep_ticks;
     uint32_t run_count;
     task_entry_t entry;
 } task_t;
@@ -24,9 +32,11 @@ volatile uint32_t g_kernel_started = 0U;
 volatile uint32_t g_current_task_index = 0U;
 static uint32_t task0_stack[128] __attribute__((aligned(8)));
 static uint32_t task1_stack[128] __attribute__((aligned(8)));
-static task_t tasks[2] = {
-    { 0U, 0U, 0U, 0U, 0U, 0U },
-    { 0U, 0U, 0U, 0U, 0U, 0U }
+static uint32_t idle_stack[128] __attribute__((aligned(8)));
+static task_t tasks[3] = {
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U },
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U },
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U }
 };
 static task_t *current_task = &tasks[0];
 
@@ -85,8 +95,16 @@ static void task1_body(void)
         g_boot_counter++;
         if ((g_task1_runs & 0xFFU) == 0U)
         {
-            yield();
+            sleep_ticks(7U);
         }
+    }
+}
+
+static void idle_body(void)
+{
+    while (1)
+    {
+        __asm volatile ("wfi" : : : "memory");
     }
 }
 
@@ -95,24 +113,70 @@ static void prepare_tasks(void)
     tasks[0].stack_bottom = &task0_stack[0];
     tasks[0].stack_top = &task0_stack[128];
     tasks[0].sp = build_initial_stack(tasks[0].stack_top, task0_body);
-    tasks[0].state = 1U;
+    tasks[0].state = TASK_READY;
     tasks[0].entry = task0_body;
 
     tasks[1].stack_bottom = &task1_stack[0];
     tasks[1].stack_top = &task1_stack[128];
     tasks[1].sp = build_initial_stack(tasks[1].stack_top, task1_body);
-    tasks[1].state = 1U;
+    tasks[1].state = TASK_READY;
     tasks[1].entry = task1_body;
+
+    tasks[2].stack_bottom = &idle_stack[0];
+    tasks[2].stack_top = &idle_stack[128];
+    tasks[2].sp = build_initial_stack(tasks[2].stack_top, idle_body);
+    tasks[2].state = TASK_READY;
+    tasks[2].entry = idle_body;
+}
+
+void sleep_current(uint32_t ticks)
+{
+    current_task->sleep_ticks = ticks;
+    current_task->state = (ticks == 0U) ? TASK_READY : TASK_SLEEPING;
+}
+
+void tick_tasks(void)
+{
+    uint32_t index;
+
+    for (index = 0U; index < 3U; index++)
+    {
+        if ((tasks[index].state == TASK_SLEEPING) && (tasks[index].sleep_ticks > 0U))
+        {
+            tasks[index].sleep_ticks--;
+            if (tasks[index].sleep_ticks == 0U)
+            {
+                tasks[index].state = TASK_READY;
+            }
+        }
+    }
 }
 
 uint32_t *pendsv_switch(uint32_t *current_sp)
 {
+    uint32_t offset;
+    uint32_t next_index = g_current_task_index;
+
     current_task->sp = current_sp;
     current_task->run_count++;
     g_schedule_count++;
-    g_current_task_index ^= 1U;
+    if (current_task->state == TASK_RUNNING)
+    {
+        current_task->state = TASK_READY;
+    }
+
+    for (offset = 1U; offset <= 3U; offset++)
+    {
+        next_index = (g_current_task_index + offset) % 3U;
+        if (tasks[next_index].state != TASK_SLEEPING)
+        {
+            break;
+        }
+    }
+
+    g_current_task_index = next_index;
     current_task = &tasks[g_current_task_index];
-    current_task->state = 1U;
+    current_task->state = TASK_RUNNING;
     return current_task->sp;
 }
 

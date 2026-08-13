@@ -5,8 +5,11 @@
 
 void start(void);
 void yield(void);
+void sleep_ticks(uint32_t ticks);
 void tick_init(void);
 void request_switch(void);
+void tick_tasks(void);
+void sleep_current(uint32_t ticks);
 uint32_t *pendsv_switch(uint32_t *current_sp);
 
 extern volatile uint32_t g_yield_count;

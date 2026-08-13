@@ -41,16 +41,46 @@ void yield(void)
     __asm volatile ("svc 0" : : : "memory");
 }
 
+void sleep_ticks(uint32_t ticks)
+{
+    register uint32_t argument asm("r0") = ticks;
+    __asm volatile ("svc 1" : "+r" (argument) : : "memory");
+}
+
 void SysTick_Handler(void)
 {
     g_tick_count++;
+    tick_tasks();
     request_switch();
 }
 
+void svc_dispatch(uint32_t *stacked_frame)
+{
+    uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
+
+    if (svc_number == 1U)
+    {
+        sleep_current(stacked_frame[0]);
+    }
+    else
+    {
+        g_yield_count++;
+    }
+
+    request_switch();
+}
+
+void SVC_Handler(void) __attribute__((naked));
+
 void SVC_Handler(void)
 {
-    g_yield_count++;
-    request_switch();
+    __asm volatile (
+        "tst lr, #4\n"
+        "ite eq\n"
+        "mrseq r0, msp\n"
+        "mrsne r0, psp\n"
+        "b svc_dispatch\n"
+    );
 }
 
 void PendSV_Handler(void) __attribute__((naked));
