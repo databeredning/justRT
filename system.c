@@ -4,6 +4,7 @@
 #define SYST_RVR (*(volatile uint32_t *)0xE000E014U)
 #define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
 #define SCB_ICSR (*(volatile uint32_t *)0xE000ED04U)
+#define SCB_SHPR3 (*(volatile uint32_t *)0xE000ED20U)
 
 #define SYST_CSR_ENABLE (1UL << 0)
 #define SYST_CSR_TICKINT (1UL << 1)
@@ -31,10 +32,11 @@ volatile uint32_t g_tick_count;
 volatile uint32_t g_pendsv_count;
 volatile uint32_t g_systick_armed;
 
-extern void kernel_dispatch_from_pendsv(void);
+extern uint32_t *kernel_pendsv_switch(uint32_t *current_sp);
 
 void kernel_tick_init(void)
 {
+    SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL) | (0xFFUL << 24) | (0xFFUL << 16);
     SYST_RVR = 15999UL;
     SYST_CVR = 0UL;
     SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
@@ -115,8 +117,16 @@ void SysTick_Handler(void)
     kernel_request_context_switch();
 }
 
+void PendSV_Handler(void) __attribute__((naked));
+
 void PendSV_Handler(void)
 {
-    g_pendsv_count++;
-    kernel_dispatch_from_pendsv();
+    __asm volatile (
+        "mrs r0, psp\n"
+        "stmdb r0!, {r4-r11}\n"
+        "bl kernel_pendsv_switch\n"
+        "ldmia r0!, {r4-r11}\n"
+        "msr psp, r0\n"
+        "bx lr\n"
+    );
 }
