@@ -125,10 +125,8 @@ static void task0_body(void)
         g_active_task_tag = 0xA0U;
         g_task0_runs++;
         g_boot_counter++;
-        if ((g_task0_runs & 0xFFU) == 0U)
-        {
-            yield();
-        }
+        board_led_toggle();
+        sleep_ticks(100U);
     }
 }
 
@@ -269,6 +267,7 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
 void start(void)
 {
     g_boot_stage = 4U;
+    board_init();
     prepare_tasks();
     current_task = &tasks[0];
     g_current_task_index = 0U;

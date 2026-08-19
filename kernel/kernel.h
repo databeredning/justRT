@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "../board/board.h"
+
 void start(void);
 void yield(void);
 void sleep_ticks(uint32_t ticks);

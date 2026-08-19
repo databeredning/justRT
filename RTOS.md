@@ -34,6 +34,8 @@ kernel/kernel.h                Kernel-facing declarations
 kernel/task.c                  Task model, stacks, scheduler, task bodies
 kernel/port_cm7.c              SysTick, SVC, PendSV, and Cortex-M7 instructions
 kernel/fault.c                 Fault frame and system register capture
+board/board.h                  Board-facing LED interface
+board/board.c                  Native SIUL2 PTB18 implementation
 Makefile                      Cross-compilation and link rules
 ```
 
@@ -347,6 +349,29 @@ Initializes all three task records explicitly:
 5. Assigns the entry function.
 
 The current implementation intentionally avoids a generalized task creation API while the low-level scheduler is still being developed.
+
+## 6.1 Native Board LED
+
+Board-specific hardware is kept outside the kernel in `board/`:
+
+```c
+void board_init(void);
+void board_led_toggle(void);
+```
+
+The current native implementation configures PTB18 as a SIUL2 GPIO output and toggles its GPDO value. It uses:
+
+```text
+SIUL2 base:       0x40290000
+PTB18 SIUL2 pin:  50 (port B offset 32 + pin 18)
+MSCR OBE:         bit 21
+```
+
+`board_init()` is called by `start()` before task stacks are prepared. Task 0 calls `board_led_toggle()` and then sleeps for 100 RTOS ticks. This makes the LED heartbeat independent of compiler-dependent loop speed and avoids placing peripheral register knowledge in the scheduler.
+
+The implementation assumes the board LED is connected directly to PTB18, GPIO is the default SIUL2 signal, and the LED is active-high. If the LED is active-low, invert `led_state` before writing GPDO. If the board uses a different SIUL2 register map or pin mux configuration, only `board/board.c` should change.
+
+When NXP RTD is introduced, keep this interface and replace the register operations with the generated Port/Dio calls. The kernel should not include RTD headers.
 
 ## 7.1 Stack Safety Instrumentation
 
@@ -788,7 +813,11 @@ The first stack watermark and scheduler-time bounds checks are now implemented. 
 
 Architecture-specific PRIMASK helpers are present and protect task state, sleep accounting, and scheduler selection. The next refinement is to define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
 
-### 17.3 Fault hardening
+### 17.3 Board and RTD boundary
+
+The native board layer is now present for the PTB18 heartbeat. RTD should be introduced when additional production peripheral services are needed, such as clock, pin, GPIO, watchdog, CAN, or ADC configuration. Replace board implementations behind the same interface rather than coupling RTD to kernel code.
+
+### 17.4 Fault hardening
 
 Add fault nesting detection, a reset policy, and persistent fault storage in a reserved RAM or data-flash region.
 
