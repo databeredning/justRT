@@ -829,7 +829,19 @@ and item copies are protected by PRIMASK. These APIs are currently intended
 for task context; ISR-specific operations and notification of waiting tasks
 are not yet defined.
 
-### 17.9 Watchdog integration
+### 17.9 Synchronization example
+
+`examples/sync_producer_consumer.c` provides a selectable producer/consumer
+application. The producer sends incrementing values into a bounded queue and
+gives a semaphore after each successful send. The consumer takes the
+semaphore, receives from the queue, and records FIFO mismatches in
+`g_sync_error`. `g_sync_producer_value` and `g_sync_consumer_value` expose
+progress to the debugger.
+
+The default `main.c` continues to select the heartbeat example. To run this
+example, select `sync_producer_consumer_start()` from `main()` instead.
+
+### 17.10 Watchdog integration
 
 Assign watchdog responsibilities to the kernel and define what happens when a task misses its service window.
 

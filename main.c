@@ -1,10 +1,9 @@
 #include <stdint.h>
-
-#include "examples/heartbeat.h"
+#include "examples/sync_producer_consumer.h"
 
 int main(void)
 {
-    heartbeat_example_start();
+    sync_producer_consumer_start();
 
     return 0;
 }

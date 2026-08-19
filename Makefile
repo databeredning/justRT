@@ -9,7 +9,7 @@ DEBUGFLAGS := -Og -g3
 CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -35,6 +35,9 @@ $(OBJDIR)/main.o: main.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/examples/heartbeat.o: examples/heartbeat.c examples/heartbeat.h kernel/kernel.h | $(OBJDIR)/examples
+	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
+
+$(OBJDIR)/examples/sync_producer_consumer.o: examples/sync_producer_consumer.c examples/sync_producer_consumer.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/examples
 	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
 
 $(OBJDIR)/kernel/task.o: kernel/task.c kernel/kernel.h | $(OBJDIR)/kernel
