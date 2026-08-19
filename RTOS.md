@@ -898,9 +898,27 @@ failed ownership or timeout behavior.
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_contention_start()` from `main()` instead.
 
-### 17.13 Watchdog integration
+### 17.13 Task inspection
 
-Assign watchdog responsibilities to the kernel and define what happens when a task misses its service window.
+The kernel exposes read-only diagnostic queries for each static task ID:
+
+```c
+task_get_state(id, &state);
+task_get_stack_info(id, &stack_info);
+task_get_name(id, &name);
+task_get_priority(id, &priority);
+```
+
+The results are protected by a short PRIMASK critical section and represent a
+consistent snapshot at the time of the query. Invalid IDs or null output
+pointers return `KERNEL_ERR_INVALID_TASK`. Task IDs are stable slot indexes;
+the current configuration uses worker tasks first and the kernel idle task in
+the final slot.
+
+### 17.14 Watchdog integration
+
+The inspection API provides the foundation for future watchdog service-window
+monitoring, but watchdog behavior is not yet integrated.
 
 ## 18. Commit History Context
 

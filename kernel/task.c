@@ -75,6 +75,72 @@ static task_t *current_task = &tasks[0];
 static uint32_t task_count;
 static uint32_t kernel_initialized;
 
+static kernel_status_t validate_task_id(uint32_t task_id)
+{
+    return (task_id < task_count) ? KERNEL_OK : KERNEL_ERR_INVALID_TASK;
+}
+
+kernel_status_t task_get_state(uint32_t task_id, task_state_t *state)
+{
+    uint32_t saved_primask;
+
+    if (state == 0U || validate_task_id(task_id) != KERNEL_OK)
+    {
+        return KERNEL_ERR_INVALID_TASK;
+    }
+    saved_primask = critical_enter();
+    *state = (task_state_t)tasks[task_id].state;
+    critical_exit(saved_primask);
+    return KERNEL_OK;
+}
+
+kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info)
+{
+    uint32_t saved_primask;
+    task_t *task;
+
+    if (info == 0U || validate_task_id(task_id) != KERNEL_OK)
+    {
+        return KERNEL_ERR_INVALID_TASK;
+    }
+    saved_primask = critical_enter();
+    task = &tasks[task_id];
+    info->stack_words = (uint32_t)(task->stack_top - task->stack_bottom);
+    info->used_words = task->high_water_words;
+    info->minimum_sp = (uint32_t)(uintptr_t)task->minimum_sp;
+    info->current_sp = (uint32_t)(uintptr_t)task->sp;
+    critical_exit(saved_primask);
+    return KERNEL_OK;
+}
+
+kernel_status_t task_get_name(uint32_t task_id, const char **name)
+{
+    uint32_t saved_primask;
+
+    if (name == 0U || validate_task_id(task_id) != KERNEL_OK)
+    {
+        return KERNEL_ERR_INVALID_TASK;
+    }
+    saved_primask = critical_enter();
+    *name = tasks[task_id].name;
+    critical_exit(saved_primask);
+    return KERNEL_OK;
+}
+
+kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority)
+{
+    uint32_t saved_primask;
+
+    if (priority == 0U || validate_task_id(task_id) != KERNEL_OK)
+    {
+        return KERNEL_ERR_INVALID_TASK;
+    }
+    saved_primask = critical_enter();
+    *priority = tasks[task_id].priority;
+    critical_exit(saved_primask);
+    return KERNEL_OK;
+}
+
 uint32_t task_current_index(void)
 {
     return g_current_task_index;

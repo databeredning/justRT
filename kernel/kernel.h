@@ -34,8 +34,25 @@ typedef enum
 	KERNEL_ERR_TOO_MANY_TASKS,
 	KERNEL_ERR_INVALID_ENTRY,
 	KERNEL_ERR_INVALID_STACK,
-	KERNEL_ERR_NOT_INITIALIZED
+	KERNEL_ERR_NOT_INITIALIZED,
+	KERNEL_ERR_INVALID_TASK
 } kernel_status_t;
+
+typedef enum
+{
+	TASK_STATE_READY = 0U,
+	TASK_STATE_RUNNING,
+	TASK_STATE_SLEEPING,
+	TASK_STATE_BLOCKED
+} task_state_t;
+
+typedef struct
+{
+	uint32_t stack_words;
+	uint32_t used_words;
+	uint32_t minimum_sp;
+	uint32_t current_sp;
+} task_stack_info_t;
 
 typedef enum
 {
@@ -48,6 +65,10 @@ typedef enum
 
 kernel_status_t kernel_init(const kernel_config_t *config);
 void kernel_start(void);
+kernel_status_t task_get_state(uint32_t task_id, task_state_t *state);
+kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info);
+kernel_status_t task_get_name(uint32_t task_id, const char **name);
+kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority);
 void yield(void);
 void sleep_ticks(uint32_t ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);
