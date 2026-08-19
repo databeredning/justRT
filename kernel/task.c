@@ -42,6 +42,10 @@ typedef struct
     uint32_t *minimum_sp;
     uint32_t high_water_words;
     task_entry_t entry;
+    void *argument;
+    uint32_t priority;
+    const char *name;
+    uint32_t flags;
 } task_t;
 
 typedef struct __attribute__((aligned(32)))
@@ -58,12 +62,13 @@ static task_storage_t task0_storage;
 static task_storage_t task1_storage;
 static task_storage_t idle_storage;
 static task_t tasks[TASK_MAX_TASKS] = {
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U }
+    { 0U },
+    { 0U },
+    { 0U }
 };
 static task_t *current_task = &tasks[0];
 static uint32_t task_count;
+static uint32_t kernel_initialized;
 
 static void configure_stack_guards(void)
 {
@@ -93,7 +98,8 @@ static void task_exit_trap(void)
     }
 }
 
-static uint32_t *build_initial_stack(uint32_t *stack_top, task_entry_t entry)
+static uint32_t *build_initial_stack(uint32_t *stack_top, task_entry_t entry,
+                                     void *argument)
 {
     uint32_t *stack = stack_top;
 
@@ -104,7 +110,7 @@ static uint32_t *build_initial_stack(uint32_t *stack_top, task_entry_t entry)
     *--stack = 0U;
     *--stack = 0U;
     *--stack = 0U;
-    *--stack = 0U;
+    *--stack = (uint32_t)(uintptr_t)argument;
 
     *--stack = 0U;
     *--stack = 0U;
@@ -156,26 +162,34 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
     task->high_water_words = (uint32_t)(task->stack_top - word);
 }
 
-static void idle_body(void)
+static void idle_body(void *argument)
 {
+    (void)argument;
     while (1)
     {
         __asm volatile ("wfi" : : : "memory");
     }
 }
 
-static void prepare_task(uint32_t index, task_entry_t entry)
+static void prepare_task(uint32_t index, const task_definition_t *definition)
 {
     task_storage_t *storage = (index == 0U) ? &task0_storage : &task1_storage;
+    uint32_t *stack_bottom = &storage->stack[0];
+    uint32_t *stack_top = &storage->stack[definition->stack_words];
 
-    fill_stack(&storage->stack[0], &storage->stack[TASK_STACK_WORDS]);
-    tasks[index].stack_bottom = &storage->stack[0];
-    tasks[index].stack_top = &storage->stack[TASK_STACK_WORDS];
-    tasks[index].sp = build_initial_stack(tasks[index].stack_top, entry);
+    fill_stack(stack_bottom, stack_top);
+    tasks[index].stack_bottom = stack_bottom;
+    tasks[index].stack_top = stack_top;
+    tasks[index].sp = build_initial_stack(stack_top, definition->entry,
+                                          definition->argument);
     tasks[index].state = TASK_READY;
     tasks[index].minimum_sp = tasks[index].sp;
     tasks[index].high_water_words = 16U;
-    tasks[index].entry = entry;
+    tasks[index].entry = definition->entry;
+    tasks[index].argument = definition->argument;
+    tasks[index].priority = definition->priority;
+    tasks[index].name = definition->name;
+    tasks[index].flags = definition->flags;
 }
 
 static void prepare_idle_task(void)
@@ -184,11 +198,15 @@ static void prepare_idle_task(void)
     tasks[TASK_IDLE_INDEX].stack_bottom = &idle_storage.stack[0];
     tasks[TASK_IDLE_INDEX].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
     tasks[TASK_IDLE_INDEX].sp = build_initial_stack(
-        tasks[TASK_IDLE_INDEX].stack_top, idle_body);
+        tasks[TASK_IDLE_INDEX].stack_top, idle_body, 0U);
     tasks[TASK_IDLE_INDEX].state = TASK_READY;
     tasks[TASK_IDLE_INDEX].minimum_sp = tasks[TASK_IDLE_INDEX].sp;
     tasks[TASK_IDLE_INDEX].high_water_words = 16U;
     tasks[TASK_IDLE_INDEX].entry = idle_body;
+    tasks[TASK_IDLE_INDEX].argument = 0U;
+    tasks[TASK_IDLE_INDEX].priority = 0U;
+    tasks[TASK_IDLE_INDEX].name = "idle";
+    tasks[TASK_IDLE_INDEX].flags = 0U;
 }
 
 void sleep_current(uint32_t ticks)
@@ -224,7 +242,9 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 {
     uint32_t saved_primask = critical_enter();
     uint32_t offset;
-    uint32_t next_index = g_current_task_index;
+    uint32_t base_index = g_current_task_index;
+    uint32_t next_index = base_index;
+    uint32_t best_priority = 0U;
 
     current_task->sp = current_sp;
     update_stack_usage(current_task, current_sp);
@@ -234,16 +254,27 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
         current_task->state = TASK_READY;
     }
 
+    for (offset = 0U; offset < task_count; offset++)
+    {
+        next_index = (base_index + offset) % task_count;
+        if ((tasks[next_index].state != TASK_SLEEPING)
+            && (tasks[next_index].priority > best_priority))
+        {
+            best_priority = tasks[next_index].priority;
+        }
+    }
+
     for (offset = 1U; offset <= task_count; offset++)
     {
-        next_index = (g_current_task_index + offset) % task_count;
-        if (tasks[next_index].state != TASK_SLEEPING)
+        next_index = (base_index + offset) % task_count;
+        if ((tasks[next_index].state != TASK_SLEEPING)
+            && (tasks[next_index].priority == best_priority))
         {
+            g_current_task_index = next_index;
             break;
         }
     }
 
-    g_current_task_index = next_index;
     current_task = &tasks[g_current_task_index];
     current_task->state = TASK_RUNNING;
     critical_exit(saved_primask);
@@ -272,25 +303,56 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
     );
 }
 
-void kernel_start(const task_config_t *config)
+kernel_status_t kernel_init(const kernel_config_t *config)
 {
-    if ((config == 0U) || (config->entries == 0U)
-        || (config->count == 0U) || (config->count >= TASK_MAX_TASKS))
+    uint32_t index;
+
+    if (config == 0U || config->tasks == 0U || config->task_count == 0U)
     {
-        while (1)
+        return KERNEL_ERR_INVALID_CONFIG;
+    }
+    if (config->task_count >= TASK_MAX_TASKS)
+    {
+        return KERNEL_ERR_TOO_MANY_TASKS;
+    }
+    for (index = 0U; index < config->task_count; index++)
+    {
+        const task_definition_t *definition = &config->tasks[index];
+
+        if (definition->entry == 0U)
         {
+            return KERNEL_ERR_INVALID_ENTRY;
+        }
+        if ((definition->stack_words == 0U)
+            || (definition->stack_words > TASK_STACK_WORDS)
+            || ((definition->stack_words & 1U) != 0U))
+        {
+            return KERNEL_ERR_INVALID_STACK;
         }
     }
 
-    task_count = config->count + 1U;
-    for (uint32_t index = 0U; index < config->count; index++)
+    task_count = config->task_count + 1U;
+    for (index = 0U; index < config->task_count; index++)
     {
-        prepare_task(index, config->entries[index]);
+        prepare_task(index, &config->tasks[index]);
     }
     prepare_idle_task();
     configure_stack_guards();
     current_task = &tasks[0];
     g_current_task_index = 0U;
+    current_task->state = TASK_RUNNING;
+    kernel_initialized = 1U;
+    return KERNEL_OK;
+}
+
+void kernel_start(void)
+{
+    if (kernel_initialized == 0U)
+    {
+        while (1)
+        {
+        }
+    }
     tick_init();
     launch_first_task(current_task->sp);
 }

@@ -9,15 +9,36 @@
 #define KERNEL_TICK_RATE_HZ 7500UL
 #define KERNEL_SYSTICK_RELOAD ((KERNEL_CORE_CLOCK_HZ / KERNEL_TICK_RATE_HZ) - 1UL)
 
-typedef void (*task_entry_t)(void);
+typedef void (*task_entry_t)(void *argument);
 
 typedef struct
 {
-	const task_entry_t *entries;
-	uint32_t count;
-} task_config_t;
+	task_entry_t entry;
+	void *argument;
+	uint32_t stack_words;
+	uint32_t priority;
+	const char *name;
+	uint32_t flags;
+} task_definition_t;
 
-void kernel_start(const task_config_t *config);
+typedef struct
+{
+	const task_definition_t *tasks;
+	uint32_t task_count;
+} kernel_config_t;
+
+typedef enum
+{
+	KERNEL_OK = 0,
+	KERNEL_ERR_INVALID_CONFIG,
+	KERNEL_ERR_TOO_MANY_TASKS,
+	KERNEL_ERR_INVALID_ENTRY,
+	KERNEL_ERR_INVALID_STACK,
+	KERNEL_ERR_NOT_INITIALIZED
+} kernel_status_t;
+
+kernel_status_t kernel_init(const kernel_config_t *config);
+void kernel_start(void);
 void yield(void);
 void sleep_ticks(uint32_t ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);

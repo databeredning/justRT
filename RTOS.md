@@ -87,16 +87,19 @@ the board and passes its task-entry table to `kernel_start()`.
 
 The declarations shared by the kernel files are in `kernel/kernel.h`.
 
-### `kernel_start()`
+### `kernel_init()` and `kernel_start()`
 
 ```c
-void kernel_start(const task_config_t *config);
+kernel_status_t kernel_init(const kernel_config_t *config);
+void kernel_start(void);
 ```
 
-Starts the kernel with application-provided task entries. It prepares the
-static task slots, adds the kernel-owned idle task, enables the tick source,
-and launches the first task. The configuration must provide one or two worker
-entries; the third slot is reserved for idle.
+`kernel_init()` validates and prepares application-provided static task
+definitions. It returns an error instead of entering the scheduler when the
+configuration is invalid. `kernel_start()` must be called after successful
+initialization; it enables the tick source and launches the first task. The
+configuration must provide one or two worker definitions; the third slot is
+reserved for the kernel idle task.
 
 This function is called from `main()` after platform sanity checks.
 
@@ -185,10 +188,30 @@ The task model is currently private to `kernel/task.c`.
 ### `task_entry_t`
 
 ```c
-typedef void (*task_entry_t)(void);
+typedef void (*task_entry_t)(void *argument);
 ```
 
-A task entry function takes no arguments and does not return. The current task bodies are infinite loops.
+A task entry function receives its configured argument and does not return.
+The current task bodies are infinite loops.
+
+### `task_definition_t`
+
+```c
+typedef struct
+{
+    task_entry_t entry;
+    void *argument;
+    uint32_t stack_words;
+    uint32_t priority;
+    const char *name;
+    uint32_t flags;
+} task_definition_t;
+```
+
+Definitions are static application data. The kernel validates the entry,
+stack size, and task count, while retaining ownership of stack storage and
+scheduler state. Priorities are used by the current ready-task selection;
+names and flags are reserved for diagnostics and future policy.
 
 ### Task states
 

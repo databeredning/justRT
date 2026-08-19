@@ -4,8 +4,9 @@
 
 #define RUN_LED_PERIOD_MS 100U
 
-static void heartbeat_task(void)
+static void heartbeat_task(void *argument)
 {
+    (void)argument;
     while (1)
     {
         board_led_toggle();
@@ -13,9 +14,11 @@ static void heartbeat_task(void)
     }
 }
 
-static void activity_task(void)
+static void activity_task(void *argument)
 {
     static uint32_t run_count;
+
+    (void)argument;
 
     while (1)
     {
@@ -27,18 +30,24 @@ static void activity_task(void)
     }
 }
 
-static const task_entry_t heartbeat_tasks[] = {
-    heartbeat_task,
-    activity_task
+static const task_definition_t heartbeat_tasks[] = {
+    { heartbeat_task, 0U, 128U, 1U, "heartbeat", 0U },
+    { activity_task, 0U, 128U, 1U, "activity", 0U }
 };
 
 void heartbeat_example_start(void)
 {
-    const task_config_t config = {
+    const kernel_config_t config = {
         heartbeat_tasks,
         sizeof(heartbeat_tasks) / sizeof(heartbeat_tasks[0])
     };
 
     board_init();
-    kernel_start(&config);
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
 }
