@@ -18,7 +18,9 @@ The current code is a small, statically configured, preemptive kernel experiment
 - Debugger-visible counters and boot markers.
 - Fault capture for HardFault, MemManage, BusFault, and UsageFault.
 
-This is not yet a production RTOS. It does not yet provide MPU protection, privilege separation, queues, semaphores, interrupt-safe APIs, watchdog integration, stack overflow checks, or a general public task creation API.
+This is not yet a production RTOS. It does not yet provide complete task
+memory isolation, queues, semaphores, interrupt-safe APIs, watchdog
+integration, or a general public task creation API.
 
 ## 2. Source Layout
 
@@ -50,7 +52,7 @@ Reset_Handler
     |
     +-- mask interrupts
     +-- enable required early clocks
-    +-- relocate VTOR to the RAM interrupt table
+    +-- point VTOR to the flash interrupt table
     +-- select the core stack
     +-- disable the startup watchdog on core 0
     +-- initialize SRAM ECC
@@ -493,6 +495,7 @@ The current ABI is:
 |---:|---|---|
 | `0` | yield | Voluntary reschedule request |
 | `1` | sleep | Block current task for `r0` ticks |
+| `2` | led_toggle | Toggle PTB18 through privileged board code |
 
 ### `yield()`
 
@@ -502,7 +505,7 @@ Implemented in `kernel/port_cm7.c` as:
 __asm volatile ("svc 0" : : : "memory");
 ```
 
-It does not directly switch context. It enters SVC, increments the yield counter, and pends PendSV.
+It does not directly switch context. It enters SVC and pends PendSV.
 
 ### `sleep_ticks()`
 
@@ -534,8 +537,9 @@ Reads the SVC instruction number from the instruction immediately before the sta
 uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
 ```
 
-For SVC number one it calls `sleep_current(stacked_frame[0])`. Other values
-currently behave as yield.
+For SVC number one it calls `sleep_current(stacked_frame[0])`. SVC number two
+calls the privileged board LED routine. SVC number zero requests a reschedule;
+unknown numbers are rejected.
 
 After dispatch it always requests PendSV.
 
@@ -543,8 +547,7 @@ After dispatch it always requests PendSV.
 
 The current dispatcher is intentionally minimal:
 
-- Unknown SVC numbers are treated as yield.
-- There is no privilege validation.
+- SVC calls do not yet validate the caller or all arguments.
 - There is no pointer validation because no pointer-bearing service exists yet.
 - There is no return-value convention.
 - The handler assumes a standard eight-word exception frame and does not yet handle the optional floating-point extended frame.
@@ -709,9 +712,10 @@ The following limitations are known and intentional at this stage:
 6. There is no timeout overflow policy.
 7. There is no synchronization primitive.
 8. There is no IPC.
-9. MPU protection currently covers task-stack guard regions only.
-10. Tasks currently execute privileged because CONTROL privilege is not changed.
-11. SVC calls are not privilege-checked.
+9. MPU protection provides broad unprivileged flash, SRAM, and SIUL2 access
+    plus protected task-stack guard regions; complete task memory isolation is
+    not implemented.
+10. SVC calls do not yet validate the caller or all arguments.
 12. Fault handlers do not yet capture the floating-point extended frame.
 13. MPU regions are not yet used for complete task memory isolation.
 14. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
@@ -746,11 +750,13 @@ Add fault nesting detection, a reset policy, and persistent fault storage in a r
 
 Guard regions are configured. The remaining MPU work is to define linker
 sections for complete kernel and task memory regions before enabling
-unprivileged tasks.
+stronger task memory isolation. The current implementation already provides
+the broad regions required by the existing unprivileged tasks.
 
 ### 17.5 Privilege transition
 
-Launch tasks unprivileged and expose kernel operations only through SVC. Validate SVC numbers and arguments.
+Tasks now launch unprivileged and the LED operation is exposed through SVC.
+The next refinement is strict SVC number, caller, and argument validation.
 
 ### 17.6 Time services
 

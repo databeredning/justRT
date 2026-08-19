@@ -138,9 +138,9 @@ WaitForClock:
   beq WaitForClock
 
 SetVTOR:
-/* Relocate vector table base to RAM interrupt table. */
+/* Use the immutable flash vector table for exception dispatch. */
 ldr  r0, =VTOR_REG
-ldr  r1, =__RAM_INTERRUPT_START
+ldr  r1, =__CORE0_VTOR
 str  r1,[r0]
 
 /* Read core ID and choose the core-specific stack pointer. */

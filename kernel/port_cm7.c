@@ -64,6 +64,11 @@ void sleep_ticks(uint32_t ticks)
     __asm volatile ("svc 1" : "+r" (argument) : : "memory");
 }
 
+void led_toggle(void)
+{
+    __asm volatile ("svc 2" : : : "memory");
+}
+
 void SysTick_Handler(void)
 {
     tick_tasks();
@@ -78,6 +83,14 @@ void svc_dispatch(uint32_t *stacked_frame)
     {
         sleep_current(stacked_frame[0]);
     }
+    else if (svc_number == 2U)
+    {
+        board_led_toggle();
+    }
+    else if (svc_number != 0U)
+    {
+        return;
+    }
     request_switch();
 }
 
@@ -90,7 +103,10 @@ void SVC_Handler(void)
         "ite eq\n"
         "mrseq r0, msp\n"
         "mrsne r0, psp\n"
-        "b svc_dispatch\n"
+        "push {r3, lr}\n"
+        "bl svc_dispatch\n"
+        "pop {r3, lr}\n"
+        "bx lr\n"
     );
 }
 

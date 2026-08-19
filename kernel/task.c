@@ -4,6 +4,7 @@
 
 typedef void (*task_entry_t)(void);
 
+#define TASK_COUNT 3U
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
 #define TASK_GUARD_WORDS 8U
@@ -18,8 +19,17 @@ typedef void (*task_entry_t)(void);
 #define MPU_CTRL_PRIVDEFENA (1UL << 2)
 #define MPU_RASR_ENABLE (1UL << 0)
 #define MPU_RASR_XN (1UL << 28)
+#define MPU_RASR_AP_FULL_ACCESS (3UL << 24)
+#define MPU_RASR_SIZE_64KB (15UL << 1)
+#define MPU_RASR_SIZE_128KB (16UL << 1)
+#define MPU_RASR_SIZE_2MB (20UL << 1)
 #define MPU_RASR_SIZE_32_BYTES (4UL << 1)
 #define SCB_SHCSR_MEMFAULTENA (1UL << 16)
+
+#define UNPRIV_FLASH_BASE 0x00400000U
+#define UNPRIV_SRAM_BASE 0x20400000U
+#define UNPRIV_SIUL2_BASE 0x40290000U
+#define MPU_GUARD_REGION_FIRST 3U
 
 enum
 {
@@ -55,7 +65,7 @@ static task_storage_t task0_storage;
 static task_storage_t task1_storage;
 static task_storage_t idle_storage;
 static uint32_t task1_run_count;
-static task_t tasks[3] = {
+static task_t tasks[TASK_COUNT] = {
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U }
@@ -64,7 +74,7 @@ static task_t *current_task = &tasks[0];
 
 static void configure_stack_guards(void)
 {
-    const task_storage_t *storage[3] = {
+    const task_storage_t *storage[TASK_COUNT] = {
         &task0_storage,
         &task1_storage,
         &idle_storage
@@ -73,9 +83,20 @@ static void configure_stack_guards(void)
 
     MPU_CTRL = 0U;
     SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
-    for (index = 0U; index < 3U; index++)
+    MPU_RNR = 0U;
+    MPU_RBAR = UNPRIV_FLASH_BASE;
+    MPU_RASR = MPU_RASR_AP_FULL_ACCESS | MPU_RASR_SIZE_2MB | MPU_RASR_ENABLE;
+    MPU_RNR = 1U;
+    MPU_RBAR = UNPRIV_SRAM_BASE;
+    MPU_RASR = MPU_RASR_XN | MPU_RASR_AP_FULL_ACCESS
+        | MPU_RASR_SIZE_128KB | MPU_RASR_ENABLE;
+    MPU_RNR = 2U;
+    MPU_RBAR = UNPRIV_SIUL2_BASE;
+    MPU_RASR = MPU_RASR_XN | MPU_RASR_AP_FULL_ACCESS
+        | MPU_RASR_SIZE_64KB | MPU_RASR_ENABLE;
+    for (index = 0U; index < TASK_COUNT; index++)
     {
-        MPU_RNR = index;
+        MPU_RNR = index + MPU_GUARD_REGION_FIRST;
         MPU_RBAR = (uint32_t)(uintptr_t)&storage[index]->guard[0];
         MPU_RASR = MPU_RASR_XN | MPU_RASR_SIZE_32_BYTES | MPU_RASR_ENABLE;
     }
@@ -157,7 +178,7 @@ static void task0_body(void)
 {
     while (1)
     {
-        board_led_toggle();
+        led_toggle();
         sleep_ticks(100U);
     }
 }
@@ -226,7 +247,7 @@ void tick_tasks(void)
     uint32_t saved_primask = critical_enter();
     uint32_t index;
 
-    for (index = 0U; index < 3U; index++)
+    for (index = 0U; index < TASK_COUNT; index++)
     {
         if ((tasks[index].state == TASK_SLEEPING) && (tasks[index].sleep_ticks > 0U))
         {
@@ -255,9 +276,9 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
         current_task->state = TASK_READY;
     }
 
-    for (offset = 1U; offset <= 3U; offset++)
+    for (offset = 1U; offset <= TASK_COUNT; offset++)
     {
-        next_index = (g_current_task_index + offset) % 3U;
+        next_index = (g_current_task_index + offset) % TASK_COUNT;
         if (tasks[next_index].state != TASK_SLEEPING)
         {
             break;

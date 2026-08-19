@@ -27,7 +27,7 @@ other blocks produce a precise bus fault on this target.
 The boot header in `startup_cm7.s` tells the device boot ROM/SBAF to start
 CM7_0. `Reset_Handler` then executes with interrupts masked.
 
-Before it relocates the vector table, reset code makes the MSCM peripheral
+Before it selects the vector table, reset code makes the MSCM peripheral
 accessible. This is a separate MC_ME clock request from the LED setup:
 
 | Register | Address | Bit/action | Purpose |
@@ -38,7 +38,7 @@ accessible. This is a separate MC_ME clock request from the LED setup:
 | `CTL_KEY` | `0x402DC000` | Write `0x5AF0`, then `0xA50F` | Authorize the MC_ME update. |
 | `PRTN1_COFB0_STAT` | `0x402DC310` | Poll bit 24 | Wait until hardware confirms the clock is active. |
 
-After that, startup sets `SCB->VTOR` to the RAM interrupt-vector region,
+After that, startup sets `SCB->VTOR` to the immutable flash interrupt-vector table,
 chooses CM7_0's MSP, disables SWT0, initializes SRAM to seed ECC, copies
 initialized RAM sections, clears BSS, and enters `main()`.
 
@@ -85,10 +85,11 @@ write PGPDO3 before enabling the output buffer.
 ## Runtime Blink Path
 
 The first static task is the run-LED task. Each iteration of `task0_body()`
-increments its debugger counters, calls `board_led_toggle()`, then executes
-`sleep_ticks(100)`.
+calls the `led_toggle()` SVC service, then executes `sleep_ticks(100)`.
+The SVC handler runs privileged and calls `board_led_toggle()` on behalf of
+the unprivileged task.
 
-`board_led_toggle()` performs a 16-bit read-modify-write:
+The privileged `board_led_toggle()` routine performs a 16-bit read-modify-write:
 
 ```c
 SIUL2_PGPDO3 ^= 0x2000U;
@@ -108,7 +109,7 @@ counter and requests a PendSV context switch. With the current reload of
 3. Program the output latch before enabling an output buffer when a defined
    startup level is required. This design relies on the low reset latch.
 4. Enable SysTick only after `board_init()` and task stacks are ready; the
-   first task may call `board_led_toggle()` immediately after task launch.
+   first task may request `led_toggle()` immediately after task launch.
 
 ## Reference Source
 
