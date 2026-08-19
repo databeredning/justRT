@@ -346,7 +346,11 @@ g_stack_fault_task = current task index;
 g_stack_fault_sp   = offending PSP;
 ```
 
-This is an initial diagnostic guard, not a complete overflow defense. The saved context can already be damaged if the PSP has crossed the lower boundary. MPU guard regions will provide the architectural protection later.
+The task storage also reserves an aligned 32-byte no-access MPU guard below
+each stack. `configure_stack_guards()` enables three MPU regions before the
+first task launches. A downward stack overflow therefore raises a MemManage
+fault before it reaches another task's storage. The software bounds check is
+still retained for saved-PSP validation.
 
 ## 7. Initial Task Stack Frame
 
@@ -705,11 +709,11 @@ The following limitations are known and intentional at this stage:
 6. There is no timeout overflow policy.
 7. There is no synchronization primitive.
 8. There is no IPC.
-9. There is no MPU configuration.
+9. MPU protection currently covers task-stack guard regions only.
 10. Tasks currently execute privileged because CONTROL privilege is not changed.
 11. SVC calls are not privilege-checked.
 12. Fault handlers do not yet capture the floating-point extended frame.
-13. Stack bounds are recorded conceptually by `task_t` but not checked at runtime.
+13. MPU regions are not yet used for complete task memory isolation.
 14. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
 15. The SysTick reload value is hard-coded.
 16. Watchdog servicing and watchdog recovery are not integrated.
@@ -721,7 +725,10 @@ The next low-level milestones should be implemented in this order:
 
 ### 17.1 Stack validation
 
-The first stack watermark and scheduler-time bounds checks are now implemented. The next refinement should add a reserved guard region or MPU no-access region below each task stack, so an overflow traps before it corrupts kernel state.
+Stack watermarking, scheduler-time bounds checks, and MPU no-access guard
+regions below each task stack are implemented. The next refinement is to
+exercise the guard deliberately under the debugger and verify the captured
+MemManage record.
 
 ### 17.2 Critical-section primitives
 
@@ -737,7 +744,9 @@ Add fault nesting detection, a reset policy, and persistent fault storage in a r
 
 ### 17.4 MPU setup
 
-Define linker sections and configure privileged kernel regions, task stack regions, and guard regions before enabling unprivileged tasks.
+Guard regions are configured. The remaining MPU work is to define linker
+sections for complete kernel and task memory regions before enabling
+unprivileged tasks.
 
 ### 17.5 Privilege transition
 

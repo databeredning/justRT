@@ -43,20 +43,20 @@ VTABLE:
 
 .long __Stack_start_c0          /* Top of Stack for Initial Stack Pointer */
 .long Reset_Handler+1           /* Reset Handler need plus 1 because Reset_Handler is generated with LSB bit =0*/
-.long NMI_Handler               /* NMI Handler */
-.long HardFault_Handler         /* Hard Fault Handler */
-.long MemManage_Handler         /* Reserved */
-.long BusFault_Handler          /* Bus Fault Handler */
-.long UsageFault_Handler        /* Usage Fault Handler */
+.long NMI_Handler+1             /* NMI Handler */
+.long HardFault_Handler+1       /* Hard Fault Handler */
+.long MemManage_Handler+1       /* MemManage Handler */
+.long BusFault_Handler+1        /* Bus Fault Handler */
+.long UsageFault_Handler+1      /* Usage Fault Handler */
 .long 0                         /* Reserved */
 .long 0                         /* Reserved */
 .long 0                         /* Reserved */
 .long 0                         /* Reserved */
 .long SVC_Handler+1             /* SVCall Handler */
-.long DebugMon_Handler          /* Debug Monitor Handler */
+.long DebugMon_Handler+1        /* Debug Monitor Handler */
 .long 0                         /* Reserved */
-.long PendSV_Handler            /* PendSV Handler */
-.long SysTick_Handler           /* SysTick Handler */ /* 15*/
+.long PendSV_Handler+1          /* PendSV Handler */
+.long SysTick_Handler+1         /* SysTick Handler */ /* 15*/
 
 .long undefined_handler /*0*/
 .long undefined_handler

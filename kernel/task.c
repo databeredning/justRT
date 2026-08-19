@@ -6,6 +6,20 @@ typedef void (*task_entry_t)(void);
 
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
+#define TASK_GUARD_WORDS 8U
+
+#define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
+#define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
+#define MPU_RBAR (*(volatile uint32_t *)0xE000ED9CU)
+#define MPU_RASR (*(volatile uint32_t *)0xE000EDA0U)
+#define SCB_SHCSR (*(volatile uint32_t *)0xE000ED24U)
+
+#define MPU_CTRL_ENABLE (1UL << 0)
+#define MPU_CTRL_PRIVDEFENA (1UL << 2)
+#define MPU_RASR_ENABLE (1UL << 0)
+#define MPU_RASR_XN (1UL << 28)
+#define MPU_RASR_SIZE_32_BYTES (4UL << 1)
+#define SCB_SHCSR_MEMFAULTENA (1UL << 16)
 
 enum
 {
@@ -27,13 +41,19 @@ typedef struct
     task_entry_t entry;
 } task_t;
 
+typedef struct __attribute__((aligned(32)))
+{
+    uint32_t guard[TASK_GUARD_WORDS];
+    uint32_t stack[TASK_STACK_WORDS];
+} task_storage_t;
+
 volatile uint32_t g_current_task_index = 0U;
 volatile uint32_t g_stack_fault = 0U;
 volatile uint32_t g_stack_fault_task = 0U;
 volatile uint32_t g_stack_fault_sp = 0U;
-static uint32_t task0_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
-static uint32_t task1_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
-static uint32_t idle_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
+static task_storage_t task0_storage;
+static task_storage_t task1_storage;
+static task_storage_t idle_storage;
 static uint32_t task1_run_count;
 static task_t tasks[3] = {
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
@@ -41,6 +61,27 @@ static task_t tasks[3] = {
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U }
 };
 static task_t *current_task = &tasks[0];
+
+static void configure_stack_guards(void)
+{
+    const task_storage_t *storage[3] = {
+        &task0_storage,
+        &task1_storage,
+        &idle_storage
+    };
+    uint32_t index;
+
+    MPU_CTRL = 0U;
+    SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
+    for (index = 0U; index < 3U; index++)
+    {
+        MPU_RNR = index;
+        MPU_RBAR = (uint32_t)(uintptr_t)&storage[index]->guard[0];
+        MPU_RASR = MPU_RASR_XN | MPU_RASR_SIZE_32_BYTES | MPU_RASR_ENABLE;
+    }
+    MPU_CTRL = MPU_CTRL_ENABLE | MPU_CTRL_PRIVDEFENA;
+    __asm volatile ("dsb\nisb" : : : "memory");
+}
 
 static void task_exit_trap(void)
 {
@@ -143,27 +184,27 @@ static void idle_body(void)
 
 static void prepare_tasks(void)
 {
-    fill_stack(&task0_stack[0], &task0_stack[TASK_STACK_WORDS]);
-    tasks[0].stack_bottom = &task0_stack[0];
-    tasks[0].stack_top = &task0_stack[TASK_STACK_WORDS];
+    fill_stack(&task0_storage.stack[0], &task0_storage.stack[TASK_STACK_WORDS]);
+    tasks[0].stack_bottom = &task0_storage.stack[0];
+    tasks[0].stack_top = &task0_storage.stack[TASK_STACK_WORDS];
     tasks[0].sp = build_initial_stack(tasks[0].stack_top, task0_body);
     tasks[0].state = TASK_READY;
     tasks[0].minimum_sp = tasks[0].sp;
     tasks[0].high_water_words = 16U;
     tasks[0].entry = task0_body;
 
-    fill_stack(&task1_stack[0], &task1_stack[TASK_STACK_WORDS]);
-    tasks[1].stack_bottom = &task1_stack[0];
-    tasks[1].stack_top = &task1_stack[TASK_STACK_WORDS];
+    fill_stack(&task1_storage.stack[0], &task1_storage.stack[TASK_STACK_WORDS]);
+    tasks[1].stack_bottom = &task1_storage.stack[0];
+    tasks[1].stack_top = &task1_storage.stack[TASK_STACK_WORDS];
     tasks[1].sp = build_initial_stack(tasks[1].stack_top, task1_body);
     tasks[1].state = TASK_READY;
     tasks[1].minimum_sp = tasks[1].sp;
     tasks[1].high_water_words = 16U;
     tasks[1].entry = task1_body;
 
-    fill_stack(&idle_stack[0], &idle_stack[TASK_STACK_WORDS]);
-    tasks[2].stack_bottom = &idle_stack[0];
-    tasks[2].stack_top = &idle_stack[TASK_STACK_WORDS];
+    fill_stack(&idle_storage.stack[0], &idle_storage.stack[TASK_STACK_WORDS]);
+    tasks[2].stack_bottom = &idle_storage.stack[0];
+    tasks[2].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
     tasks[2].sp = build_initial_stack(tasks[2].stack_top, idle_body);
     tasks[2].state = TASK_READY;
     tasks[2].minimum_sp = tasks[2].sp;
@@ -256,6 +297,7 @@ void start(void)
 {
     board_init();
     prepare_tasks();
+    configure_stack_guards();
     current_task = &tasks[0];
     g_current_task_index = 0U;
     tick_init();
