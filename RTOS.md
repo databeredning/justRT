@@ -522,8 +522,13 @@ SysTick enabled
 
 It also sets exception priorities through `SCB_SHPR3`:
 
-- PendSV priority: `0xFF`, lowest.
-- SysTick priority: `0xFE`, slightly higher.
+- PendSV logical priority: `0x0F`, encoded as `0xF0`, lowest.
+- SysTick logical priority: `0x0E`, encoded as `0xE0`, slightly higher.
+
+S32K312 implements four priority bits, stored in the upper nibble of each
+priority byte. The lower nibble is not implemented, so using `0xFF` and
+`0xFE` would produce the same effective priority. The explicit encoding above
+preserves the intended SysTick-before-PendSV ordering.
 
 This ordering allows SysTick to request a context switch while PendSV performs the switch later at the lowest priority.
 
