@@ -777,7 +777,20 @@ ISR-specific give and take services are not yet defined.
 
 ### 17.8 IPC
 
-Add one bounded static queue first. Define ownership, blocking behavior, timeout behavior, and ISR restrictions before adding semaphores or event flags.
+The kernel now provides a bounded static byte queue. The caller owns the
+storage and initializes it with a capacity and fixed item size:
+
+```c
+uint8_t storage[4 * sizeof(uint32_t)];
+queue_t queue;
+queue_init(&queue, storage, 4U, sizeof(uint32_t));
+```
+
+`queue_send()` and `queue_receive()` use the same zero, finite, and
+`SEMAPHORE_WAIT_FOREVER` timeout meanings as the semaphore. Ring-buffer state
+and item copies are protected by PRIMASK. These APIs are currently intended
+for task context; ISR-specific operations and notification of waiting tasks
+are not yet defined.
 
 ### 17.9 Watchdog integration
 
