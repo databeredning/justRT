@@ -236,6 +236,8 @@ typedef struct
     uint32_t state;
     uint32_t sleep_ticks;
     uint32_t run_count;
+    uint32_t *minimum_sp;
+    uint32_t high_water_words;
     task_entry_t entry;
 } task_t;
 ```
@@ -263,6 +265,14 @@ Remaining number of SysTick intervals before a sleeping task becomes ready.
 #### `run_count`
 
 Number of scheduler selections for the task. It is incremented when the task is switched out by `pendsv_switch()`.
+
+#### `minimum_sp`
+
+Lowest observed saved PSP for the task. It is initialized after the synthetic first-task frame is built and updated at every context switch.
+
+#### `high_water_words`
+
+Number of stack words that have been used according to the fill-pattern scan. The current stack fill pattern is `0xA5A5A5A5`.
 
 #### `entry`
 
@@ -323,6 +333,33 @@ Initializes all three task records explicitly:
 5. Assigns the entry function.
 
 The current implementation intentionally avoids a generalized task creation API while the low-level scheduler is still being developed.
+
+## 7.1 Stack Safety Instrumentation
+
+Each task stack is initialized with `TASK_STACK_FILL` before its synthetic startup frame is built:
+
+```c
+#define TASK_STACK_WORDS 128U
+#define TASK_STACK_FILL 0xA5A5A5A5U
+```
+
+`update_stack_usage()` runs when PendSV saves a task. It performs three checks:
+
+1. The saved PSP must be at or above `stack_bottom`.
+2. The saved PSP must be at or below `stack_top`.
+3. The saved PSP must be 8-byte aligned.
+
+It then updates `minimum_sp` and scans upward from `stack_bottom` until it finds the first untouched fill-pattern word. The distance from that word to `stack_top` is stored in `high_water_words`.
+
+On a violation, the kernel sets these debugger-visible globals and stops:
+
+```c
+g_stack_fault      = 1U;
+g_stack_fault_task = current task index;
+g_stack_fault_sp   = offending PSP;
+```
+
+This is an initial diagnostic guard, not a complete overflow defense. The saved context can already be damaged if the PSP has crossed the lower boundary. MPU guard regions will provide the architectural protection later.
 
 ## 7. Initial Task Stack Frame
 
@@ -731,7 +768,7 @@ The next low-level milestones should be implemented in this order:
 
 ### 17.1 Stack validation
 
-Add stack watermark initialization and a scheduler-time bounds check. Record the minimum observed PSP for every task.
+The first stack watermark and scheduler-time bounds checks are now implemented. The next refinement should add a reserved guard region or MPU no-access region below each task stack, so an overflow traps before it corrupts kernel state.
 
 ### 17.2 Critical-section primitives
 

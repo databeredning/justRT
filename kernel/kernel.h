@@ -21,5 +21,8 @@ extern volatile uint32_t g_schedule_count;
 extern volatile uint32_t g_task0_runs;
 extern volatile uint32_t g_task1_runs;
 extern volatile uint32_t g_active_task_tag;
+extern volatile uint32_t g_stack_fault;
+extern volatile uint32_t g_stack_fault_task;
+extern volatile uint32_t g_stack_fault_sp;
 
 #endif

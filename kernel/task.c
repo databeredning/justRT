@@ -4,6 +4,9 @@
 
 typedef void (*task_entry_t)(void);
 
+#define TASK_STACK_WORDS 128U
+#define TASK_STACK_FILL 0xA5A5A5A5U
+
 enum
 {
     TASK_READY = 0U,
@@ -19,6 +22,8 @@ typedef struct
     uint32_t state;
     uint32_t sleep_ticks;
     uint32_t run_count;
+    uint32_t *minimum_sp;
+    uint32_t high_water_words;
     task_entry_t entry;
 } task_t;
 
@@ -30,13 +35,16 @@ volatile uint32_t g_boot_counter = 0U;
 volatile uint32_t g_boot_stage = 0U;
 volatile uint32_t g_kernel_started = 0U;
 volatile uint32_t g_current_task_index = 0U;
-static uint32_t task0_stack[128] __attribute__((aligned(8)));
-static uint32_t task1_stack[128] __attribute__((aligned(8)));
-static uint32_t idle_stack[128] __attribute__((aligned(8)));
+volatile uint32_t g_stack_fault = 0U;
+volatile uint32_t g_stack_fault_task = 0U;
+volatile uint32_t g_stack_fault_sp = 0U;
+static uint32_t task0_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
+static uint32_t task1_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
+static uint32_t idle_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 static task_t tasks[3] = {
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U },
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U },
-    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U }
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
+    { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U }
 };
 static task_t *current_task = &tasks[0];
 
@@ -70,6 +78,44 @@ static uint32_t *build_initial_stack(uint32_t *stack_top, task_entry_t entry)
     *--stack = 0U;
 
     return stack;
+}
+
+static void fill_stack(uint32_t *stack_bottom, uint32_t *stack_top)
+{
+    uint32_t *word;
+
+    for (word = stack_bottom; word < stack_top; word++)
+    {
+        *word = TASK_STACK_FILL;
+    }
+}
+
+static void update_stack_usage(task_t *task, uint32_t *current_sp)
+{
+    uint32_t *word;
+
+    if ((current_sp < task->stack_bottom) || (current_sp > task->stack_top)
+        || (((uintptr_t)current_sp & 0x7U) != 0U))
+    {
+        g_stack_fault = 1U;
+        g_stack_fault_task = g_current_task_index;
+        g_stack_fault_sp = (uint32_t)(uintptr_t)current_sp;
+        while (1)
+        {
+        }
+    }
+
+    if (current_sp < task->minimum_sp)
+    {
+        task->minimum_sp = current_sp;
+    }
+
+    word = task->stack_bottom;
+    while ((word < task->stack_top) && (*word != TASK_STACK_FILL))
+    {
+        word++;
+    }
+    task->high_water_words = (uint32_t)(task->stack_top - word);
 }
 
 static void task0_body(void)
@@ -110,22 +156,31 @@ static void idle_body(void)
 
 static void prepare_tasks(void)
 {
+    fill_stack(&task0_stack[0], &task0_stack[TASK_STACK_WORDS]);
     tasks[0].stack_bottom = &task0_stack[0];
-    tasks[0].stack_top = &task0_stack[128];
+    tasks[0].stack_top = &task0_stack[TASK_STACK_WORDS];
     tasks[0].sp = build_initial_stack(tasks[0].stack_top, task0_body);
     tasks[0].state = TASK_READY;
+    tasks[0].minimum_sp = tasks[0].sp;
+    tasks[0].high_water_words = 16U;
     tasks[0].entry = task0_body;
 
+    fill_stack(&task1_stack[0], &task1_stack[TASK_STACK_WORDS]);
     tasks[1].stack_bottom = &task1_stack[0];
-    tasks[1].stack_top = &task1_stack[128];
+    tasks[1].stack_top = &task1_stack[TASK_STACK_WORDS];
     tasks[1].sp = build_initial_stack(tasks[1].stack_top, task1_body);
     tasks[1].state = TASK_READY;
+    tasks[1].minimum_sp = tasks[1].sp;
+    tasks[1].high_water_words = 16U;
     tasks[1].entry = task1_body;
 
+    fill_stack(&idle_stack[0], &idle_stack[TASK_STACK_WORDS]);
     tasks[2].stack_bottom = &idle_stack[0];
-    tasks[2].stack_top = &idle_stack[128];
+    tasks[2].stack_top = &idle_stack[TASK_STACK_WORDS];
     tasks[2].sp = build_initial_stack(tasks[2].stack_top, idle_body);
     tasks[2].state = TASK_READY;
+    tasks[2].minimum_sp = tasks[2].sp;
+    tasks[2].high_water_words = 16U;
     tasks[2].entry = idle_body;
 }
 
@@ -158,6 +213,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     uint32_t next_index = g_current_task_index;
 
     current_task->sp = current_sp;
+    update_stack_usage(current_task, current_sp);
     current_task->run_count++;
     g_schedule_count++;
     if (current_task->state == TASK_RUNNING)
