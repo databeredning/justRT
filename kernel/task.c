@@ -186,12 +186,16 @@ static void prepare_tasks(void)
 
 void sleep_current(uint32_t ticks)
 {
+    uint32_t saved_primask = critical_enter();
+
     current_task->sleep_ticks = ticks;
     current_task->state = (ticks == 0U) ? TASK_READY : TASK_SLEEPING;
+    critical_exit(saved_primask);
 }
 
 void tick_tasks(void)
 {
+    uint32_t saved_primask = critical_enter();
     uint32_t index;
 
     for (index = 0U; index < 3U; index++)
@@ -205,10 +209,13 @@ void tick_tasks(void)
             }
         }
     }
+
+    critical_exit(saved_primask);
 }
 
 uint32_t *pendsv_switch(uint32_t *current_sp)
 {
+    uint32_t saved_primask = critical_enter();
     uint32_t offset;
     uint32_t next_index = g_current_task_index;
 
@@ -233,6 +240,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     g_current_task_index = next_index;
     current_task = &tasks[g_current_task_index];
     current_task->state = TASK_RUNNING;
+    critical_exit(saved_primask);
     return current_task->sp;
 }
 

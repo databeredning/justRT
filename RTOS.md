@@ -169,7 +169,7 @@ critical_exit(saved_primask);
 
 `critical_enter()` returns the previous PRIMASK value before executing `CPSID I`. `critical_exit()` restores that exact value rather than blindly enabling interrupts, preserving an already-disabled outer critical section.
 
-These primitives are currently a low-level foundation. They should be applied selectively around shared task-state mutations as the scheduler grows.
+These primitives are applied around task state changes, sleep accounting, and scheduler selection. Critical sections should remain short and must not be used around task bodies or blocking operations.
 
 ### `tick_tasks()`
 
@@ -771,7 +771,7 @@ The following limitations are known and intentional at this stage:
 11. SVC calls are not privilege-checked.
 12. Fault handlers do not yet capture the floating-point extended frame.
 13. Stack bounds are recorded conceptually by `task_t` but not checked at runtime.
-14. The task scheduler does not yet apply the critical-section abstraction throughout all shared-data mutations.
+14. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
 15. The SysTick reload value is hard-coded.
 16. Watchdog servicing and watchdog recovery are not integrated.
 17. Cache maintenance and memory attributes are not yet part of the kernel API.
@@ -786,7 +786,7 @@ The first stack watermark and scheduler-time bounds checks are now implemented. 
 
 ### 17.2 Critical-section primitives
 
-Architecture-specific PRIMASK helpers are now present. The next refinement is to apply them selectively around shared task-state mutations and define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
+Architecture-specific PRIMASK helpers are present and protect task state, sleep accounting, and scheduler selection. The next refinement is to define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
 
 ### 17.3 Fault hardening
 
