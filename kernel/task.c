@@ -8,6 +8,7 @@ typedef void (*task_entry_t)(void);
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
 #define TASK_GUARD_WORDS 8U
+#define RUN_LED_PERIOD_TICKS 500U
 
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
 #define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
@@ -19,24 +20,10 @@ typedef void (*task_entry_t)(void);
 #define MPU_CTRL_PRIVDEFENA (1UL << 2)
 #define MPU_RASR_ENABLE (1UL << 0)
 #define MPU_RASR_XN (1UL << 28)
-#define MPU_RASR_AP_FULL_ACCESS (3UL << 24)
-#define MPU_RASR_SIZE_64KB (15UL << 1)
-#define MPU_RASR_SIZE_128KB (16UL << 1)
-#define MPU_RASR_SIZE_2MB (20UL << 1)
 #define MPU_RASR_SIZE_32_BYTES (4UL << 1)
 #define SCB_SHCSR_MEMFAULTENA (1UL << 16)
 
-#define UNPRIV_FLASH_BASE 0x00400000U
-#define UNPRIV_SRAM_BASE 0x20400000U
-#define UNPRIV_SIUL2_BASE 0x40290000U
-#define MPU_GUARD_REGION_FIRST 3U
-#define TASKS_UNPRIVILEGED 0U
-
-#if TASKS_UNPRIVILEGED
-#define TASK_CONTROL_VALUE 3
-#else
-#define TASK_CONTROL_VALUE 2
-#endif
+#define MPU_GUARD_REGION_FIRST 0U
 
 enum
 {
@@ -90,17 +77,6 @@ static void configure_stack_guards(void)
 
     MPU_CTRL = 0U;
     SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
-    MPU_RNR = 0U;
-    MPU_RBAR = UNPRIV_FLASH_BASE;
-    MPU_RASR = MPU_RASR_AP_FULL_ACCESS | MPU_RASR_SIZE_2MB | MPU_RASR_ENABLE;
-    MPU_RNR = 1U;
-    MPU_RBAR = UNPRIV_SRAM_BASE;
-    MPU_RASR = MPU_RASR_XN | MPU_RASR_AP_FULL_ACCESS
-        | MPU_RASR_SIZE_128KB | MPU_RASR_ENABLE;
-    MPU_RNR = 2U;
-    MPU_RBAR = UNPRIV_SIUL2_BASE;
-    MPU_RASR = MPU_RASR_XN | MPU_RASR_AP_FULL_ACCESS
-        | MPU_RASR_SIZE_64KB | MPU_RASR_ENABLE;
     for (index = 0U; index < TASK_COUNT; index++)
     {
         MPU_RNR = index + MPU_GUARD_REGION_FIRST;
@@ -185,8 +161,8 @@ static void task0_body(void)
 {
     while (1)
     {
-        led_toggle();
-        sleep_ticks(100U);
+        board_led_toggle();
+        sleep_ticks(RUN_LED_PERIOD_TICKS);
     }
 }
 
@@ -310,7 +286,7 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
         "orr     r2,  r2, #1            \n"
         "adds    r0,  r0, #32           \n"
         "msr     psp, r0                \n"
-        "movs    r0,  #%c0               \n"
+        "movs    r0,  #2                \n"
         "msr     control, r0            \n"
         "isb                            \n"
         "cpsie   i                      \n"
@@ -318,8 +294,6 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
         "movs    r1,  #0                \n"
         "movs    r3,  #0                \n"
         "bx      r2                     \n"
-        :
-        : "i" (TASK_CONTROL_VALUE)
     );
 }
 

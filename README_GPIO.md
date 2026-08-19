@@ -85,9 +85,8 @@ write PGPDO3 before enabling the output buffer.
 ## Runtime Blink Path
 
 The first static task is the run-LED task. Each iteration of `task0_body()`
-calls the `led_toggle()` SVC service, then executes `sleep_ticks(100)`.
-The SVC handler runs privileged and calls `board_led_toggle()` on behalf of
-the unprivileged task.
+calls `board_led_toggle()` directly, then sleeps for `RUN_LED_PERIOD_TICKS`
+(`750` ticks, approximately 100 ms at a 120 MHz core clock).
 
 The privileged `board_led_toggle()` routine performs a 16-bit read-modify-write:
 
@@ -96,9 +95,10 @@ SIUL2_PGPDO3 ^= 0x2000U;
 ```
 
 This flips PTB18 while preserving the other PTB16--PTB31 output latches. The
-task sleeps for 100 SysTick interrupts; `SysTick_Handler` decrements the sleep
-counter and requests a PendSV context switch. With the current reload of
-15999, the interval is `100 * 16000 / core_clock_hz` seconds.
+The task sleeps for `RUN_LED_PERIOD_TICKS` SysTick interrupts;
+`SysTick_Handler` decrements the sleep counter and requests a PendSV context
+switch. With the current reload of 15999, the interval is approximately
+`750 * 16000 / core_clock_hz` seconds.
 
 ## Ordering Requirements
 
@@ -109,7 +109,7 @@ counter and requests a PendSV context switch. With the current reload of
 3. Program the output latch before enabling an output buffer when a defined
    startup level is required. This design relies on the low reset latch.
 4. Enable SysTick only after `board_init()` and task stacks are ready; the
-   first task may request `led_toggle()` immediately after task launch.
+   first task may call `board_led_toggle()` immediately after task launch.
 
 ## Reference Source
 

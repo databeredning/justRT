@@ -18,8 +18,7 @@
 enum
 {
     SVC_SERVICE_YIELD = 0U,
-    SVC_SERVICE_SLEEP = 1U,
-    SVC_SERVICE_LED_TOGGLE = 2U
+    SVC_SERVICE_SLEEP = 1U
 };
 
 void tick_init(void)
@@ -71,11 +70,6 @@ void sleep_ticks(uint32_t ticks)
     __asm volatile ("svc %c1" : "+r" (argument) : "I" (SVC_SERVICE_SLEEP) : "memory");
 }
 
-void led_toggle(void)
-{
-    __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_LED_TOGGLE) : "memory");
-}
-
 void SysTick_Handler(void)
 {
     tick_tasks();
@@ -92,9 +86,6 @@ void svc_dispatch(uint32_t *stacked_frame)
             break;
         case SVC_SERVICE_SLEEP:
             sleep_current(stacked_frame[0]);
-            break;
-        case SVC_SERVICE_LED_TOGGLE:
-            board_led_toggle();
             break;
         default:
             return;

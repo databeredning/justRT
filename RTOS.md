@@ -317,7 +317,7 @@ PTB18 SIUL2 pin:  50 (port B offset 32 + pin 18)
 MSCR OBE:         bit 21
 ```
 
-`board_init()` is called by `start()` before task stacks are prepared. Task 0 calls `board_led_toggle()` and then sleeps for 100 RTOS ticks. This makes the LED heartbeat independent of compiler-dependent loop speed and avoids placing peripheral register knowledge in the scheduler.
+`board_init()` is called by `start()` before task stacks are prepared. Task 0 calls `board_led_toggle()` and then sleeps for 750 RTOS ticks, approximately 100 ms at the current clock. This makes the LED heartbeat independent of compiler-dependent loop speed and avoids placing peripheral register knowledge in the scheduler.
 
 The implementation assumes the board LED is connected directly to PTB18, GPIO is the default SIUL2 signal, and the LED is active-high. If the LED is active-low, invert `led_state` before writing GPDO. If the board uses a different SIUL2 register map or pin mux configuration, only `board/board.c` should change.
 
@@ -712,16 +712,13 @@ The following limitations are known and intentional at this stage:
 6. There is no timeout overflow policy.
 7. There is no synchronization primitive.
 8. There is no IPC.
-9. MPU protection provides broad unprivileged flash, SRAM, and SIUL2 access
-    plus protected task-stack guard regions; complete task memory isolation is
-    not implemented.
-10. SVC calls do not yet validate the caller or all arguments.
-12. Fault handlers do not yet capture the floating-point extended frame.
-13. MPU regions are not yet used for complete task memory isolation.
-14. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
-15. The SysTick reload value is hard-coded.
-16. Watchdog servicing and watchdog recovery are not integrated.
-17. Cache maintenance and memory attributes are not yet part of the kernel API.
+9. MPU protection currently covers task-stack guard regions only.
+10. Tasks currently execute privileged.
+11. Fault handlers do not yet capture the floating-point extended frame.
+12. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
+13. The SysTick reload value is hard-coded.
+14. Watchdog servicing and watchdog recovery are not integrated.
+15. Cache maintenance and memory attributes are not yet part of the kernel API.
 
 ## 17. Recommended Development Order
 
@@ -750,13 +747,12 @@ Add fault nesting detection, a reset policy, and persistent fault storage in a r
 
 Guard regions are configured. The remaining MPU work is to define linker
 sections for complete kernel and task memory regions before enabling
-stronger task memory isolation. The current implementation already provides
-the broad regions required by the existing unprivileged tasks.
+unprivileged tasks.
 
 ### 17.5 Privilege transition
 
-Tasks now launch unprivileged and the LED operation is exposed through SVC.
-The next refinement is strict SVC number, caller, and argument validation.
+Tasks currently launch privileged. A future privilege transition must first
+define complete memory regions and validated SVC services.
 
 ### 17.6 Time services
 

@@ -8,7 +8,6 @@
 void start(void);
 void yield(void);
 void sleep_ticks(uint32_t ticks);
-void led_toggle(void);
 void tick_init(void);
 void request_switch(void);
 uint32_t critical_enter(void);
