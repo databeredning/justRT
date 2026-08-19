@@ -73,6 +73,7 @@ int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
             critical_exit(saved_primask);
             return 0;
         }
+        task_inherit_priority(mutex->owner, task_current_priority());
         critical_exit(saved_primask);
 
         if (timeout_ticks == 0U)
@@ -96,6 +97,7 @@ int mutex_unlock(mutex_t *mutex)
         return 0;
     }
     mutex->locked = 0U;
+    task_restore_priority(mutex->owner);
     mutex->owner = UINT32_MAX;
     task_wake(mutex, TASK_WAIT_MUTEX);
     critical_exit(saved_primask);

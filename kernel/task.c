@@ -45,6 +45,7 @@ typedef struct
     task_entry_t entry;
     void *argument;
     uint32_t priority;
+    uint32_t base_priority;
     const char *name;
     uint32_t flags;
     void *wait_object;
@@ -144,6 +145,33 @@ kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority)
 uint32_t task_current_index(void)
 {
     return g_current_task_index;
+}
+
+uint32_t task_current_priority(void)
+{
+    return current_task->priority;
+}
+
+void task_inherit_priority(uint32_t task_id, uint32_t priority)
+{
+    uint32_t saved_primask = critical_enter();
+
+    if ((task_id < task_count) && (tasks[task_id].priority < priority))
+    {
+        tasks[task_id].priority = priority;
+    }
+    critical_exit(saved_primask);
+}
+
+void task_restore_priority(uint32_t task_id)
+{
+    uint32_t saved_primask = critical_enter();
+
+    if (task_id < task_count)
+    {
+        tasks[task_id].priority = tasks[task_id].base_priority;
+    }
+    critical_exit(saved_primask);
 }
 
 static void configure_stack_guards(void)
@@ -264,6 +292,7 @@ static void prepare_task(uint32_t index, const task_definition_t *definition)
     tasks[index].entry = definition->entry;
     tasks[index].argument = definition->argument;
     tasks[index].priority = definition->priority;
+    tasks[index].base_priority = definition->priority;
     tasks[index].name = definition->name;
     tasks[index].flags = definition->flags;
 }
@@ -281,6 +310,7 @@ static void prepare_idle_task(void)
     tasks[TASK_IDLE_INDEX].entry = idle_body;
     tasks[TASK_IDLE_INDEX].argument = 0U;
     tasks[TASK_IDLE_INDEX].priority = 0U;
+    tasks[TASK_IDLE_INDEX].base_priority = 0U;
     tasks[TASK_IDLE_INDEX].name = "idle";
     tasks[TASK_IDLE_INDEX].flags = 0U;
 }

@@ -81,6 +81,9 @@ void sleep_current(uint32_t ticks);
 int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks);
 void task_wake(void *object, task_wait_kind_t wait_kind);
 uint32_t task_current_index(void);
+uint32_t task_current_priority(void);
+void task_inherit_priority(uint32_t task_id, uint32_t priority);
+void task_restore_priority(uint32_t task_id);
 uint32_t *pendsv_switch(uint32_t *current_sp);
 
 extern volatile uint32_t g_current_task_index;

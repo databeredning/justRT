@@ -843,8 +843,10 @@ mutex_unlock(&mutex);
 
 Only the owning task may unlock the mutex. Recursive locking and unlocking by
 another task return failure. A contending task enters `TASK_BLOCKED` until the
-owner releases the mutex or the timeout expires. Priority inheritance is not
-implemented yet.
+owner releases the mutex or the timeout expires. When a higher-priority task
+blocks on the mutex, the owner temporarily inherits that priority and returns
+to its base priority on unlock. Nested mutex priority chains are not yet
+implemented.
 
 ### 17.9 IPC
 
