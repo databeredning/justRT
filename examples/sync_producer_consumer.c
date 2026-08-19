@@ -27,7 +27,6 @@ static void producer_task(void *argument)
         else
         {
             g_sync_producer_value = value;
-            semaphore_give(&items_available);
         }
         sleep_ticks(1U);
     }
@@ -41,8 +40,7 @@ static void consumer_task(void *argument)
     (void)argument;
     while (1)
     {
-        if ((semaphore_take(&items_available, SEMAPHORE_WAIT_FOREVER) != 0)
-            && (queue_receive(&values, &value, 0U) != 0))
+        if(queue_receive(&values, &value, 0U) != 0)
         {
             if (value != expected)
             {
