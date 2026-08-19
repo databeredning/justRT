@@ -15,6 +15,13 @@
 #define SCB_SHPR3_PENDSV_SHIFT 16U
 #define SCB_SHPR3_SYSTICK_SHIFT 24U
 
+enum
+{
+    SVC_SERVICE_YIELD = 0U,
+    SVC_SERVICE_SLEEP = 1U,
+    SVC_SERVICE_LED_TOGGLE = 2U
+};
+
 void tick_init(void)
 {
     SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL)
@@ -55,18 +62,18 @@ void critical_exit(uint32_t saved_primask)
 
 void yield(void)
 {
-    __asm volatile ("svc 0" : : : "memory");
+    __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_YIELD) : "memory");
 }
 
 void sleep_ticks(uint32_t ticks)
 {
     register uint32_t argument asm("r0") = ticks;
-    __asm volatile ("svc 1" : "+r" (argument) : : "memory");
+    __asm volatile ("svc %c1" : "+r" (argument) : "I" (SVC_SERVICE_SLEEP) : "memory");
 }
 
 void led_toggle(void)
 {
-    __asm volatile ("svc 2" : : : "memory");
+    __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_LED_TOGGLE) : "memory");
 }
 
 void SysTick_Handler(void)
@@ -79,17 +86,18 @@ void svc_dispatch(uint32_t *stacked_frame)
 {
     uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
 
-    if (svc_number == 1U)
+    switch (svc_number)
     {
-        sleep_current(stacked_frame[0]);
-    }
-    else if (svc_number == 2U)
-    {
-        board_led_toggle();
-    }
-    else if (svc_number != 0U)
-    {
-        return;
+        case SVC_SERVICE_YIELD:
+            break;
+        case SVC_SERVICE_SLEEP:
+            sleep_current(stacked_frame[0]);
+            break;
+        case SVC_SERVICE_LED_TOGGLE:
+            board_led_toggle();
+            break;
+        default:
+            return;
     }
     request_switch();
 }
