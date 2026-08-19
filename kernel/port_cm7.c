@@ -15,11 +15,6 @@
 #define SCB_SHPR3_PENDSV_SHIFT 16U
 #define SCB_SHPR3_SYSTICK_SHIFT 24U
 
-volatile uint32_t g_yield_count = 0U;
-volatile uint32_t g_tick_count = 0U;
-volatile uint32_t g_pendsv_count = 0U;
-volatile uint32_t g_systick_armed = 0U;
-
 void tick_init(void)
 {
     SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL)
@@ -28,7 +23,6 @@ void tick_init(void)
     SYST_RVR = 15999UL;
     SYST_CVR = 0UL;
     SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
-    g_systick_armed = 1U;
 }
 
 void request_switch(void)
@@ -72,7 +66,6 @@ void sleep_ticks(uint32_t ticks)
 
 void SysTick_Handler(void)
 {
-    g_tick_count++;
     tick_tasks();
     request_switch();
 }
@@ -85,11 +78,6 @@ void svc_dispatch(uint32_t *stacked_frame)
     {
         sleep_current(stacked_frame[0]);
     }
-    else
-    {
-        g_yield_count++;
-    }
-
     request_switch();
 }
 

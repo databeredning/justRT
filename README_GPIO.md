@@ -82,18 +82,6 @@ It writes `0x00280000`:
 The output latch's reset state is low, so initialization does not need to
 write PGPDO3 before enabling the output buffer.
 
-`g_board_init_stage` is a debugger checkpoint:
-
-| Stage | Meaning |
-| --- | --- |
-| 1 | Entered SIUL2 clock setup. |
-| 5 | SIUL2 clock was already active. |
-| 10--14 | Partition enable, clock request, update request, and key sequence complete. |
-| 15 | SIUL2 clock status confirmed. |
-| 20 | About to configure `MSCR[50]`. |
-| 21 | Pad configuration completed. |
-| 22 | `board_init()` completed. |
-
 ## Runtime Blink Path
 
 The first static task is the run-LED task. Each iteration of `task0_body()`

@@ -27,13 +27,6 @@ typedef struct
     task_entry_t entry;
 } task_t;
 
-volatile uint32_t g_schedule_count = 0U;
-volatile uint32_t g_task0_runs = 0U;
-volatile uint32_t g_task1_runs = 0U;
-volatile uint32_t g_active_task_tag = 0U;
-volatile uint32_t g_boot_counter = 0U;
-volatile uint32_t g_boot_stage = 0U;
-volatile uint32_t g_kernel_started = 0U;
 volatile uint32_t g_current_task_index = 0U;
 volatile uint32_t g_stack_fault = 0U;
 volatile uint32_t g_stack_fault_task = 0U;
@@ -41,6 +34,7 @@ volatile uint32_t g_stack_fault_sp = 0U;
 static uint32_t task0_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 static uint32_t task1_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 static uint32_t idle_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
+static uint32_t task1_run_count;
 static task_t tasks[3] = {
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
@@ -122,9 +116,6 @@ static void task0_body(void)
 {
     while (1)
     {
-        g_active_task_tag = 0xA0U;
-        g_task0_runs++;
-        g_boot_counter++;
         board_led_toggle();
         sleep_ticks(100U);
     }
@@ -134,10 +125,8 @@ static void task1_body(void)
 {
     while (1)
     {
-        g_active_task_tag = 0xB1U;
-        g_task1_runs++;
-        g_boot_counter++;
-        if ((g_task1_runs & 0xFFU) == 0U)
+        task1_run_count++;
+        if ((task1_run_count & 0xFFU) == 0U)
         {
             sleep_ticks(7U);
         }
@@ -220,7 +209,6 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     current_task->sp = current_sp;
     update_stack_usage(current_task, current_sp);
     current_task->run_count++;
-    g_schedule_count++;
     if (current_task->state == TASK_RUNNING)
     {
         current_task->state = TASK_READY;
@@ -266,13 +254,10 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
 
 void start(void)
 {
-    g_boot_stage = 4U;
     board_init();
     prepare_tasks();
     current_task = &tasks[0];
     g_current_task_index = 0U;
-    g_kernel_started = 1U;
     tick_init();
-    g_boot_stage = 5U;
     launch_first_task(current_task->sp);
 }

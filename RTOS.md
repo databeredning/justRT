@@ -59,7 +59,6 @@ Reset_Handler
     +-- call SystemInit()
     +-- call main()
              |
-             +-- platform_sanity_check()
              +-- start()
                       |
                       +-- prepare_tasks()
@@ -71,49 +70,10 @@ Reset_Handler
 
 ### 3.1 `main.c`
 
-`main.c` is deliberately small. It currently contains platform-level startup checks rather than kernel implementation.
-
-#### `g_main_entered`
-
-```c
-volatile uint32_t g_main_entered;
-```
-
-Set to `1` after entering `main()`. This is useful as a first debugger checkpoint confirming that reset and runtime initialization completed.
-
-#### `g_initialized_value`
-
-```c
-const uint32_t g_initialized_value = 0x12345678U;
-```
-
-A read-only initialized-data test value. It verifies that the flash-to-RAM or read-only data placement is behaving as expected.
-
-#### `g_uninitialized_value`
-
-```c
-uint32_t g_uninitialized_value;
-```
-
-A zero-initialized BSS test value. `platform_sanity_check()` expects this to be zero.
-
-#### `platform_sanity_check()`
-
-Returns zero when initialized data and BSS values match their expected values. It returns `-1` otherwise.
-
-If the check fails, `main()` sets `g_boot_stage` to `0xEE` and enters a permanent loop.
-
 #### `main()`
 
-The current entry point performs these operations:
+The entry point calls `start()`. `start()` is expected never to return.
 
-1. Set `g_boot_stage` to `1`.
-2. Set `g_main_entered` to `1`.
-3. Run `platform_sanity_check()`.
-4. Set `g_boot_stage` to `2`.
-5. Call `start()`.
-
-`start()` is expected never to return.
 
 ## 4. Public Kernel Declarations
 
@@ -135,7 +95,7 @@ This function is called from `main()` after platform sanity checks.
 void yield(void);
 ```
 
-Requests a voluntary reschedule through SVC number zero. The SVC handler increments `g_yield_count` and pends PendSV.
+Requests a voluntary reschedule through SVC number zero and pends PendSV.
 
 The task continues after the SVC instruction when it is eventually scheduled again.
 
@@ -199,12 +159,11 @@ It:
 
 1. Saves the current task's software stack pointer.
 2. Increments its run count.
-3. Increments `g_schedule_count`.
-4. Changes a running task back to ready unless it has already been put to sleep.
-5. Searches for the next non-sleeping task.
-6. Updates `current_task` and `g_current_task_index`.
-7. Marks the selected task as running.
-8. Returns the selected task's saved stack pointer.
+3. Changes a running task back to ready unless it has already been put to sleep.
+4. Searches for the next non-sleeping task.
+5. Updates `current_task` and `g_current_task_index`.
+6. Marks the selected task as running.
+7. Returns the selected task's saved stack pointer.
 
 ## 5. Task Model
 
@@ -310,23 +269,12 @@ There is no heap allocation. Task storage and stacks are known at link time.
 
 ### Task 0
 
-`task0_body()` increments:
-
-- `g_active_task_tag` with `0xA0`.
-- `g_task0_runs`.
-- `g_boot_counter`.
-
-Every 256 iterations it calls `yield()`, exercising SVC number zero.
+`task0_body()` toggles the run LED and sleeps for 100 ticks.
 
 ### Task 1
 
-`task1_body()` increments:
-
-- `g_active_task_tag` with `0xB1`.
-- `g_task1_runs`.
-- `g_boot_counter`.
-
-Every 256 iterations it calls `sleep_ticks(7)`, exercising SVC number one and the sleeping state.
+`task1_body()` periodically sleeps for seven ticks, exercising SVC number one
+and the sleeping state.
 
 ### Idle task
 
@@ -504,10 +452,6 @@ Debugger-visible index of the current task slot. The current slots are:
 - `1`: worker task 1.
 - `2`: idle task.
 
-### `g_schedule_count`
-
-Incremented each time `pendsv_switch()` processes a context switch.
-
 ## 9. SysTick and Timekeeping
 
 ### `tick_init()`
@@ -532,17 +476,8 @@ This ordering allows SysTick to request a context switch while PendSV performs t
 
 On every timer tick it:
 
-1. Increments `g_tick_count`.
-2. Calls `tick_tasks()` to decrement sleep counters.
-3. Pends PendSV through `request_switch()`.
-
-### `g_tick_count`
-
-Defined in `kernel/port_cm7.c`. It counts SysTick interrupts and is useful for checking that the timer continues to run while tasks sleep.
-
-### `g_systick_armed`
-
-Set to `1` by `tick_init()` after programming SysTick.
+1. Calls `tick_tasks()` to decrement sleep counters.
+2. Pends PendSV through `request_switch()`.
 
 ## 10. SVC Services
 
@@ -595,13 +530,10 @@ Reads the SVC instruction number from the instruction immediately before the sta
 uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
 ```
 
-For SVC number one it calls `sleep_current(stacked_frame[0])`. Other values currently behave as yield and increment `g_yield_count`.
+For SVC number one it calls `sleep_current(stacked_frame[0])`. Other values
+currently behave as yield.
 
 After dispatch it always requests PendSV.
-
-### `g_yield_count`
-
-Counts SVC calls treated as yield requests. It should increase when task 0 reaches each 256-iteration boundary.
 
 ### Important SVC limitations
 
@@ -725,15 +657,7 @@ make
 Start the target and add these watch expressions:
 
 ```text
-g_boot_stage
-g_kernel_started
 g_current_task_index
-g_schedule_count
-g_tick_count
-g_yield_count
-g_task0_runs
-g_task1_runs
-g_active_task_tag
 g_fault_active
 g_fault_record.pc
 g_fault_record.lr
@@ -741,19 +665,9 @@ g_fault_record.cfsr
 g_fault_record.hfsr
 ```
 
-Expected boot values:
-
-- `g_boot_stage == 5` after kernel start.
-- `g_kernel_started == 1`.
-- `g_systick_armed == 1`.
-
 Expected runtime behavior:
 
-- `g_task0_runs` increases continuously.
-- `g_task1_runs` increases when task 1 is scheduled.
-- `g_tick_count` increases periodically.
-- `g_schedule_count` increases when PendSV runs.
-- `g_yield_count` increases when task 0 executes `yield()`.
+- The run LED toggles every 100 ticks.
 - Task 1 periodically enters `TASK_SLEEPING` for seven ticks.
 - The idle task can run while workers are unavailable.
 - No fault handler should be reached during normal operation.

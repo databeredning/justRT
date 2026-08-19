@@ -28,62 +28,39 @@
 #define MC_ME_PRTN1_COFB2_REQ73 (1UL << 9)
 #define MC_ME_PRTN1_PUPD_PCUD (1UL << 0)
 
-volatile uint32_t g_board_init_stage = 0U;
-
 static void enable_siul2_clock(void)
 {
-    g_board_init_stage = 1U;
-    
     /* Skip if SIUL2 is already gated on. */
     if ((MC_ME_PRTN1_COFB2_STAT & MC_ME_PRTN1_COFB2_REQ73) != 0U)
     {
-        g_board_init_stage = 5U;
         return;
     }
     
-    g_board_init_stage = 10U;
-    
     /* Enable Partition 1 (required before partition updates). */
     MC_ME_PRTN1_PCONF |= MC_ME_PRTN1_PCONF_PCE;
-    
-    g_board_init_stage = 11U;
-    
+
     /* Request SIUL2 clock (REQ73 in COFB2). */
     MC_ME_PRTN1_COFB2_CLKEN |= MC_ME_PRTN1_COFB2_REQ73;
-    
-    g_board_init_stage = 12U;
-    
+
     /* Request partition update. */
     MC_ME_PRTN1_PUPD |= MC_ME_PRTN1_PUPD_PCUD;
-    
-    g_board_init_stage = 13U;
-    
+
     /* Authorize the update with key sequence. */
     MC_ME_CTL_KEY = 0x5AF0U;
     MC_ME_CTL_KEY = 0xA50FU;
-    
-    g_board_init_stage = 14U;
-    
+
     /* Poll for update completion and SIUL2 clock active. */
     while ((MC_ME_PRTN1_PUPD & MC_ME_PRTN1_PUPD_PCUD) != 0U || 
            (MC_ME_PRTN1_COFB2_STAT & MC_ME_PRTN1_COFB2_REQ73) == 0U)
     {
         /* Busy-wait. */
     }
-    
-    g_board_init_stage = 15U;
 }
 
 void board_init(void)
 {
     enable_siul2_clock();
-    
-    g_board_init_stage = 20U;
     SIUL2_MSCR(PTB18_SIUL2_PIN) = SIUL2_MSCR_GPIO_BIDIR;
-    
-    g_board_init_stage = 21U;
-    
-    g_board_init_stage = 22U;
 }
 
 void board_led_toggle(void)
