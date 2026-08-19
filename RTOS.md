@@ -892,8 +892,11 @@ example, select `semaphore_event_start()` from `main()` instead.
 `examples/mutex_contention.c` demonstrates mutex ownership and contention.
 The owner and contender update a shared counter only while holding the mutex.
 The debugger-visible counters are `g_mutex_owner_operations`,
-`g_mutex_contender_operations`, and `g_mutex_error`. A nonzero error indicates
-failed ownership or timeout behavior.
+`g_mutex_contender_operations`, `g_mutex_error`, `g_mutex_contender_state`,
+`g_mutex_contender_state_after_unlock`, and `g_mutex_contender_stack_used`.
+The two state values show the contender blocked while the mutex is held and
+ready immediately after the owner wakes it. A nonzero error indicates failed
+ownership, timeout, or inspection behavior.
 
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_contention_start()` from `main()` instead.
