@@ -19,7 +19,7 @@ The current code is a small, statically configured, preemptive kernel experiment
 - Fault capture for HardFault, MemManage, BusFault, and UsageFault.
 
 This is not yet a production RTOS. It does not yet provide complete task
-memory isolation, queues, semaphores, interrupt-safe APIs, watchdog
+memory isolation, queues, interrupt-safe APIs, watchdog
 integration, or a general public task creation API.
 
 ## 2. Source Layout
@@ -713,7 +713,7 @@ The following limitations are known and intentional at this stage:
 5. There is no priority scheduler.
 6. There is no timeout overflow policy.
 7. There is no synchronization primitive.
-8. There is no IPC.
+8. There is no queue or general IPC mechanism.
 9. MPU protection currently covers task-stack guard regions only.
 10. Tasks currently execute privileged.
 11. Fault handlers do not yet capture the floating-point extended frame.
@@ -760,11 +760,26 @@ define complete memory regions and validated SVC services.
 
 Add a monotonic tick type, timeout comparison helpers, and a defined tick-wrap policy.
 
-### 17.7 IPC
+### 17.7 Binary semaphore
+
+The kernel now provides a static binary semaphore:
+
+```c
+semaphore_t semaphore;
+semaphore_init(&semaphore, 0U);
+```
+
+`semaphore_take()` returns immediately for a zero timeout, retries once per
+tick for a finite timeout, and waits indefinitely with
+`SEMAPHORE_WAIT_FOREVER`. `semaphore_give()` publishes the token under a
+PRIMASK critical section. These APIs are currently intended for task context;
+ISR-specific give and take services are not yet defined.
+
+### 17.8 IPC
 
 Add one bounded static queue first. Define ownership, blocking behavior, timeout behavior, and ISR restrictions before adding semaphores or event flags.
 
-### 17.8 Watchdog integration
+### 17.9 Watchdog integration
 
 Assign watchdog responsibilities to the kernel and define what happens when a task misses its service window.
 

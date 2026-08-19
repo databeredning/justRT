@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "../board/board.h"
+#include "sync.h"
 
 #define KERNEL_CORE_CLOCK_HZ 120000000UL
 #define KERNEL_TICK_RATE_HZ 7500UL
