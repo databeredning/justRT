@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/sync_producer_consumer.h"
+#include "examples/semaphore_event.h"
 
 int main(void)
 {
-    sync_producer_consumer_start();
+    semaphore_event_start();
 
     return 0;
 }

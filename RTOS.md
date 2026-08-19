@@ -854,7 +854,18 @@ progress to the debugger.
 The default `main.c` continues to select the heartbeat example. To run this
 example, select `sync_producer_consumer_start()` from `main()` instead.
 
-### 17.10 Watchdog integration
+### 17.10 Semaphore event example
+
+`examples/semaphore_event.c` demonstrates semaphore-only event notification.
+The event source gives a binary semaphore every 100 ms. The worker blocks on
+`semaphore_take()` and increments its received counter when the event arrives.
+The debugger-visible counters are `g_semaphore_events_sent`,
+`g_semaphore_events_received`, and `g_semaphore_event_error`.
+
+The default `main.c` continues to select the queue example. To run this
+example, select `semaphore_event_start()` from `main()` instead.
+
+### 17.11 Watchdog integration
 
 Assign watchdog responsibilities to the kernel and define what happens when a task misses its service window.
 
