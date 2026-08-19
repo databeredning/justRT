@@ -1,56 +1,22 @@
-/*==================================================================================================
-*   Project              : RTD AUTOSAR 4.4
-*   Platform             : CORTEXM
-*   Peripheral           : 
-*   Dependencies         : none
-*
-*   Autosar Version      : 4.4.0
-*   Autosar Revision     : ASR_REL_4_4_REV_0000
-*   Autosar Conf.Variant :
-*   SW Version           : 1.0.0
-*   Build Version        : S32K3_RTD_1_0_0_D2110_ASR_REL_4_4_REV_0000_20211007
-*
-*   (c) Copyright 2020 - 2021 NXP Semiconductors
-*   All Rights Reserved.
-*
-*   NXP Confidential. This software is owned or controlled by NXP and may only be
-*   used strictly in accordance with the applicable license terms. By expressly
-*   accepting such terms or by downloading, installing, activating and/or otherwise
-*   using the software, you are agreeing that you have read, and that you agree to
-*   comply with and are bound by, such license terms. If you do not agree to be
-*   bound by the applicable license terms, then you may not retain, install,
-*   activate or otherwise use the software.
-==================================================================================================*/
 /*
-* GCC Linker Command File:
-* 0x00400000    0x007FFFFF  4194304 Program Flash (last 64K sBAF)
-* 0x10000000    0x1003FFFF  262144  Data Flash (last 32K HSE_NVM)
-* 0x20400000    0x20408000  32768   Standby RAM_0 (32K)
-* 0x20400000    0x20427FFF  163840  SRAM_0
-* 0x20428000    0x2044FFFF  163840  SRAM_1
-* Last 48 KB of SRAM_1 reserved by HSE Firmware
-* Last 176 KB of CODE_FLASH_3 reserved by HSE Firmware
-* Last 128 KB of DATA_FLASH reserved by HSE Firmware (not supported in this linker file)
-*/
-HEAP_SIZE  = DEFINED(__heap_size__)  ? __heap_size__  : 0x00002000;
+ * justboot linker script for the NXP S32K312 CM7_0.
+ *
+ * This image is a freestanding, single-core firmware. It contains the
+ * startup code, vector table, native RTOS kernel, and native PTB18 GPIO
+ * board layer. No AUTOSAR, RTD, heap, data-flash, or flash-driver sections
+ * are required.
+ */
 
 ENTRY(Reset_Handler)
 
-MEMORY 
-{         
-    int_flash               : ORIGIN = 0x00400000, LENGTH = 0x00164000    /* 2048K - 176K (sBAF + HSE)*/
-    int_itcm                : ORIGIN = 0x00000000, LENGTH = 0x00008000    /* 32K */
-    int_dtcm                : ORIGIN = 0x20000000, LENGTH = 0x00010000    /* 64K */
-    int_sram_sysdata        : ORIGIN = 0x20400000, LENGTH = 0x00000100
-    int_sram                : ORIGIN = 0x20400100, LENGTH = 0x00013E00    /* 27 KB */
-    int_sram_fls_rsv        : ORIGIN = 0x20413F00, LENGTH = 0x00000100
-    int_sram_stack_c0       : ORIGIN = 0x20414000, LENGTH = 0x00001000
-    int_sram_no_cacheable   : ORIGIN = 0x20415000, LENGTH = 0x00007F00    /* 32kb , needs to include int_results  */
-    int_sram_results        : ORIGIN = 0x20416F00, LENGTH = 0x00000100
-    int_sram_shareable      : ORIGIN = 0x20410000, LENGTH = 0x00008000    /* 32KB */
-    ram_rsvd2               : ORIGIN = 0x20418000, LENGTH = 0             /* End of SRAM */
+/* S32K312 memory used by this image. */
+MEMORY
+{
+    int_flash       (rx)  : ORIGIN = 0x00400000, LENGTH = 0x00164000
+    int_sram        (rwx) : ORIGIN = 0x20400100, LENGTH = 0x00013E00
+    int_sram_stack  (rwx) : ORIGIN = 0x20414000, LENGTH = 0x00001000
+    int_sram_nc     (rwx) : ORIGIN = 0x20415000, LENGTH = 0x00007F00
 }
-
 
 SECTIONS
 {
@@ -60,270 +26,102 @@ SECTIONS
         *(.gnu.linkonce.armexidx.*)
     }
 
+    /* Boot header, vectors, startup code, application code, constants, and
+       the startup copy/zero tables all live in program flash. */
     .flash :
     {
-	KEEP(*(.boot_header))
-	KEEP(*(.bootversion))
+        . = ALIGN(4);
+        KEEP(*(.boot_header))
         . = ALIGN(4096);
-        __text_start = .;
-        __interrupts_rom_start = .;
-        __CODE_START = .;
-        KEEP(*(.intc_vector))    
+        __ROM_INTERRUPT_START = .;
+        KEEP(*(.intc_vector))
         . = ALIGN(4);
-        __interrupts_rom_end = .;
-        __CRC_HEADER = .;
-        KEEP(*(.crcheader))    
-        . = ALIGN(0x100);
-        __crcheader_rom_end = .;
-        KEEP(*(.customermswpn))    
-        . = ALIGN(0x10);
-        __customermswpn_rom_end = .;
-        KEEP(*(.core_loop)) 
-        . = ALIGN(4);
-        *(.startup) 
-        . = ALIGN(4);
-        *(.systeminit) 
-        . = ALIGN(4);
-        *(.text.startup) 
-        . = ALIGN(4);
-        *(.text)
-        *(.text*) 
-        . = ALIGN(4);
-        *(.mcal_text) 
-        . = ALIGN(4);
-        *(.acmcu_code_rom)
-        . = ALIGN(4);
-        __acfls_code_rom_start = .;
-        *(.acfls_code_rom) 
-        . = ALIGN(4);
-        __acfls_code_rom_end = .;
-        KEEP(*(.init))
-        . = ALIGN(4);
-        KEEP(*(.fini)) 
-         
-        . = ALIGN(4);
-        *(.rodata)  
-        *(.rodata*)  
-        . = ALIGN(4);
-        *(.mcal_const_cfg)  
-        . = ALIGN(4);
-        *(.vcm_c_section)
-        . = ALIGN(4);
-        *(.mcal_const)  
+        __ROM_INTERRUPT_END = .;
+        KEEP(*(.startup))
+        *(.text .text.*)
+        *(.rodata .rodata.*)
+
         . = ALIGN(4);
         __init_table = .;
-        KEEP(*(.init_table))  
+        KEEP(*(.init_table))
         . = ALIGN(4);
         __zero_table = .;
         KEEP(*(.zero_table))
-        __CODE_END = .;
-        __CHECKSUM_LOCATION = .;
+        . = ALIGN(4);
+        __flash_end = .;
     } > int_flash
 
-    . = ALIGN(4);
-    __text_end = .;
-    __sram_data_rom = __text_end;
-    
-    .sram_data_sysdata (NOLOAD) : AT(0x20400000)
-    {
-        *(.sysdata_section)
-    } > int_sram_sysdata
-
-    .sram_data : AT(__sram_data_rom)
+    /* Initialized writable data is loaded immediately after flash content. */
+    .sram_data : AT(__flash_end)
     {
         . = ALIGN(4);
-        __sram_data_begin__ = .; 
+        __sram_data_start = .;
+        *(.data .data.*)
         . = ALIGN(4);
-        *(.ramcode)    
-        . = ALIGN(4);
-        *(.data)  
-        *(.calibrationflag)
-        *(.cswpninfo_section)
-        *(.settingsdata_section)
-        *(.dockcaldata_section)
-        *(.appversioninfo_section)
-        *(.vcm_v_section)
-        *(.global_v_section)
-        *(.data*)
-        . = ALIGN(4);
-        *(.mcal_data)
-        . = ALIGN(4);
-        __sram_data_end__ = .;
+        __sram_data_end = .;
     } > int_sram
 
-    __sram_data_rom_end = __sram_data_rom + (__sram_data_end__ - __sram_data_begin__);
+    /* Zero-initialized globals and static task/kernel storage. */
     .sram_bss (NOLOAD) :
     {
-        . = ALIGN(16);
+        . = ALIGN(8);
         __sram_bss_start = .;
-        *(.bss)
-        *(.bss*)
-        . = ALIGN(16);
-        *(.mcal_bss)
-        . = ALIGN(4);
+        *(.bss .bss.*)
+        *(COMMON)
+        . = ALIGN(8);
         __sram_bss_end = .;
     } > int_sram
-    .heap (NOLOAD):
-    {
-	. += ALIGN(4);
-	    _end = .;
-	    end = .;
-        _heap_start = .;
-        . += HEAP_SIZE;
-        _heap_end = .;
-    } > int_sram
-    
-    .acfls_code_ram :
-    {
-        acfls_code_ram_start  = .;
-        *(.acfls_code_ram)
-        acfls_code_ram_stop   = .;
-    } > int_sram_fls_rsv
 
-    __non_cacheable_data_rom = __sram_data_rom_end;
+    /* The reset stack is separate from application/task storage. */
+    __Stack_end_c0 = ORIGIN(int_sram_stack);
+    __Stack_start_c0 = ORIGIN(int_sram_stack) + LENGTH(int_sram_stack);
+    __Stack_end_c1 = 0;
+    __Stack_start_c1 = 0;
 
-    .non_cacheable_data : AT(__non_cacheable_data_rom)
-    {
-        . = ALIGN(4);
-        __non_cacheable_data_start__ = .;
-        . = ALIGN(4096);
-        __interrupts_ram_start = .;
-        . += __interrupts_rom_end - __interrupts_rom_start;    
-        . = ALIGN(4);
-        __interrupts_ram_end = .;
-        *(.mcal_data_no_cacheable)        
-        . = ALIGN(4);
-        *(.mcal_const_no_cacheable)      
-        . = ALIGN(4);
-        HSE_LOOP_ADDR = .;
-        LONG(0x0);
-        __non_cacheable_data_end__ = .;  
-    } > int_sram_no_cacheable
+    /* Startup memory initialization symbols. */
+    __INT_SRAM_START = ORIGIN(int_sram);
+    __INT_SRAM_END = ORIGIN(int_sram) + LENGTH(int_sram);
+    __INT_DTCM_START = 0x20000000;
+    __INT_DTCM_END = 0x20010000;
+    __INT_ITCM_START = 0x00000000;
+    __INT_ITCM_END = 0x00008000;
+    __RAM_INIT = 1;
+    __DTCM_INIT = 1;
+    __ITCM_INIT = 1;
 
-	int_results (NOLOAD):
-	{
-		. = ALIGN(4);
-        KEEP(*(.int_results))  
-	    . += 0x100;
-	} > int_sram_results
-    
-    __non_cacheable_data_rom_end = __non_cacheable_data_rom + (__non_cacheable_data_end__ - __non_cacheable_data_start__);
+    /* Runtime copy/zero table symbols consumed by system.c. */
+    __INIT_TABLE = __init_table;
+    __ZERO_TABLE = __zero_table;
 
-    .non_cacheable_bss (NOLOAD) :
-    {  
-        . = ALIGN(16);
-        __non_cacheable_bss_start = .;
-        *(.mcal_bss_no_cacheable)      
-        . = ALIGN(4);
-        __non_cacheable_bss_end = .;       
-    } > int_sram_no_cacheable
-    
-    __shareable_data_rom = __non_cacheable_data_rom_end;
+    /* RAM vector-table relocation symbols consumed by startup_cm7.s. */
+    __RAM_INTERRUPT_START = ORIGIN(int_sram_nc);
+    __RAM_INTERRUPT_END = __RAM_INTERRUPT_START + (__ROM_INTERRUPT_END - __ROM_INTERRUPT_START);
+    __CORE0_VTOR = __ROM_INTERRUPT_START;
+    __CORE1_VTOR = __ROM_INTERRUPT_START;
 
-    .shareable_data : AT(__shareable_data_rom)
-    {
-        . = ALIGN(4);
-        __shareable_data_start__ = .;
-        KEEP(*(.mcal_shared_data)) 
-        . = ALIGN(4);
-        __shareable_data_end__ = .;  
-    } > int_sram_shareable
-
-    __shareable_data_rom_end = __shareable_data_rom + (__shareable_data_end__ - __shareable_data_start__);
-
-    .shareable_bss (NOLOAD) :
-    {  
-        . = ALIGN(16);
-        __shareable_bss_start = .;
-        *(.mcal_shared_bss)      
-        . = ALIGN(4);
-        __shareable_bss_end = .;       
-    } > int_sram_shareable
-
-    __Stack_end_c0           = ORIGIN(int_sram_stack_c0);
-    __Stack_start_c0         = ORIGIN(int_sram_stack_c0) + LENGTH(int_sram_stack_c0);
-    __Stack_end_c1           = 0;
-    __Stack_start_c1         = 0;
-
-    __INT_SRAM_SYSDATA       = ORIGIN(int_sram_sysdata);
-    __INT_SRAM_SYSDATA_SIZE  = 0x8; /*256 byte in power of 2*/
-    
-    __INT_SRAM_START         = ORIGIN(int_sram);
-    __INT_SRAM_END           = ORIGIN(ram_rsvd2);
-    
-    __INT_ITCM_START         = ORIGIN(int_itcm);
-    __INT_ITCM_END           = ORIGIN(int_itcm) + LENGTH(int_itcm);
-    
-    __INT_DTCM_START         = ORIGIN(int_dtcm);
-    __INT_DTCM_END           = ORIGIN(int_dtcm) + LENGTH(int_dtcm);
-    
-    __RAM_SHAREABLE_START    = ORIGIN(int_sram_shareable);
-    __RAM_SHAREABLE_END      = ORIGIN(ram_rsvd2)-1;
-    __RAM_SHAREABLE_SIZE     = 0xE; /*16 kbyte*/
-    __ROM_SHAREABLE_START    = __shareable_data_rom;
-    __ROM_SHAREABLE_END      = __shareable_data_rom_end;
-    __RAM_NO_CACHEABLE_START = ORIGIN(int_sram_no_cacheable);
-    __RAM_NO_CACHEABLE_END   = ORIGIN(int_sram_shareable)-1;
-    __RAM_NO_CACHEABLE_SIZE  = 0x10;  /* 64kbyte in power of 2 */
-    __ROM_NO_CACHEABLE_START = __non_cacheable_data_rom;
-    __ROM_NO_CACHEABLE_END   = __non_cacheable_data_rom_end;
-    __RAM_CACHEABLE_START    = ORIGIN(int_sram);
-    __RAM_CACHEABLE_END      = ORIGIN(int_sram_no_cacheable)-1;
-    __RAM_CACHEABLE_SIZE     = 0x12;  /* 256kbyte in power of 2 */
-    __ROM_CACHEABLE_START    = __sram_data_rom;
-    __ROM_CACHEABLE_END      = __sram_data_rom_end;
-    __ROM_CODE_START         = ORIGIN(int_flash);
-    __ROM_DATA_START         = 0x10000000;
-    
-    __BSS_SRAM_START         = __sram_bss_start;
-    __BSS_SRAM_END           = __sram_bss_end;
-    __BSS_SRAM_SIZE          = __sram_bss_end - __sram_bss_start;
-    
-    __BSS_SRAM_NC_START      = __non_cacheable_bss_start;
-    __BSS_SRAM_NC_SIZE       = __non_cacheable_bss_end - __non_cacheable_bss_start;
-    __BSS_SRAM_NC_END        = __non_cacheable_bss_end;
-
-    __BSS_SRAM_SH_START      = __shareable_bss_start;
-    __BSS_SRAM_SH_SIZE       = __shareable_bss_end - __shareable_bss_start;
-    __BSS_SRAM_SH_END        = __shareable_bss_end;
-
-    __RAM_INTERRUPT_START    = __interrupts_ram_start;
-    __ROM_INTERRUPT_START    = __interrupts_rom_start;
-    __ROM_INTERRUPT_END      = __interrupts_rom_end;
-
-    __INIT_TABLE             = __init_table;
-    __ZERO_TABLE             = __zero_table;
-    
-    __RAM_INIT               = 1;
-    __ITCM_INIT              = 1;
-    __DTCM_INIT              = 1;
-    
-    Fls_ACEraseRomStart         = __acfls_code_rom_start;
-    Fls_ACEraseRomEnd           = __acfls_code_rom_end;
-    Fls_ACEraseSize             = (__acfls_code_rom_end - __acfls_code_rom_start) / 4; /* Copy 4 bytes at a time*/
-
-    Fls_ACWriteRomStart         = __acfls_code_rom_start;
-    Fls_ACWriteRomEnd           = __acfls_code_rom_end;
-    Fls_ACWriteSize             = (__acfls_code_rom_end - __acfls_code_rom_start) / 4; /* Copy 4 bytes at a time*/
-    
-    _ERASE_FUNC_ADDRESS_        = ADDR(.acfls_code_ram);
-    _WRITE_FUNC_ADDRESS_        = ADDR(.acfls_code_ram);
-    
-    __ENTRY_VTABLE              = __ROM_INTERRUPT_START;
-	
-    __CORE0_VTOR             = __interrupts_rom_start;
-    __CORE1_VTOR             = __interrupts_rom_start;
-
-    __CODE_SIZE__          = __CODE_END - __CODE_START;
-    __CHECKSUM_LOCATION      = __non_cacheable_data_rom_end;
-    __RAM_CACHEABLE_START_AFTER_SYSDATA = ORIGIN(int_sram);
-
-    __DATA_SIZE__            = __sram_data_end__ - __sram_data_begin__;
-    __STACK_SIZE__           = LENGTH(int_sram_stack_c0);
-    __CODE_FREE_SIZE__       = LENGTH(int_flash) - __CODE_SIZE__;
-    __DATA_FREE_SIZE__       = LENGTH(int_sram) - __DATA_SIZE__;
-    
-    __DST_START__            = 0;
-    __DST_END__              = 1;
-    __DST_SIZE__             = 0;
+    /* The current startup table has four copy entries and three zero entries.
+       Empty regions are represented by equal start/end addresses. */
+    __RAM_CACHEABLE_START = ORIGIN(int_sram);
+    __RAM_CACHEABLE_END = __RAM_CACHEABLE_START;
+    __ROM_CACHEABLE_START = __flash_end;
+    __ROM_CACHEABLE_END = __flash_end;
+    __RAM_NO_CACHEABLE_START = ORIGIN(int_sram_nc);
+    __RAM_NO_CACHEABLE_END = __RAM_NO_CACHEABLE_START;
+    __ROM_NO_CACHEABLE_START = __flash_end;
+    __ROM_NO_CACHEABLE_END = __flash_end;
+    __RAM_SHAREABLE_START = ORIGIN(int_sram_nc);
+    __RAM_SHAREABLE_END = __RAM_SHAREABLE_START;
+    __ROM_SHAREABLE_START = __flash_end;
+    __ROM_SHAREABLE_END = __flash_end;
+    __BSS_SRAM_SH_START = __sram_bss_end;
+    __BSS_SRAM_SH_END = __sram_bss_end;
+    __BSS_SRAM_NC_START = __sram_bss_end;
+    __BSS_SRAM_NC_END = __sram_bss_end;
+    __BSS_SRAM_START = __sram_bss_start;
+    __BSS_SRAM_END = __sram_bss_end;
 }
+
+ASSERT(__RAM_INTERRUPT_END <= ORIGIN(int_sram_nc) + LENGTH(int_sram_nc),
+       "RAM vector table exceeds non-cacheable SRAM")
+ASSERT(__sram_bss_end <= ORIGIN(int_sram) + LENGTH(int_sram),
+       "SRAM data and BSS exceed application SRAM")
