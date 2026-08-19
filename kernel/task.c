@@ -30,6 +30,13 @@ typedef void (*task_entry_t)(void);
 #define UNPRIV_SRAM_BASE 0x20400000U
 #define UNPRIV_SIUL2_BASE 0x40290000U
 #define MPU_GUARD_REGION_FIRST 3U
+#define TASKS_UNPRIVILEGED 0U
+
+#if TASKS_UNPRIVILEGED
+#define TASK_CONTROL_VALUE 3
+#else
+#define TASK_CONTROL_VALUE 2
+#endif
 
 enum
 {
@@ -303,7 +310,7 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
         "orr     r2,  r2, #1            \n"
         "adds    r0,  r0, #32           \n"
         "msr     psp, r0                \n"
-        "movs    r0,  #2                \n"
+        "movs    r0,  #%c0               \n"
         "msr     control, r0            \n"
         "isb                            \n"
         "cpsie   i                      \n"
@@ -311,6 +318,8 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
         "movs    r1,  #0                \n"
         "movs    r3,  #0                \n"
         "bx      r2                     \n"
+        :
+        : "i" (TASK_CONTROL_VALUE)
     );
 }
 
