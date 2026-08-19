@@ -115,7 +115,9 @@ A zero duration does not block the task.
 
 Configures and enables the Cortex-M SysTick peripheral.
 
-The current reload value is `15999`, which is a hardware-clock-dependent interval. It should eventually be replaced by a platform clock-derived configuration.
+The tick rate is configured as 7500 Hz from a 120 MHz core clock, producing a
+reload value of 15999. Millisecond delays should use `ms_to_ticks()` rather
+than embedding raw tick counts.
 
 ### `request_switch()`
 

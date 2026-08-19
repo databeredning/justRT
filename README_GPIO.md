@@ -85,8 +85,8 @@ write PGPDO3 before enabling the output buffer.
 ## Runtime Blink Path
 
 The first static task is the run-LED task. Each iteration of `task0_body()`
-calls `board_led_toggle()` directly, then sleeps for `RUN_LED_PERIOD_TICKS`
-(`750` ticks, approximately 100 ms at a 120 MHz core clock).
+calls `board_led_toggle()` directly, then sleeps for `ms_to_ticks(100)`
+(`ms_to_ticks(100)`, approximately 100 ms at a 120 MHz core clock).
 
 The privileged `board_led_toggle()` routine performs a 16-bit read-modify-write:
 
@@ -95,10 +95,10 @@ SIUL2_PGPDO3 ^= 0x2000U;
 ```
 
 This flips PTB18 while preserving the other PTB16--PTB31 output latches. The
-The task sleeps for `RUN_LED_PERIOD_TICKS` SysTick interrupts;
+The task sleeps for `ms_to_ticks(100)` SysTick interrupts;
 `SysTick_Handler` decrements the sleep counter and requests a PendSV context
-switch. With the current reload of 15999, the interval is approximately
-`750 * 16000 / core_clock_hz` seconds.
+switch. With the current tick rate of 7500 Hz, the interval is approximately
+100 ms.
 
 ## Ordering Requirements
 

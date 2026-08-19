@@ -26,7 +26,7 @@ void tick_init(void)
     SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL)
         | (0xFFUL << SCB_SHPR3_PENDSV_SHIFT)
         | (0xFEUL << SCB_SHPR3_SYSTICK_SHIFT);
-    SYST_RVR = 15999UL;
+    SYST_RVR = KERNEL_SYSTICK_RELOAD;
     SYST_CVR = 0UL;
     SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
 }
@@ -68,6 +68,14 @@ void sleep_ticks(uint32_t ticks)
 {
     register uint32_t argument asm("r0") = ticks;
     __asm volatile ("svc %c1" : "+r" (argument) : "I" (SVC_SERVICE_SLEEP) : "memory");
+}
+
+uint32_t ms_to_ticks(uint32_t milliseconds)
+{
+    uint32_t half_milliseconds = milliseconds >> 1U;
+    uint32_t odd_millisecond = milliseconds & 1U;
+
+    return (half_milliseconds * 15U) + (odd_millisecond * 8U);
 }
 
 void SysTick_Handler(void)

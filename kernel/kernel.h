@@ -5,9 +5,14 @@
 
 #include "../board/board.h"
 
+#define KERNEL_CORE_CLOCK_HZ 120000000UL
+#define KERNEL_TICK_RATE_HZ 7500UL
+#define KERNEL_SYSTICK_RELOAD ((KERNEL_CORE_CLOCK_HZ / KERNEL_TICK_RATE_HZ) - 1UL)
+
 void start(void);
 void yield(void);
 void sleep_ticks(uint32_t ticks);
+uint32_t ms_to_ticks(uint32_t milliseconds);
 void tick_init(void);
 void request_switch(void);
 uint32_t critical_enter(void);

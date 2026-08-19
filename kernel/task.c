@@ -8,7 +8,7 @@ typedef void (*task_entry_t)(void);
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
 #define TASK_GUARD_WORDS 8U
-#define RUN_LED_PERIOD_TICKS 500U
+#define RUN_LED_PERIOD_MS 100U
 
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
 #define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
@@ -162,7 +162,7 @@ static void task0_body(void)
     while (1)
     {
         board_led_toggle();
-        sleep_ticks(RUN_LED_PERIOD_TICKS);
+        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
     }
 }
 
