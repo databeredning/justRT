@@ -28,7 +28,8 @@ enum
 {
     TASK_READY = 0U,
     TASK_RUNNING = 1U,
-    TASK_SLEEPING = 2U
+    TASK_SLEEPING = 2U,
+    TASK_BLOCKED = 3U
 };
 
 typedef struct
@@ -46,6 +47,10 @@ typedef struct
     uint32_t priority;
     const char *name;
     uint32_t flags;
+    void *wait_object;
+    task_wait_kind_t wait_kind;
+    uint32_t wait_ticks;
+    uint32_t wait_result;
 } task_t;
 
 typedef struct __attribute__((aligned(32)))
@@ -218,12 +223,54 @@ void sleep_current(uint32_t ticks)
     critical_exit(saved_primask);
 }
 
+int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
+{
+    uint32_t saved_primask;
+
+    if (timeout_ticks == 0U)
+    {
+        return 0;
+    }
+
+    saved_primask = critical_enter();
+    current_task->wait_object = object;
+    current_task->wait_kind = wait_kind;
+    current_task->wait_ticks = timeout_ticks;
+    current_task->wait_result = 0U;
+    current_task->state = TASK_BLOCKED;
+    critical_exit(saved_primask);
+    yield();
+    return (int)current_task->wait_result;
+}
+
+void task_wake(void *object, task_wait_kind_t wait_kind)
+{
+    uint32_t saved_primask = critical_enter();
+    uint32_t index;
+
+    for (index = 0U; index < task_count; index++)
+    {
+        if ((tasks[index].state == TASK_BLOCKED)
+            && (tasks[index].wait_object == object)
+            && (tasks[index].wait_kind == wait_kind))
+        {
+            tasks[index].state = TASK_READY;
+            tasks[index].wait_result = 1U;
+            tasks[index].wait_object = 0U;
+            tasks[index].wait_kind = TASK_WAIT_NONE;
+            break;
+        }
+    }
+
+    critical_exit(saved_primask);
+}
+
 void tick_tasks(void)
 {
     uint32_t saved_primask = critical_enter();
     uint32_t index;
 
-    for (index = 0U; index <= TASK_IDLE_INDEX; index++)
+    for (index = 0U; index < task_count; index++)
     {
         if ((tasks[index].state == TASK_SLEEPING) && (tasks[index].sleep_ticks > 0U))
         {
@@ -231,6 +278,19 @@ void tick_tasks(void)
             if (tasks[index].sleep_ticks == 0U)
             {
                 tasks[index].state = TASK_READY;
+            }
+        }
+        else if ((tasks[index].state == TASK_BLOCKED)
+            && (tasks[index].wait_ticks != SEMAPHORE_WAIT_FOREVER)
+            && (tasks[index].wait_ticks > 0U))
+        {
+            tasks[index].wait_ticks--;
+            if (tasks[index].wait_ticks == 0U)
+            {
+                tasks[index].state = TASK_READY;
+                tasks[index].wait_result = 0U;
+                tasks[index].wait_object = 0U;
+                tasks[index].wait_kind = TASK_WAIT_NONE;
             }
         }
     }
@@ -257,7 +317,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     for (offset = 0U; offset < task_count; offset++)
     {
         next_index = (base_index + offset) % task_count;
-        if ((tasks[next_index].state != TASK_SLEEPING)
+        if ((tasks[next_index].state == TASK_READY)
             && (tasks[next_index].priority > best_priority))
         {
             best_priority = tasks[next_index].priority;
@@ -267,7 +327,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     for (offset = 1U; offset <= task_count; offset++)
     {
         next_index = (base_index + offset) % task_count;
-        if ((tasks[next_index].state != TASK_SLEEPING)
+        if ((tasks[next_index].state == TASK_READY)
             && (tasks[next_index].priority == best_priority))
         {
             g_current_task_index = next_index;

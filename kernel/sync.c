@@ -28,10 +28,9 @@ int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
             return 0;
         }
 
-        sleep_ticks(1U);
-        if (timeout_ticks != SEMAPHORE_WAIT_FOREVER)
+        if (task_block(semaphore, TASK_WAIT_SEMAPHORE, timeout_ticks) == 0)
         {
-            timeout_ticks--;
+            return 0;
         }
     }
 }
@@ -41,6 +40,7 @@ void semaphore_give(semaphore_t *semaphore)
     uint32_t saved_primask = critical_enter();
 
     semaphore->available = 1U;
+    task_wake(semaphore, TASK_WAIT_SEMAPHORE);
     critical_exit(saved_primask);
 }
 
@@ -76,6 +76,7 @@ int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
             }
             queue->head = (queue->head + 1U) % queue->capacity;
             queue->count++;
+            task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
             critical_exit(saved_primask);
             return 1;
         }
@@ -85,10 +86,9 @@ int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
         {
             return 0;
         }
-        sleep_ticks(1U);
-        if (timeout_ticks != SEMAPHORE_WAIT_FOREVER)
+        if (task_block(queue, TASK_WAIT_QUEUE_SEND, timeout_ticks) == 0)
         {
-            timeout_ticks--;
+            return 0;
         }
     }
 }
@@ -111,6 +111,7 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
             }
             queue->tail = (queue->tail + 1U) % queue->capacity;
             queue->count--;
+            task_wake(queue, TASK_WAIT_QUEUE_SEND);
             critical_exit(saved_primask);
             return 1;
         }
@@ -120,10 +121,9 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
         {
             return 0;
         }
-        sleep_ticks(1U);
-        if (timeout_ticks != SEMAPHORE_WAIT_FOREVER)
+        if (task_block(queue, TASK_WAIT_QUEUE_RECEIVE, timeout_ticks) == 0)
         {
-            timeout_ticks--;
+            return 0;
         }
     }
 }

@@ -37,6 +37,14 @@ typedef enum
 	KERNEL_ERR_NOT_INITIALIZED
 } kernel_status_t;
 
+typedef enum
+{
+	TASK_WAIT_NONE = 0U,
+	TASK_WAIT_SEMAPHORE,
+	TASK_WAIT_QUEUE_SEND,
+	TASK_WAIT_QUEUE_RECEIVE
+} task_wait_kind_t;
+
 kernel_status_t kernel_init(const kernel_config_t *config);
 void kernel_start(void);
 void yield(void);
@@ -48,6 +56,8 @@ uint32_t critical_enter(void);
 void critical_exit(uint32_t saved_primask);
 void tick_tasks(void);
 void sleep_current(uint32_t ticks);
+int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks);
+void task_wake(void *object, task_wait_kind_t wait_kind);
 uint32_t *pendsv_switch(uint32_t *current_sp);
 
 extern volatile uint32_t g_current_task_index;

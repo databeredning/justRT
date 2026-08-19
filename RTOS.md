@@ -220,7 +220,8 @@ enum
 {
     TASK_READY = 0U,
     TASK_RUNNING = 1U,
-    TASK_SLEEPING = 2U
+    TASK_SLEEPING = 2U,
+    TASK_BLOCKED = 3U
 };
 ```
 
@@ -234,7 +235,13 @@ The task is the current task. There is only one current task on the active core.
 
 #### `TASK_SLEEPING`
 
-The task is blocked until its `sleep_ticks` counter reaches zero.
+The task is delayed until its `sleep_ticks` counter reaches zero.
+
+#### `TASK_BLOCKED`
+
+The task is waiting on a semaphore or queue operation. It is removed from
+scheduler selection until the synchronization object wakes it or its timeout
+expires.
 
 ### `task_t`
 
@@ -459,7 +466,10 @@ This path is separate from exception return because the first task is launched d
 
 ### Scheduler selection
 
-`pendsv_switch()` performs a simple round-robin search over three slots. Starting after the current task, it checks up to three positions and selects the first task whose state is not `TASK_SLEEPING`.
+`pendsv_switch()` selects the highest-priority ready task. Starting after the
+current task, it selects the first task with that priority, preserving
+round-robin behavior among equal-priority tasks. Sleeping and blocked tasks
+are excluded.
 
 The scheduler currently treats every non-sleeping task as selectable. There is no separate check for `TASK_READY` versus `TASK_RUNNING`, because the current state set is small and the current task is normalized before selection.
 
@@ -808,9 +818,11 @@ semaphore_init(&semaphore, 0U);
 
 `semaphore_take()` returns immediately for a zero timeout, retries once per
 tick for a finite timeout, and waits indefinitely with
-`SEMAPHORE_WAIT_FOREVER`. `semaphore_give()` publishes the token under a
-PRIMASK critical section. These APIs are currently intended for task context;
-ISR-specific give and take services are not yet defined.
+`SEMAPHORE_WAIT_FOREVER`. A task that cannot take the semaphore enters the
+kernel `TASK_BLOCKED` state rather than polling. `semaphore_give()` publishes
+the token and wakes the matching blocked task under a PRIMASK critical
+section. These APIs are currently intended for task context; ISR-specific
+give and take services are not yet defined.
 
 ### 17.8 IPC
 
@@ -824,10 +836,11 @@ queue_init(&queue, storage, 4U, sizeof(uint32_t));
 ```
 
 `queue_send()` and `queue_receive()` use the same zero, finite, and
-`SEMAPHORE_WAIT_FOREVER` timeout meanings as the semaphore. Ring-buffer state
-and item copies are protected by PRIMASK. These APIs are currently intended
-for task context; ISR-specific operations and notification of waiting tasks
-are not yet defined.
+`SEMAPHORE_WAIT_FOREVER` timeout meanings as the semaphore. Full senders and
+empty receivers enter `TASK_BLOCKED`; a successful receive wakes a blocked
+sender and a successful send wakes a blocked receiver. Ring-buffer state and
+item copies are protected by PRIMASK. These APIs are currently intended for
+task context; ISR-specific operations are not yet defined.
 
 ### 17.9 Synchronization example
 
