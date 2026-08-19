@@ -28,12 +28,14 @@ The current source layout is:
 
 ```text
 main.c                         Platform/application entry point
+examples/heartbeat.c           Example task definitions and board startup
+examples/heartbeat.h           Heartbeat example entry point
 system.c                       Runtime data/BSS initialization and default handlers
 startup_cm7.s                  Reset sequence, stack setup, ECC/TCM initialization
 Vector_Table.s                 Cortex-M vector table
 linker_flash_s32k312.ld       Flash/SRAM layout and linker symbols
 kernel/kernel.h                Kernel-facing declarations
-kernel/task.c                  Task model, stacks, scheduler, task bodies
+kernel/task.c                  Task model, stacks, scheduler, task registration
 kernel/port_cm7.c              SysTick, SVC, PendSV, and Cortex-M7 instructions
 kernel/fault.c                 Fault frame and system register capture
 board/board.h                  Board-facing LED interface
@@ -61,9 +63,12 @@ Reset_Handler
     +-- call SystemInit()
     +-- call main()
              |
-             +-- start()
+             +-- heartbeat_example_start()
                       |
-                      +-- prepare_tasks()
+                      +-- board_init()
+                      +-- kernel_start()
+                               |
+                               +-- prepare configured tasks
                       +-- tick_init()
                       +-- launch_first_task()
                                |
@@ -74,20 +79,24 @@ Reset_Handler
 
 #### `main()`
 
-The entry point calls `start()`. `start()` is expected never to return.
+The entry point calls `heartbeat_example_start()`. The example initializes
+the board and passes its task-entry table to `kernel_start()`.
 
 
 ## 4. Public Kernel Declarations
 
 The declarations shared by the kernel files are in `kernel/kernel.h`.
 
-### `start()`
+### `kernel_start()`
 
 ```c
-void start(void);
+void kernel_start(const task_config_t *config);
 ```
 
-Starts the kernel. It prepares the static task slots, selects task zero, enables the tick source, and launches the first task.
+Starts the kernel with application-provided task entries. It prepares the
+static task slots, adds the kernel-owned idle task, enables the tick source,
+and launches the first task. The configuration must provide one or two worker
+entries; the third slot is reserved for idle.
 
 This function is called from `main()` after platform sanity checks.
 
@@ -259,7 +268,7 @@ Task entry function associated with the task.
 
 ## 6. Static Tasks and Stacks
 
-The current kernel has three statically allocated task slots:
+The kernel has three statically allocated task slots:
 
 ```c
 static uint32_t task0_stack[128] __attribute__((aligned(8)));
@@ -271,18 +280,18 @@ Each stack contains 128 32-bit words, or 512 bytes. The alignment attribute prov
 
 There is no heap allocation. Task storage and stacks are known at link time.
 
-### Task 0
+### Heartbeat example task
 
-`task0_body()` toggles the run LED and sleeps for 100 ticks.
+The heartbeat example toggles the run LED and sleeps for 750 ticks.
 
-### Task 1
+### Activity example task
 
-`task1_body()` periodically sleeps for seven ticks, exercising SVC number one
-and the sleeping state.
+The activity example periodically sleeps for seven ticks, exercising SVC
+number one and the sleeping state.
 
 ### Idle task
 
-`idle_body()` executes:
+The kernel idle task executes:
 
 ```c
 __asm volatile ("wfi" : : : "memory");
@@ -290,9 +299,9 @@ __asm volatile ("wfi" : : : "memory");
 
 The idle task is selected when the worker tasks are sleeping or otherwise unavailable. `WFI` allows the core to wait for the next interrupt.
 
-### `prepare_tasks()`
+### `prepare_task()`
 
-Initializes all three task records explicitly:
+Initializes a task record from an application-provided entry:
 
 1. Assigns each stack's bottom and top.
 2. Builds an initial stack frame.
@@ -300,7 +309,9 @@ Initializes all three task records explicitly:
 4. Clears or initializes task metadata.
 5. Assigns the entry function.
 
-The current implementation intentionally avoids a generalized task creation API while the low-level scheduler is still being developed.
+The kernel owns storage and scheduling; applications own task entry functions
+and their selection. Future examples can provide a different entry table
+without modifying kernel sources.
 
 ## 6.1 Native Board LED
 
@@ -319,7 +330,10 @@ PTB18 SIUL2 pin:  50 (port B offset 32 + pin 18)
 MSCR OBE:         bit 21
 ```
 
-`board_init()` is called by `start()` before task stacks are prepared. Task 0 calls `board_led_toggle()` and then sleeps for 750 RTOS ticks, approximately 100 ms at the current clock. This makes the LED heartbeat independent of compiler-dependent loop speed and avoids placing peripheral register knowledge in the scheduler.
+`heartbeat_example_start()` calls `board_init()` before `kernel_start()`.
+The heartbeat task calls `board_led_toggle()` and then sleeps for 750 RTOS
+ticks, approximately 100 ms at the current clock. This keeps board setup and
+application behavior outside the kernel.
 
 The implementation assumes the board LED is connected directly to PTB18, GPIO is the default SIUL2 signal, and the LED is active-high. If the LED is active-low, invert `led_state` before writing GPDO. If the board uses a different SIUL2 register map or pin mux configuration, only `board/board.c` should change.
 

@@ -9,7 +9,7 @@ DEBUGFLAGS := -Og -g3
 CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -34,6 +34,9 @@ $(OBJDIR)/system.o: system.c | $(OBJDIR)
 $(OBJDIR)/main.o: main.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(OBJDIR)/examples/heartbeat.o: examples/heartbeat.c examples/heartbeat.h kernel/kernel.h | $(OBJDIR)/examples
+	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
+
 $(OBJDIR)/kernel/task.o: kernel/task.c kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
@@ -49,7 +52,7 @@ $(OBJDIR)/kernel/sync.o: kernel/sync.c kernel/sync.h kernel/kernel.h | $(OBJDIR)
 $(OBJDIR)/board/board.o: board/board.c board/board.h | $(OBJDIR)/board
 	$(CC) $(CFLAGS) -Iboard -c $< -o $@
 
-$(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/board $(BINDIR):
+$(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/examples $(OBJDIR)/board $(BINDIR):
 	mkdir -p $@
 
 clean:

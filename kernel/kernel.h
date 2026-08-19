@@ -3,14 +3,21 @@
 
 #include <stdint.h>
 
-#include "../board/board.h"
 #include "sync.h"
 
 #define KERNEL_CORE_CLOCK_HZ 120000000UL
 #define KERNEL_TICK_RATE_HZ 7500UL
 #define KERNEL_SYSTICK_RELOAD ((KERNEL_CORE_CLOCK_HZ / KERNEL_TICK_RATE_HZ) - 1UL)
 
-void start(void);
+typedef void (*task_entry_t)(void);
+
+typedef struct
+{
+	const task_entry_t *entries;
+	uint32_t count;
+} task_config_t;
+
+void kernel_start(const task_config_t *config);
 void yield(void);
 void sleep_ticks(uint32_t ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);

@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "kernel.h"
+#include "../board/board.h"
 
 #define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
 #define SYST_RVR (*(volatile uint32_t *)0xE000E014U)

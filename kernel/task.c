@@ -2,9 +2,8 @@
 
 #include "kernel.h"
 
-typedef void (*task_entry_t)(void);
-
-#define TASK_COUNT 3U
+#define TASK_MAX_TASKS 3U
+#define TASK_IDLE_INDEX (TASK_MAX_TASKS - 1U)
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
 #define TASK_GUARD_WORDS 8U
@@ -58,17 +57,17 @@ volatile uint32_t g_stack_fault_sp = 0U;
 static task_storage_t task0_storage;
 static task_storage_t task1_storage;
 static task_storage_t idle_storage;
-static uint32_t task1_run_count;
-static task_t tasks[TASK_COUNT] = {
+static task_t tasks[TASK_MAX_TASKS] = {
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U },
     { 0U, 0U, 0U, TASK_READY, 0U, 0U, 0U, 0U, 0U }
 };
 static task_t *current_task = &tasks[0];
+static uint32_t task_count;
 
 static void configure_stack_guards(void)
 {
-    const task_storage_t *storage[TASK_COUNT] = {
+    const task_storage_t *storage[TASK_MAX_TASKS] = {
         &task0_storage,
         &task1_storage,
         &idle_storage
@@ -77,7 +76,7 @@ static void configure_stack_guards(void)
 
     MPU_CTRL = 0U;
     SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
-    for (index = 0U; index < TASK_COUNT; index++)
+    for (index = 0U; index < task_count; index++)
     {
         MPU_RNR = index + MPU_GUARD_REGION_FIRST;
         MPU_RBAR = (uint32_t)(uintptr_t)&storage[index]->guard[0];
@@ -157,27 +156,6 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
     task->high_water_words = (uint32_t)(task->stack_top - word);
 }
 
-static void task0_body(void)
-{
-    while (1)
-    {
-        board_led_toggle();
-        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
-    }
-}
-
-static void task1_body(void)
-{
-    while (1)
-    {
-        task1_run_count++;
-        if ((task1_run_count & 0xFFU) == 0U)
-        {
-            sleep_ticks(7U);
-        }
-    }
-}
-
 static void idle_body(void)
 {
     while (1)
@@ -186,34 +164,31 @@ static void idle_body(void)
     }
 }
 
-static void prepare_tasks(void)
+static void prepare_task(uint32_t index, task_entry_t entry)
 {
-    fill_stack(&task0_storage.stack[0], &task0_storage.stack[TASK_STACK_WORDS]);
-    tasks[0].stack_bottom = &task0_storage.stack[0];
-    tasks[0].stack_top = &task0_storage.stack[TASK_STACK_WORDS];
-    tasks[0].sp = build_initial_stack(tasks[0].stack_top, task0_body);
-    tasks[0].state = TASK_READY;
-    tasks[0].minimum_sp = tasks[0].sp;
-    tasks[0].high_water_words = 16U;
-    tasks[0].entry = task0_body;
+    task_storage_t *storage = (index == 0U) ? &task0_storage : &task1_storage;
 
-    fill_stack(&task1_storage.stack[0], &task1_storage.stack[TASK_STACK_WORDS]);
-    tasks[1].stack_bottom = &task1_storage.stack[0];
-    tasks[1].stack_top = &task1_storage.stack[TASK_STACK_WORDS];
-    tasks[1].sp = build_initial_stack(tasks[1].stack_top, task1_body);
-    tasks[1].state = TASK_READY;
-    tasks[1].minimum_sp = tasks[1].sp;
-    tasks[1].high_water_words = 16U;
-    tasks[1].entry = task1_body;
+    fill_stack(&storage->stack[0], &storage->stack[TASK_STACK_WORDS]);
+    tasks[index].stack_bottom = &storage->stack[0];
+    tasks[index].stack_top = &storage->stack[TASK_STACK_WORDS];
+    tasks[index].sp = build_initial_stack(tasks[index].stack_top, entry);
+    tasks[index].state = TASK_READY;
+    tasks[index].minimum_sp = tasks[index].sp;
+    tasks[index].high_water_words = 16U;
+    tasks[index].entry = entry;
+}
 
+static void prepare_idle_task(void)
+{
     fill_stack(&idle_storage.stack[0], &idle_storage.stack[TASK_STACK_WORDS]);
-    tasks[2].stack_bottom = &idle_storage.stack[0];
-    tasks[2].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
-    tasks[2].sp = build_initial_stack(tasks[2].stack_top, idle_body);
-    tasks[2].state = TASK_READY;
-    tasks[2].minimum_sp = tasks[2].sp;
-    tasks[2].high_water_words = 16U;
-    tasks[2].entry = idle_body;
+    tasks[TASK_IDLE_INDEX].stack_bottom = &idle_storage.stack[0];
+    tasks[TASK_IDLE_INDEX].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
+    tasks[TASK_IDLE_INDEX].sp = build_initial_stack(
+        tasks[TASK_IDLE_INDEX].stack_top, idle_body);
+    tasks[TASK_IDLE_INDEX].state = TASK_READY;
+    tasks[TASK_IDLE_INDEX].minimum_sp = tasks[TASK_IDLE_INDEX].sp;
+    tasks[TASK_IDLE_INDEX].high_water_words = 16U;
+    tasks[TASK_IDLE_INDEX].entry = idle_body;
 }
 
 void sleep_current(uint32_t ticks)
@@ -230,7 +205,7 @@ void tick_tasks(void)
     uint32_t saved_primask = critical_enter();
     uint32_t index;
 
-    for (index = 0U; index < TASK_COUNT; index++)
+    for (index = 0U; index <= TASK_IDLE_INDEX; index++)
     {
         if ((tasks[index].state == TASK_SLEEPING) && (tasks[index].sleep_ticks > 0U))
         {
@@ -259,9 +234,9 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
         current_task->state = TASK_READY;
     }
 
-    for (offset = 1U; offset <= TASK_COUNT; offset++)
+    for (offset = 1U; offset <= task_count; offset++)
     {
-        next_index = (g_current_task_index + offset) % TASK_COUNT;
+        next_index = (g_current_task_index + offset) % task_count;
         if (tasks[next_index].state != TASK_SLEEPING)
         {
             break;
@@ -297,10 +272,22 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
     );
 }
 
-void start(void)
+void kernel_start(const task_config_t *config)
 {
-    board_init();
-    prepare_tasks();
+    if ((config == 0U) || (config->entries == 0U)
+        || (config->count == 0U) || (config->count >= TASK_MAX_TASKS))
+    {
+        while (1)
+        {
+        }
+    }
+
+    task_count = config->count + 1U;
+    for (uint32_t index = 0U; index < config->count; index++)
+    {
+        prepare_task(index, config->entries[index]);
+    }
+    prepare_idle_task();
     configure_stack_guards();
     current_task = &tasks[0];
     g_current_task_index = 0U;

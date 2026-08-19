@@ -48,7 +48,7 @@ on the actual core clock because SysTick uses that clock.
 
 ## SIUL2 Clock Dependency
 
-SIUL2 must be clocked before *any* SIUL2 register access. `start()` calls
+SIUL2 must be clocked before *any* SIUL2 register access. The heartbeat example calls
 `board_init()` before task creation and before SysTick is enabled. The first
 operation in `board_init()` is `enable_siul2_clock()`.
 
@@ -84,7 +84,7 @@ write PGPDO3 before enabling the output buffer.
 
 ## Runtime Blink Path
 
-The first static task is the run-LED task. Each iteration of `task0_body()`
+The heartbeat example's LED task
 calls `board_led_toggle()` directly, then sleeps for `ms_to_ticks(100)`
 (`ms_to_ticks(100)`, approximately 100 ms at a 120 MHz core clock).
 
