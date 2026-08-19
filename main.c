@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/semaphore_event.h"
+#include "examples/mutex_contention.h"
 
 int main(void)
 {
-    semaphore_event_start();
+    mutex_contention_start();
 
     return 0;
 }

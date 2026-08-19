@@ -8,6 +8,12 @@ typedef struct
     volatile uint32_t available;
 } semaphore_t;
 
+typedef struct
+{
+    volatile uint32_t locked;
+    volatile uint32_t owner;
+} mutex_t;
+
 #define SEMAPHORE_WAIT_FOREVER UINT32_MAX
 
 typedef struct
@@ -23,6 +29,10 @@ typedef struct
 void semaphore_init(semaphore_t *semaphore, uint32_t initially_available);
 int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks);
 void semaphore_give(semaphore_t *semaphore);
+
+void mutex_init(mutex_t *mutex);
+int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks);
+int mutex_unlock(mutex_t *mutex);
 
 void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_size);
 int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks);

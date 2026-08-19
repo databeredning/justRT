@@ -824,7 +824,24 @@ the token and wakes the matching blocked task under a PRIMASK critical
 section. These APIs are currently intended for task context; ISR-specific
 give and take services are not yet defined.
 
-### 17.8 IPC
+### 17.8 Mutex
+
+The kernel provides a static, task-owned mutex:
+
+```c
+mutex_t mutex;
+mutex_init(&mutex);
+mutex_lock(&mutex, SEMAPHORE_WAIT_FOREVER);
+/* protected resource */
+mutex_unlock(&mutex);
+```
+
+Only the owning task may unlock the mutex. Recursive locking and unlocking by
+another task return failure. A contending task enters `TASK_BLOCKED` until the
+owner releases the mutex or the timeout expires. Priority inheritance is not
+implemented yet.
+
+### 17.9 IPC
 
 The kernel now provides a bounded static byte queue. The caller owns the
 storage and initializes it with a capacity and fixed item size:
@@ -842,7 +859,7 @@ sender and a successful send wakes a blocked receiver. Ring-buffer state and
 item copies are protected by PRIMASK. These APIs are currently intended for
 task context; ISR-specific operations are not yet defined.
 
-### 17.9 Synchronization example
+### 17.10 Synchronization example
 
 `examples/sync_producer_consumer.c` provides a selectable producer/consumer
 application. The producer sends incrementing values into a bounded queue and
@@ -854,7 +871,7 @@ progress to the debugger.
 The default `main.c` continues to select the heartbeat example. To run this
 example, select `sync_producer_consumer_start()` from `main()` instead.
 
-### 17.10 Semaphore event example
+### 17.11 Semaphore event example
 
 `examples/semaphore_event.c` demonstrates semaphore-only event notification.
 The event source gives a binary semaphore every 100 ms. The worker blocks on
@@ -865,7 +882,18 @@ The debugger-visible counters are `g_semaphore_events_sent`,
 The default `main.c` continues to select the queue example. To run this
 example, select `semaphore_event_start()` from `main()` instead.
 
-### 17.11 Watchdog integration
+### 17.12 Mutex contention example
+
+`examples/mutex_contention.c` demonstrates mutex ownership and contention.
+The owner and contender update a shared counter only while holding the mutex.
+The debugger-visible counters are `g_mutex_owner_operations`,
+`g_mutex_contender_operations`, and `g_mutex_error`. A nonzero error indicates
+failed ownership or timeout behavior.
+
+The default `main.c` continues to select the semaphore example. To run this
+example, select `mutex_contention_start()` from `main()` instead.
+
+### 17.13 Watchdog integration
 
 Assign watchdog responsibilities to the kernel and define what happens when a task misses its service window.
 

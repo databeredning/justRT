@@ -75,6 +75,11 @@ static task_t *current_task = &tasks[0];
 static uint32_t task_count;
 static uint32_t kernel_initialized;
 
+uint32_t task_current_index(void)
+{
+    return g_current_task_index;
+}
+
 static void configure_stack_guards(void)
 {
     const task_storage_t *storage[TASK_MAX_TASKS] = {

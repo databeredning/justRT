@@ -44,6 +44,64 @@ void semaphore_give(semaphore_t *semaphore)
     critical_exit(saved_primask);
 }
 
+void mutex_init(mutex_t *mutex)
+{
+    uint32_t saved_primask = critical_enter();
+
+    mutex->locked = 0U;
+    mutex->owner = UINT32_MAX;
+    critical_exit(saved_primask);
+}
+
+int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
+{
+    uint32_t current_index = task_current_index();
+
+    while (1)
+    {
+        uint32_t saved_primask = critical_enter();
+
+        if (mutex->locked == 0U)
+        {
+            mutex->locked = 1U;
+            mutex->owner = current_index;
+            critical_exit(saved_primask);
+            return 1;
+        }
+        if (mutex->owner == current_index)
+        {
+            critical_exit(saved_primask);
+            return 0;
+        }
+        critical_exit(saved_primask);
+
+        if (timeout_ticks == 0U)
+        {
+            return 0;
+        }
+        if (task_block(mutex, TASK_WAIT_MUTEX, timeout_ticks) == 0)
+        {
+            return 0;
+        }
+    }
+}
+
+int mutex_unlock(mutex_t *mutex)
+{
+    uint32_t saved_primask = critical_enter();
+
+    if ((mutex->locked == 0U) || (mutex->owner != task_current_index()))
+    {
+        critical_exit(saved_primask);
+        return 0;
+    }
+    mutex->locked = 0U;
+    mutex->owner = UINT32_MAX;
+    task_wake(mutex, TASK_WAIT_MUTEX);
+    critical_exit(saved_primask);
+    return 1;
+}
+
 void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_size)
 {
     uint32_t saved_primask = critical_enter();
