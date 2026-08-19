@@ -8,6 +8,8 @@ void yield(void);
 void sleep_ticks(uint32_t ticks);
 void tick_init(void);
 void request_switch(void);
+uint32_t critical_enter(void);
+void critical_exit(uint32_t saved_primask);
 void tick_tasks(void);
 void sleep_current(uint32_t ticks);
 uint32_t *pendsv_switch(uint32_t *current_sp);

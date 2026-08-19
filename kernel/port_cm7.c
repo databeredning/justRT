@@ -36,6 +36,29 @@ void request_switch(void)
     SCB_ICSR = SCB_ICSR_PENDSVSET;
 }
 
+uint32_t critical_enter(void)
+{
+    uint32_t saved_primask;
+
+    __asm volatile (
+        "mrs %0, primask\n"
+        "cpsid i\n"
+        : "=r" (saved_primask)
+        :
+        : "memory");
+
+    return saved_primask;
+}
+
+void critical_exit(uint32_t saved_primask)
+{
+    __asm volatile (
+        "msr primask, %0\n"
+        :
+        : "r" (saved_primask)
+        : "memory");
+}
+
 void yield(void)
 {
     __asm volatile ("svc 0" : : : "memory");

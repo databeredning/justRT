@@ -157,6 +157,20 @@ The current reload value is `15999`, which is a hardware-clock-dependent interva
 
 Sets the PendSV pending bit in SCB ICSR. PendSV performs the actual context switch at the lowest configured exception priority.
 
+### `critical_enter()` and `critical_exit()`
+
+These Cortex-M7 port primitives provide a save-and-restore interrupt mask boundary using PRIMASK:
+
+```c
+uint32_t saved_primask = critical_enter();
+/* protected kernel state access */
+critical_exit(saved_primask);
+```
+
+`critical_enter()` returns the previous PRIMASK value before executing `CPSID I`. `critical_exit()` restores that exact value rather than blindly enabling interrupts, preserving an already-disabled outer critical section.
+
+These primitives are currently a low-level foundation. They should be applied selectively around shared task-state mutations as the scheduler grows.
+
 ### `tick_tasks()`
 
 Called by SysTick. It decrements the sleep counter for every sleeping task and changes tasks whose counter reaches zero back to `TASK_READY`.
@@ -757,7 +771,7 @@ The following limitations are known and intentional at this stage:
 11. SVC calls are not privilege-checked.
 12. Fault handlers do not yet capture the floating-point extended frame.
 13. Stack bounds are recorded conceptually by `task_t` but not checked at runtime.
-14. The task scheduler does not yet protect its shared data with a formal critical-section abstraction.
+14. The task scheduler does not yet apply the critical-section abstraction throughout all shared-data mutations.
 15. The SysTick reload value is hard-coded.
 16. Watchdog servicing and watchdog recovery are not integrated.
 17. Cache maintenance and memory attributes are not yet part of the kernel API.
@@ -772,7 +786,7 @@ The first stack watermark and scheduler-time bounds checks are now implemented. 
 
 ### 17.2 Critical-section primitives
 
-Add architecture-specific interrupt mask helpers and document which kernel functions may run from handlers.
+Architecture-specific PRIMASK helpers are now present. The next refinement is to apply them selectively around shared task-state mutations and define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
 
 ### 17.3 Fault hardening
 
