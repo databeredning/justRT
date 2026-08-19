@@ -726,6 +726,20 @@ g_fault_record.cfsr
 g_fault_record.hfsr
 ```
 
+For `mutex_priority_inheritance_start()`, also watch:
+
+```text
+g_inheritance_low_priority
+g_inheritance_high_state
+g_inheritance_low_operations
+g_inheritance_high_operations
+g_inheritance_error
+```
+
+Expected behavior is that `g_inheritance_low_priority` rises from `1` to
+`3` while the high-priority task waits on the mutex, then returns to `1`
+after the owner unlocks it. `g_inheritance_error` should remain `0`.
+
 Expected runtime behavior:
 
 - The run LED toggles every 100 ticks.
@@ -903,7 +917,19 @@ ownership, timeout, or inspection behavior.
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_contention_start()` from `main()` instead.
 
-### 17.13 Task inspection
+### 17.13 Mutex priority-inheritance example
+
+`examples/mutex_priority_inheritance.c` starts a low-priority mutex owner and
+a high-priority waiter. When the waiter blocks, the owner inherits the
+waiter's effective priority until it unlocks the mutex. Inspect
+`g_inheritance_low_priority`, `g_inheritance_high_state`,
+`g_inheritance_low_operations`, `g_inheritance_high_operations`, and
+`g_inheritance_error` in the debugger.
+
+The default `main.c` continues to select the semaphore example. To run this
+example, select `mutex_priority_inheritance_start()` from `main()` instead.
+
+### 17.14 Task inspection
 
 The kernel exposes read-only diagnostic queries for each static task ID:
 
@@ -920,7 +946,7 @@ pointers return `KERNEL_ERR_INVALID_TASK`. Task IDs are stable slot indexes;
 the current configuration uses worker tasks first and the kernel idle task in
 the final slot.
 
-### 17.14 Watchdog integration
+### 17.15 Watchdog integration
 
 The inspection API provides the foundation for future watchdog service-window
 monitoring, but watchdog behavior is not yet integrated.

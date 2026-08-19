@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/mutex_contention.h"
+#include "examples/mutex_priority_inheritance.h"
 
 int main(void)
 {
-    mutex_contention_start();
+    mutex_priority_inheritance_start();
 
     return 0;
 }
