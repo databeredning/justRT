@@ -16,6 +16,8 @@
 #define SCB_SHCSR_MEMFAULTENA (1UL << 16)
 
 #define MPU_GUARD_REGION_FIRST 0U
+#define MPU_REGION_COUNT 16U
+#define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
 
 typedef struct
 {
@@ -592,7 +594,11 @@ kernel_status_t kernel_init(const kernel_config_t *config)
     {
         return KERNEL_ERR_INVALID_CONFIG;
     }
-    if (config->task_count >= KERNEL_MAX_TASKS)
+    if ((config->task_count + 1U) > KERNEL_MAX_TASKS)
+    {
+        return KERNEL_ERR_TOO_MANY_TASKS;
+    }
+    if ((config->task_count + 1U) > MPU_GUARD_REGION_COUNT)
     {
         return KERNEL_ERR_TOO_MANY_TASKS;
     }

@@ -98,7 +98,7 @@ void kernel_start(void);
 definitions. It returns an error instead of entering the scheduler when the
 configuration is invalid. `kernel_start()` must be called after successful
 initialization; it enables the tick source and launches the first task. The
-configuration must provide one or two worker definitions; the third slot is
+configuration can provide up to seven worker definitions; the final slot is
 reserved for the kernel idle task.
 
 This function is called from `main()` after platform sanity checks.
@@ -776,6 +776,7 @@ The current design provides these useful guarantees:
 The following limitations are known and intentional at this stage:
 
 1. The scheduler has a fixed maximum of `KERNEL_MAX_TASKS` slots.
+The current default is `8` total slots: up to seven worker tasks plus idle.
 2. Task stacks are bounded by `KERNEL_TASK_STACK_WORDS` words.
 3. There is no public task creation API.
 4. There is no task deletion or termination service.
