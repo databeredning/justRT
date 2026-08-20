@@ -4,6 +4,8 @@
 
 #define RUN_LED_PERIOD_MS 100U
 
+volatile uint32_t g_privilege_probe_runs TASK_UNPRIVILEGED_DATA;
+
 static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
 {
     (void)argument;
@@ -30,9 +32,23 @@ static TASK_UNPRIVILEGED void activity_task(void *argument)
     }
 }
 
+static TASK_UNPRIVILEGED void privilege_counter_task(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        g_privilege_probe_runs++;
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
+};
+
+static const task_definition_t privilege_counter_tasks[] TASK_UNPRIVILEGED_RODATA = {
+        { privilege_counter_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+            "privilege-counter", TASK_FLAG_UNPRIVILEGED }
 };
 
 void heartbeat_example_start(void)
@@ -43,6 +59,22 @@ void heartbeat_example_start(void)
     };
 
     board_init();
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_privilege_counter_start(void)
+{
+    const kernel_config_t config = {
+        privilege_counter_tasks,
+        sizeof(privilege_counter_tasks) / sizeof(privilege_counter_tasks[0])
+    };
+
     if (kernel_init(&config) != KERNEL_OK)
     {
         while (1)

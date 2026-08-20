@@ -6,6 +6,7 @@
 #define MAIN_PROFILE_REGRESSION_ISR_SYNC 1U
 #define MAIN_PROFILE_REGRESSION_ISR_QFULL 2U
 #define MAIN_PROFILE_SOAK 3U
+#define MAIN_PROFILE_PRIVILEGE_COUNTER 4U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -19,6 +20,8 @@ int main(void)
     isr_sync_queue_full_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_SOAK
     isr_sync_soak_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_PRIVILEGE_COUNTER
+    heartbeat_privilege_counter_start();
 #else
     heartbeat_example_start();
 #endif

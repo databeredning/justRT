@@ -13,6 +13,7 @@
 #define KERNEL_TASK_GUARD_WORDS 8U
 #define KERNEL_TASK_STACK_FILL 0xA5A5A5A5UL
 #define KERNEL_INITIAL_STACK_USED_WORDS 16U
+#define TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))
 #define KERNEL_PRIVILEGED_DATA __attribute__((section(".privileged_data")))
 #define TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
