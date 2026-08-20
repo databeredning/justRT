@@ -26,13 +26,24 @@ SECTIONS
         *(.gnu.linkonce.armexidx.*)
     }
 
+    /* Keep the immutable vector table at the image flash origin. */
+    .flash :
+    {
+        . = ALIGN(4);
+        KEEP(*(.boot_header))
+        . = ALIGN(4096);
+        __ROM_INTERRUPT_START = .;
+        KEEP(*(.intc_vector))
+        . = ALIGN(4);
+        __ROM_INTERRUPT_END = .;
+        KEEP(*(.startup))
+    } > int_flash
+
     /* Kernel and board code are the privileged executable range. */
     .privileged_functions :
     {
         . = ALIGN(4);
         __privileged_functions_start = .;
-        obj/kernel/*.o(.text .text.*)
-        obj/board/*.o(.text .text.*)
         *(.privileged_functions .privileged_functions.*)
         . = ALIGN(4);
         __privileged_functions_end = .;
@@ -43,7 +54,6 @@ SECTIONS
     {
         . = ALIGN(4);
         __unprivileged_functions_start = .;
-        obj/examples/*.o(.text .text.*)
         *(.unprivileged_functions .unprivileged_functions.*)
         . = ALIGN(4);
         __unprivileged_functions_end = .;
@@ -58,18 +68,10 @@ SECTIONS
         __system_calls_flash_end = .;
     } > int_flash
 
-    /* Boot header, vectors, startup code, application code, constants, and
-       the startup copy/zero tables all live in program flash. */
-    .flash :
+     /* Application code, constants, and startup copy/zero tables follow the
+         explicitly classified executable ranges. */
+     .flash_code :
     {
-        . = ALIGN(4);
-        KEEP(*(.boot_header))
-        . = ALIGN(4096);
-        __ROM_INTERRUPT_START = .;
-        KEEP(*(.intc_vector))
-        . = ALIGN(4);
-        __ROM_INTERRUPT_END = .;
-        KEEP(*(.startup))
         *(.text .text.*)
         *(.rodata .rodata.*)
 
