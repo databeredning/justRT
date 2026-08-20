@@ -919,12 +919,13 @@ example, select `mutex_contention_start()` from `main()` instead.
 
 ### 17.13 Mutex priority-inheritance example
 
-`examples/mutex_priority_inheritance.c` starts a low-priority mutex owner and
-a high-priority waiter. When the waiter blocks, the owner inherits the
-waiter's effective priority until it unlocks the mutex. Inspect
+`examples/mutex_priority_inheritance.c` starts a low-priority mutex owner, a
+medium-priority CPU task, and a high-priority waiter. When the waiter blocks,
+the owner inherits the waiter's effective priority and runs ahead of the
+medium task until it unlocks the mutex. Inspect
 `g_inheritance_low_priority`, `g_inheritance_high_state`,
-`g_inheritance_low_operations`, `g_inheritance_high_operations`, and
-`g_inheritance_error` in the debugger.
+`g_inheritance_low_operations`, `g_inheritance_high_operations`,
+`g_inheritance_medium_operations`, and `g_inheritance_error` in the debugger.
 
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_priority_inheritance_start()` from `main()` instead.

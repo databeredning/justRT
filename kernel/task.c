@@ -2,7 +2,7 @@
 
 #include "kernel.h"
 
-#define TASK_MAX_TASKS 3U
+#define TASK_MAX_TASKS 4U
 #define TASK_IDLE_INDEX (TASK_MAX_TASKS - 1U)
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
@@ -66,8 +66,10 @@ volatile uint32_t g_stack_fault_task = 0U;
 volatile uint32_t g_stack_fault_sp = 0U;
 static task_storage_t task0_storage;
 static task_storage_t task1_storage;
+static task_storage_t task2_storage;
 static task_storage_t idle_storage;
 static task_t tasks[TASK_MAX_TASKS] = {
+    { 0U },
     { 0U },
     { 0U },
     { 0U }
@@ -179,6 +181,7 @@ static void configure_stack_guards(void)
     const task_storage_t *storage[TASK_MAX_TASKS] = {
         &task0_storage,
         &task1_storage,
+        &task2_storage,
         &idle_storage
     };
     uint32_t index;
@@ -277,7 +280,8 @@ static void idle_body(void *argument)
 
 static void prepare_task(uint32_t index, const task_definition_t *definition)
 {
-    task_storage_t *storage = (index == 0U) ? &task0_storage : &task1_storage;
+    task_storage_t *storage = (index == 0U) ? &task0_storage
+        : (index == 1U) ? &task1_storage : &task2_storage;
     uint32_t *stack_bottom = &storage->stack[0];
     uint32_t *stack_top = &storage->stack[definition->stack_words];
 

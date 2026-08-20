@@ -5,7 +5,9 @@
 
 #define LOW_TASK_ID 0U
 #define HIGH_TASK_ID 1U
+#define MEDIUM_TASK_ID 2U
 #define LOW_BASE_PRIORITY 1U
+#define MEDIUM_PRIORITY 2U
 #define HIGH_PRIORITY 3U
 #define HOLD_TIME_MS 20U
 
@@ -14,6 +16,7 @@ volatile uint32_t g_inheritance_low_priority;
 volatile uint32_t g_inheritance_high_state;
 volatile uint32_t g_inheritance_low_operations;
 volatile uint32_t g_inheritance_high_operations;
+volatile uint32_t g_inheritance_medium_operations;
 volatile uint32_t g_inheritance_error;
 
 static void low_owner_task(void *argument)
@@ -71,9 +74,19 @@ static void high_waiter_task(void *argument)
     }
 }
 
+static void medium_task(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        g_inheritance_medium_operations++;
+    }
+}
+
 static const task_definition_t inheritance_tasks[] = {
     { low_owner_task, 0U, 128U, LOW_BASE_PRIORITY, "low-owner", 0U },
-    { high_waiter_task, 0U, 128U, HIGH_PRIORITY, "high-waiter", 0U }
+    { high_waiter_task, 0U, 128U, HIGH_PRIORITY, "high-waiter", 0U },
+    { medium_task, 0U, 128U, MEDIUM_PRIORITY, "medium", 0U }
 };
 
 void mutex_priority_inheritance_start(void)
@@ -88,6 +101,7 @@ void mutex_priority_inheritance_start(void)
     g_inheritance_high_state = 0U;
     g_inheritance_low_operations = 0U;
     g_inheritance_high_operations = 0U;
+    g_inheritance_medium_operations = 0U;
     g_inheritance_error = 0U;
 
     if (kernel_init(&config) != KERNEL_OK)
