@@ -968,6 +968,29 @@ rejects unlock attempts by a non-owner. Inspect
 should be `1` except `g_mutex_non_owner_unlock`, which should be `0`; the
 error value should remain `0`.
 
+### 17.17 Waiter priority-wake example
+
+`examples/waiter_priority_wake.c` validates wake ordering when two tasks block
+on the same semaphore. The first give must wake the higher-priority waiter and
+the second give must wake the lower-priority waiter. Inspect
+`g_waiter_wake_order[0]`, `g_waiter_wake_order[1]`, `g_waiter_wake_count`,
+`g_waiter_wake_error`, and `g_waiter_wake_done`. The expected pass result is:
+`g_waiter_wake_done == 1`, `g_waiter_wake_error == 0`,
+`g_waiter_wake_order[0] == 0xA1`, and `g_waiter_wake_order[1] == 0xB2`.
+
+### 17.18 Waiter timeout and wake-order example
+
+`examples/waiter_timeout_wake.c` validates timeout interaction with wake
+selection. A high-priority task blocks with a finite timeout and must time
+out, then gives the semaphore once while two lower-priority waiters remain
+blocked. The wake must select the highest-priority remaining waiter first.
+Inspect `g_waiter_timeout_flag`, `g_waiter_timeout_wake_order[0]`,
+`g_waiter_timeout_wake_count`, `g_waiter_timeout_error`, and
+`g_waiter_timeout_done`. The expected pass result is:
+`g_waiter_timeout_flag == 1`, `g_waiter_timeout_done == 1`,
+`g_waiter_timeout_error == 0`, and
+`g_waiter_timeout_wake_order[0] == 0xC3`.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:
