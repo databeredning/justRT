@@ -26,6 +26,34 @@ SECTIONS
         *(.gnu.linkonce.armexidx.*)
     }
 
+    /* Named code ranges reserved for future MPU permissions. */
+    .privileged_functions :
+    {
+        . = ALIGN(4);
+        __privileged_functions_start = .;
+        *(.privileged_functions .privileged_functions.*)
+        . = ALIGN(4);
+        __privileged_functions_end = .;
+    } > int_flash
+
+    .unprivileged_functions :
+    {
+        . = ALIGN(4);
+        __unprivileged_functions_start = .;
+        *(.unprivileged_functions .unprivileged_functions.*)
+        . = ALIGN(4);
+        __unprivileged_functions_end = .;
+    } > int_flash
+
+    .freertos_system_calls :
+    {
+        . = ALIGN(4);
+        __syscalls_flash_start = .;
+        *(.freertos_system_calls .freertos_system_calls.*)
+        . = ALIGN(4);
+        __syscalls_flash_end = .;
+    } > int_flash
+
     /* Boot header, vectors, startup code, application code, constants, and
        the startup copy/zero tables all live in program flash. */
     .flash :
@@ -51,8 +79,27 @@ SECTIONS
         __flash_end = .;
     } > int_flash
 
+    /* Named data ranges reserved for future MPU permissions. */
+    .privileged_data : AT(__flash_end)
+    {
+        . = ALIGN(8);
+        __privileged_data_start = .;
+        *(.privileged_data .privileged_data.*)
+        . = ALIGN(8);
+        __privileged_data_end = .;
+    } > int_sram
+
+    .unprivileged_task_data (NOLOAD) :
+    {
+        . = ALIGN(32);
+        __unprivileged_task_data_start = .;
+        *(.unprivileged_task_data .unprivileged_task_data.*)
+        . = ALIGN(32);
+        __unprivileged_task_data_end = .;
+    } > int_sram
+
     /* Initialized writable data is loaded immediately after flash content. */
-    .sram_data : AT(__flash_end)
+    .sram_data : AT(LOADADDR(.privileged_data) + SIZEOF(.privileged_data))
     {
         . = ALIGN(4);
         __sram_data_start = .;
