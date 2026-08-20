@@ -25,6 +25,7 @@
 #define MPU_UNPRIVILEGED_FUNCTIONS_REGION 2U
 #define MPU_UNPRIVILEGED_RODATA_REGION 3U
 #define MPU_UNPRIVILEGED_DATA_REGION 4U
+#define MPU_SYSTEM_CALLS_REGION 5U
 #define MPU_GUARD_REGION_FIRST 8U
 #define MPU_REGION_COUNT 16U
 #define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
@@ -35,6 +36,8 @@ extern uint8_t __unprivileged_functions_start[];
 extern uint8_t __unprivileged_functions_end[];
 extern uint8_t __unprivileged_rodata_start[];
 extern uint8_t __unprivileged_rodata_end[];
+extern uint8_t __system_calls_flash_start[];
+extern uint8_t __system_calls_flash_end[];
 extern uint8_t __privileged_data_start[];
 extern uint8_t __privileged_data_end[];
 extern uint8_t __unprivileged_task_data_start[];
@@ -358,6 +361,10 @@ static void configure_memory_regions(void)
                            (uintptr_t)__unprivileged_task_data_start,
                            (uintptr_t)__unprivileged_task_data_end,
                            sram_attributes);
+    configure_region_range(MPU_SYSTEM_CALLS_REGION,
+                           (uintptr_t)__system_calls_flash_start,
+                           (uintptr_t)__system_calls_flash_end,
+                           flash_attributes);
 }
 
 static void configure_stack_guards(void)
