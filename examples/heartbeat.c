@@ -30,7 +30,7 @@ static TASK_UNPRIVILEGED void activity_task(void *argument)
     }
 }
 
-static const task_definition_t heartbeat_tasks[] = {
+static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
 };

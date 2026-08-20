@@ -161,7 +161,7 @@ static TASK_UNPRIVILEGED void mid_waiter_task(void *argument)
     }
 }
 
-static const task_definition_t multi_restore_tasks[] = {
+static const task_definition_t multi_restore_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { owner_task, 0U, KERNEL_TASK_STACK_WORDS, OWNER_BASE_PRIORITY, "owner", 0U },
     { high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_WAITER_PRIORITY, "high-waiter", 0U },
     { mid_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, MID_WAITER_PRIORITY, "mid-waiter", 0U }

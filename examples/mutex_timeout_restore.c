@@ -149,7 +149,7 @@ static TASK_UNPRIVILEGED void high_waiter_task(void *argument)
     }
 }
 
-static const task_definition_t timeout_restore_tasks[] = {
+static const task_definition_t timeout_restore_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { owner_task, 0U, KERNEL_TASK_STACK_WORDS, OWNER_PRIORITY, "to-owner", 0U },
     { bridge_task, 0U, KERNEL_TASK_STACK_WORDS, BRIDGE_PRIORITY, "to-bridge", 0U },
     { high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_PRIORITY, "to-high", 0U }

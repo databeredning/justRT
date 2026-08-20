@@ -53,7 +53,7 @@ static TASK_UNPRIVILEGED void non_owner_task(void *argument)
     }
 }
 
-static const task_definition_t mutex_edge_tasks[] = {
+static const task_definition_t mutex_edge_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { mutex_edge_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "mutex-edge-owner", 0U },
     { non_owner_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "mutex-edge-non-owner", 0U }
 };

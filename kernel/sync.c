@@ -1,19 +1,19 @@
 #include "kernel.h"
 #include "sync.h"
 
-volatile uint32_t g_sync_context_misuse;
-volatile uint32_t g_sync_misuse_semaphore_take;
-volatile uint32_t g_sync_misuse_semaphore_give;
-volatile uint32_t g_sync_misuse_semaphore_give_from_isr;
-volatile uint32_t g_sync_misuse_mutex_lock;
-volatile uint32_t g_sync_misuse_mutex_unlock;
-volatile uint32_t g_sync_misuse_queue_send;
-volatile uint32_t g_sync_misuse_queue_receive;
-volatile uint32_t g_sync_misuse_queue_send_from_isr;
-volatile uint32_t g_isr_queue_send_attempted;
-volatile uint32_t g_isr_queue_send_accepted;
-volatile uint32_t g_isr_queue_send_dropped;
-volatile uint32_t g_isr_queue_count_high_water;
+volatile uint32_t g_sync_context_misuse KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_semaphore_take KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_semaphore_give KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_semaphore_give_from_isr KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_mutex_lock KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_mutex_unlock KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_queue_send KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_queue_receive KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_sync_misuse_queue_send_from_isr KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_isr_queue_send_attempted KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_isr_queue_send_accepted KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_isr_queue_send_dropped KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_isr_queue_count_high_water KERNEL_PRIVILEGED_DATA;
 
 static void count_context_misuse(volatile uint32_t *counter)
 {

@@ -37,7 +37,7 @@ static TASK_UNPRIVILEGED void event_worker_task(void *argument)
     }
 }
 
-static const task_definition_t semaphore_tasks[] = {
+static const task_definition_t semaphore_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { event_source_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "event-source", 0U },
     { event_worker_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "event-worker", 0U }
 };

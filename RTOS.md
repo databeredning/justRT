@@ -841,10 +841,10 @@ sections for complete kernel and task memory regions before enabling
 unprivileged tasks.
 
 The linker now reserves named ranges for privileged functions, unprivileged
-functions, privileged data, unprivileged task data, and system-call
+functions, unprivileged read-only data, privileged data, unprivileged task data, and system-call
 trampolines. Source declarations use `KERNEL_PRIVILEGED`,
 `TASK_UNPRIVILEGED`, `KERNEL_PRIVILEGED_DATA`, and
-`TASK_UNPRIVILEGED_DATA` attributes to express ownership; the linker only
+`TASK_UNPRIVILEGED_RODATA`, and `TASK_UNPRIVILEGED_DATA` attributes to express ownership; the linker only
 collects those named sections. This preparation does not enable
 unprivileged execution or change MPU permissions. Existing task stacks and
 guard regions are the first storage assigned to the new task-data range.

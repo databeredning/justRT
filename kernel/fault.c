@@ -29,8 +29,8 @@ typedef struct
     uint32_t fault_type;
 } fault_record_t;
 
-volatile fault_record_t g_fault_record;
-volatile uint32_t g_fault_active = 0U;
+volatile fault_record_t g_fault_record KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_fault_active KERNEL_PRIVILEGED_DATA = 0U;
 
 void fault_capture(uint32_t *stacked_frame, uint32_t exc_return, uint32_t fault_type)
 {

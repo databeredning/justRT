@@ -17,28 +17,28 @@
 
 static semaphore_t isr_semaphore;
 static queue_t isr_queue;
-static uint32_t isr_queue_storage[ISR_QUEUE_CAPACITY];
+static uint32_t isr_queue_storage[ISR_QUEUE_CAPACITY] TASK_UNPRIVILEGED_DATA;
 static mutex_t soak_mutex;
 static uint32_t isr_mode;
 
-volatile uint32_t g_isr_sync_tick_count;
-volatile uint32_t g_isr_sync_irq_give_count;
-volatile uint32_t g_isr_sync_irq_queue_sent;
-volatile uint32_t g_isr_sync_irq_queue_dropped;
-volatile uint32_t g_isr_sync_sem_taken;
-volatile uint32_t g_isr_sync_queue_received;
-volatile uint32_t g_isr_sync_last_value;
-volatile uint32_t g_isr_sync_error;
-volatile uint32_t g_isr_sync_done;
-volatile uint32_t g_isr_qfull_sent;
-volatile uint32_t g_isr_qfull_received;
-volatile uint32_t g_isr_qfull_dropped;
-volatile uint32_t g_isr_qfull_error;
-volatile uint32_t g_isr_qfull_done;
-volatile uint32_t g_isr_soak_done;
-volatile uint32_t g_isr_soak_error;
-volatile uint32_t g_isr_soak_mutex_owner_loops;
-volatile uint32_t g_isr_soak_mutex_contender_loops;
+volatile uint32_t g_isr_sync_tick_count TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_irq_give_count TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_irq_queue_sent TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_irq_queue_dropped TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_sem_taken TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_queue_received TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_last_value TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_error TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_sync_done TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_qfull_sent TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_qfull_received TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_qfull_dropped TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_qfull_error TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_qfull_done TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_soak_done TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_soak_error TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_soak_mutex_owner_loops TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_isr_soak_mutex_contender_loops TASK_UNPRIVILEGED_DATA;
 
 void kernel_tick_isr_hook(void)
 {
@@ -278,12 +278,12 @@ static TASK_UNPRIVILEGED void monitor_task(void *argument)
     }
 }
 
-static const task_definition_t isr_sync_tasks[] = {
+static const task_definition_t isr_sync_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 3U, "isr-consumer", 0U },
     { monitor_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "isr-monitor", 0U }
 };
 
-static const task_definition_t isr_soak_tasks[] = {
+static const task_definition_t isr_soak_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 4U, "soak-consumer", 0U },
     { monitor_task, 0U, KERNEL_TASK_STACK_WORDS, 3U, "soak-monitor", 0U },
     { soak_mutex_owner_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "soak-owner", 0U },

@@ -12,7 +12,7 @@
 
 static semaphore_t wake_semaphore;
 volatile uint32_t g_waiter_timeout_flag;
-volatile uint32_t g_waiter_timeout_wake_order[2];
+volatile uint32_t g_waiter_timeout_wake_order[2] TASK_UNPRIVILEGED_DATA;
 volatile uint32_t g_waiter_timeout_wake_count;
 volatile uint32_t g_waiter_timeout_error;
 volatile uint32_t g_waiter_timeout_done;
@@ -99,7 +99,7 @@ static TASK_UNPRIVILEGED void remaining_low_waiter_task(void *argument)
     }
 }
 
-static const task_definition_t wake_timeout_test_tasks[] = {
+static const task_definition_t wake_timeout_test_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { timeout_then_give_task, 0U, KERNEL_TASK_STACK_WORDS, TIMEOUT_WAITER_PRIORITY, "timeout-give", 0U },
     { remaining_high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, REMAINING_HIGH_PRIORITY, "remain-high", 0U },
     { remaining_low_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, REMAINING_LOW_PRIORITY, "remain-low", 0U }

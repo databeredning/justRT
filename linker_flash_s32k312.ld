@@ -59,6 +59,15 @@ SECTIONS
         __unprivileged_functions_end = .;
     } > int_flash
 
+    .unprivileged_rodata :
+    {
+        . = ALIGN(4);
+        __unprivileged_rodata_start = .;
+        *(.unprivileged_rodata .unprivileged_rodata.*)
+        . = ALIGN(4);
+        __unprivileged_rodata_end = .;
+    } > int_flash
+
     .system_calls :
     {
         . = ALIGN(4);

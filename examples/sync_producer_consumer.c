@@ -7,7 +7,7 @@
 
 static semaphore_t items_available;
 static queue_t values;
-static uint32_t value_storage[SYNC_QUEUE_CAPACITY];
+static uint32_t value_storage[SYNC_QUEUE_CAPACITY] TASK_UNPRIVILEGED_DATA;
 volatile uint32_t g_sync_producer_value;
 volatile uint32_t g_sync_consumer_value;
 volatile uint32_t g_sync_error;
@@ -60,7 +60,7 @@ static TASK_UNPRIVILEGED void consumer_task(void *argument)
     }
 }
 
-static const task_definition_t sync_tasks[] = {
+static const task_definition_t sync_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { producer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "producer", 0U },
     { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "consumer", 0U }
 };

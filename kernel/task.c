@@ -47,25 +47,25 @@ typedef struct __attribute__((aligned(32)))
     uint32_t stack[KERNEL_TASK_STACK_WORDS];
 } task_storage_t;
 
-volatile uint32_t g_current_task_index = 0U;
-volatile uint32_t g_idle_kicks = 0U;
-volatile uint32_t g_context_switches = 0U;
-volatile uint32_t g_ready_scan_depth_max = 0U;
-volatile uint32_t g_sched_pass1_iters_total = 0U;
-volatile uint32_t g_sched_pass2_iters_total = 0U;
-volatile uint32_t g_sched_pass2_iters_max = 0U;
-volatile uint32_t g_wait_timeout_semaphore = 0U;
-volatile uint32_t g_wait_timeout_queue_send = 0U;
-volatile uint32_t g_wait_timeout_queue_receive = 0U;
-volatile uint32_t g_wait_timeout_mutex = 0U;
-volatile uint32_t g_stack_fault = 0U;
-volatile uint32_t g_stack_fault_task = 0U;
-volatile uint32_t g_stack_fault_sp = 0U;
+volatile uint32_t g_current_task_index KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_idle_kicks KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_context_switches KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_ready_scan_depth_max KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_sched_pass1_iters_total KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_sched_pass2_iters_total KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_sched_pass2_iters_max KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_wait_timeout_semaphore KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_wait_timeout_queue_send KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_wait_timeout_queue_receive KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_wait_timeout_mutex KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_stack_fault KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_stack_fault_task KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_stack_fault_sp KERNEL_PRIVILEGED_DATA = 0U;
 static task_storage_t task_storage[KERNEL_MAX_TASKS] TASK_UNPRIVILEGED_DATA;
-static task_t tasks[KERNEL_MAX_TASKS] = { 0U };
-static task_t *current_task = &tasks[0];
-static uint32_t task_count;
-static uint32_t kernel_initialized;
+static task_t tasks[KERNEL_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
+static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
+static uint32_t task_count KERNEL_PRIVILEGED_DATA;
+static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
 
 static kernel_status_t validate_task_id(uint32_t task_id)
 {

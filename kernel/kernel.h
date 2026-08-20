@@ -17,6 +17,7 @@
 #define KERNEL_PRIVILEGED_DATA __attribute__((section(".privileged_data")))
 #define TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
 #define TASK_UNPRIVILEGED_DATA __attribute__((section(".unprivileged_task_data")))
+#define TASK_UNPRIVILEGED_RODATA __attribute__((section(".unprivileged_rodata")))
 
 typedef void (*task_entry_t)(void *argument);
 

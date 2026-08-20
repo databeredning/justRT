@@ -10,7 +10,7 @@
 #define WAKE_LOW_MARKER 0xB2U
 
 static semaphore_t wake_semaphore;
-volatile uint32_t g_waiter_wake_order[2];
+volatile uint32_t g_waiter_wake_order[2] TASK_UNPRIVILEGED_DATA;
 volatile uint32_t g_waiter_wake_count;
 volatile uint32_t g_waiter_wake_error;
 volatile uint32_t g_waiter_wake_done;
@@ -95,7 +95,7 @@ static TASK_UNPRIVILEGED void controller_task(void *argument)
     }
 }
 
-static const task_definition_t wake_test_tasks[] = {
+static const task_definition_t wake_test_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_WAITER_PRIORITY, "wake-high", 0U },
     { low_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, LOW_WAITER_PRIORITY, "wake-low", 0U },
     { controller_task, 0U, KERNEL_TASK_STACK_WORDS, CONTROLLER_PRIORITY, "wake-control", 0U }

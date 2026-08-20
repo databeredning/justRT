@@ -140,7 +140,7 @@ static TASK_UNPRIVILEGED void high_task(void *argument)
     }
 }
 
-static const task_definition_t chain_tasks[] = {
+static const task_definition_t chain_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { owner_task, 0U, KERNEL_TASK_STACK_WORDS, OWNER_PRIORITY, "chain-owner", 0U },
     { bridge_task, 0U, KERNEL_TASK_STACK_WORDS, BRIDGE_PRIORITY, "chain-bridge", 0U },
     { high_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_PRIORITY, "chain-high", 0U }

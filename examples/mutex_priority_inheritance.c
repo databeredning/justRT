@@ -83,7 +83,7 @@ static TASK_UNPRIVILEGED void medium_task(void *argument)
     }
 }
 
-static const task_definition_t inheritance_tasks[] = {
+static const task_definition_t inheritance_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { low_owner_task, 0U, KERNEL_TASK_STACK_WORDS, LOW_BASE_PRIORITY, "low-owner", 0U },
     { high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_PRIORITY, "high-waiter", 0U },
     { medium_task, 0U, KERNEL_TASK_STACK_WORDS, MEDIUM_PRIORITY, "medium", 0U }
