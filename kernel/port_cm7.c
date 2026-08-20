@@ -27,6 +27,12 @@ enum
     SVC_SERVICE_SLEEP = 1U
 };
 
+void kernel_tick_isr_hook(void) __attribute__((weak));
+
+void kernel_tick_isr_hook(void)
+{
+}
+
 void tick_init(void)
 {
     SCB_SHPR3 = (SCB_SHPR3 & 0x0000FFFFUL)
@@ -89,6 +95,7 @@ uint32_t ms_to_ticks(uint32_t milliseconds)
 void SysTick_Handler(void)
 {
     tick_tasks();
+    kernel_tick_isr_hook();
     request_switch();
 }
 

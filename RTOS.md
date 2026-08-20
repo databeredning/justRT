@@ -1039,6 +1039,20 @@ to base. Inspect `g_timeout_restore_owner_priority_full_chain`,
 `g_timeout_restore_done`. Expected pass values: `3`, `2`, bridge flag `1`,
 error `0`, done `1`.
 
+### 17.22 ISR synchronization API example
+
+`examples/isr_sync_paths.c` validates `semaphore_give_from_isr()` and
+`queue_send_from_isr()` using a real SysTick interrupt hook. The interrupt
+periodically gives a semaphore and enqueues increasing values; a consumer task
+blocks on these objects and verifies monotonic queue data. A monitor task sets
+completion once enough interrupt events are consumed.
+
+Inspect `g_isr_sync_irq_give_count`, `g_isr_sync_irq_queue_sent`,
+`g_isr_sync_irq_queue_dropped`, `g_isr_sync_sem_taken`,
+`g_isr_sync_queue_received`, `g_isr_sync_error`, and `g_isr_sync_done`.
+Expected pass behavior: done becomes `1`, error stays `0`, drops stay `0`, and
+sent counts match received counts.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:

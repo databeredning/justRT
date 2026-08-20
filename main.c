@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/mutex_timeout_restore.h"
+#include "examples/isr_sync_paths.h"
 
 int main(void)
 {
-    mutex_timeout_restore_start();
+    isr_sync_paths_start();
 
     return 0;
 }
