@@ -30,6 +30,7 @@ typedef struct
 void semaphore_init(semaphore_t *semaphore, uint32_t initially_available);
 int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks);
 void semaphore_give(semaphore_t *semaphore);
+/* Call from ISR only; wakes highest-priority waiter and pends PendSV. */
 void semaphore_give_from_isr(semaphore_t *semaphore);
 
 void mutex_init(mutex_t *mutex);
@@ -39,6 +40,7 @@ int mutex_unlock(mutex_t *mutex);
 void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_size);
 int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks);
 int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks);
+/* Call from ISR only; never blocks; returns 0 if queue is full. */
 int queue_send_from_isr(queue_t *queue, const void *item);
 
 #endif
