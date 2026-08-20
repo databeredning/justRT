@@ -971,6 +971,12 @@ pointers return `KERNEL_ERR_INVALID_TASK`. Task IDs are stable slot indexes;
 the current configuration uses worker tasks first and the kernel idle task in
 the final slot.
 
+The kernel also exposes debugger-visible runtime diagnostics:
+`g_context_switches`, `g_ready_scan_depth_max`,
+`g_wait_timeout_semaphore`, `g_wait_timeout_queue_send`,
+`g_wait_timeout_queue_receive`, `g_wait_timeout_mutex`, and
+`g_sync_context_misuse`.
+
 ### 17.15 Watchdog integration
 
 The kernel now increments `g_idle_kicks` on every idle-loop pass before `WFI`.

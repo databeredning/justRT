@@ -49,6 +49,12 @@ typedef struct __attribute__((aligned(32)))
 
 volatile uint32_t g_current_task_index = 0U;
 volatile uint32_t g_idle_kicks = 0U;
+volatile uint32_t g_context_switches = 0U;
+volatile uint32_t g_ready_scan_depth_max = 0U;
+volatile uint32_t g_wait_timeout_semaphore = 0U;
+volatile uint32_t g_wait_timeout_queue_send = 0U;
+volatile uint32_t g_wait_timeout_queue_receive = 0U;
+volatile uint32_t g_wait_timeout_mutex = 0U;
 volatile uint32_t g_stack_fault = 0U;
 volatile uint32_t g_stack_fault_task = 0U;
 volatile uint32_t g_stack_fault_sp = 0U;
@@ -495,6 +501,7 @@ void tick_tasks(void)
             if (tasks[index].wait_ticks == 0U)
             {
                 uint32_t mutex_owner_id = task_count;
+                task_wait_kind_t wait_kind = tasks[index].wait_kind;
 
                 if ((tasks[index].wait_kind == TASK_WAIT_MUTEX)
                     && (tasks[index].wait_object != 0U))
@@ -511,6 +518,23 @@ void tick_tasks(void)
                 tasks[index].wait_result = 0U;
                 tasks[index].wait_object = 0U;
                 tasks[index].wait_kind = TASK_WAIT_NONE;
+
+                if (wait_kind == TASK_WAIT_SEMAPHORE)
+                {
+                    g_wait_timeout_semaphore++;
+                }
+                else if (wait_kind == TASK_WAIT_QUEUE_SEND)
+                {
+                    g_wait_timeout_queue_send++;
+                }
+                else if (wait_kind == TASK_WAIT_QUEUE_RECEIVE)
+                {
+                    g_wait_timeout_queue_receive++;
+                }
+                else if (wait_kind == TASK_WAIT_MUTEX)
+                {
+                    g_wait_timeout_mutex++;
+                }
 
                 if (mutex_owner_id < task_count)
                 {
@@ -530,6 +554,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     uint32_t base_index = g_current_task_index;
     uint32_t next_index = base_index;
     uint32_t best_priority = 0U;
+    uint32_t selected_offset = task_count;
 
     current_task->sp = current_sp;
     update_stack_usage(current_task, current_sp);
@@ -556,8 +581,18 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
             && (tasks[next_index].priority == best_priority))
         {
             g_current_task_index = next_index;
+            selected_offset = offset;
             break;
         }
+    }
+
+    if ((selected_offset < task_count) && (selected_offset > g_ready_scan_depth_max))
+    {
+        g_ready_scan_depth_max = selected_offset;
+    }
+    if (g_current_task_index != base_index)
+    {
+        g_context_switches++;
     }
 
     current_task = &tasks[g_current_task_index];
@@ -629,6 +664,12 @@ kernel_status_t kernel_init(const kernel_config_t *config)
     configure_stack_guards();
     current_task = &tasks[0];
     g_current_task_index = 0U;
+    g_context_switches = 0U;
+    g_ready_scan_depth_max = 0U;
+    g_wait_timeout_semaphore = 0U;
+    g_wait_timeout_queue_send = 0U;
+    g_wait_timeout_queue_receive = 0U;
+    g_wait_timeout_mutex = 0U;
     current_task->state = TASK_STATE_RUNNING;
     kernel_initialized = 1U;
     return KERNEL_OK;
