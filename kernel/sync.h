@@ -12,6 +12,7 @@ typedef struct
 {
     volatile uint32_t locked;
     volatile uint32_t owner;
+    volatile uint32_t recursion;
 } mutex_t;
 
 #define SEMAPHORE_WAIT_FOREVER UINT32_MAX

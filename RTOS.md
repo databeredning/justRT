@@ -855,8 +855,9 @@ mutex_lock(&mutex, SEMAPHORE_WAIT_FOREVER);
 mutex_unlock(&mutex);
 ```
 
-Only the owning task may unlock the mutex. Recursive locking and unlocking by
-another task return failure. A contending task enters `TASK_BLOCKED` until the
+Only the owning task may unlock the mutex. Recursive locking by the owner is
+allowed and increments a recursion count; matching unlocks are required before
+release. Unlocking by another task returns failure. A contending task enters `TASK_BLOCKED` until the
 owner releases the mutex or the timeout expires. When a higher-priority task
 blocks on the mutex, the owner temporarily inherits that priority and returns
 to its base priority on unlock. Nested mutex priority chains are not yet

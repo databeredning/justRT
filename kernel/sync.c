@@ -50,6 +50,7 @@ void mutex_init(mutex_t *mutex)
 
     mutex->locked = 0U;
     mutex->owner = UINT32_MAX;
+    mutex->recursion = 0U;
     critical_exit(saved_primask);
 }
 
@@ -65,13 +66,15 @@ int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
         {
             mutex->locked = 1U;
             mutex->owner = current_index;
+            mutex->recursion = 1U;
             critical_exit(saved_primask);
             return 1;
         }
         if (mutex->owner == current_index)
         {
+            mutex->recursion++;
             critical_exit(saved_primask);
-            return 0;
+            return 1;
         }
         task_inherit_priority(mutex->owner, task_current_priority());
         critical_exit(saved_primask);
@@ -96,7 +99,14 @@ int mutex_unlock(mutex_t *mutex)
         critical_exit(saved_primask);
         return 0;
     }
+    if (mutex->recursion > 1U)
+    {
+        mutex->recursion--;
+        critical_exit(saved_primask);
+        return 1;
+    }
     mutex->locked = 0U;
+    mutex->recursion = 0U;
     task_restore_priority(mutex->owner);
     mutex->owner = UINT32_MAX;
     task_wake(mutex, TASK_WAIT_MUTEX);
