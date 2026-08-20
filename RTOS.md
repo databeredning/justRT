@@ -842,11 +842,12 @@ unprivileged tasks.
 
 The linker now reserves named ranges for privileged functions, unprivileged
 functions, privileged data, unprivileged task data, and system-call
-trampolines. Kernel and board object code is assigned to the privileged
-function range, while example task object code is assigned to the future
-unprivileged function range. This preparation does not enable unprivileged
-execution or change MPU permissions. Existing task stacks and guard regions
-are the first storage assigned to the new task-data range.
+trampolines. Source declarations use `KERNEL_PRIVILEGED`,
+`TASK_UNPRIVILEGED`, `KERNEL_PRIVILEGED_DATA`, and
+`TASK_UNPRIVILEGED_DATA` attributes to express ownership; the linker only
+collects those named sections. This preparation does not enable
+unprivileged execution or change MPU permissions. Existing task stacks and
+guard regions are the first storage assigned to the new task-data range.
 
 ### 17.5 Privilege transition
 

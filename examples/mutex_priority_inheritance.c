@@ -19,7 +19,7 @@ volatile uint32_t g_inheritance_high_operations;
 volatile uint32_t g_inheritance_medium_operations;
 volatile uint32_t g_inheritance_error;
 
-static void low_owner_task(void *argument)
+static TASK_UNPRIVILEGED void low_owner_task(void *argument)
 {
     uint32_t priority;
 
@@ -47,7 +47,7 @@ static void low_owner_task(void *argument)
     }
 }
 
-static void high_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void high_waiter_task(void *argument)
 {
     task_state_t state;
 
@@ -74,7 +74,7 @@ static void high_waiter_task(void *argument)
     }
 }
 
-static void medium_task(void *argument)
+static TASK_UNPRIVILEGED void medium_task(void *argument)
 {
     (void)argument;
     while (1)

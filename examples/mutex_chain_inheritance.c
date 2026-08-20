@@ -24,7 +24,7 @@ volatile uint32_t g_chain_high_acquired_mutex_2;
 volatile uint32_t g_chain_error;
 volatile uint32_t g_chain_done;
 
-static void owner_task(void *argument)
+static TASK_UNPRIVILEGED void owner_task(void *argument)
 {
     task_state_t bridge_state;
     task_state_t high_state;
@@ -90,7 +90,7 @@ static void owner_task(void *argument)
     }
 }
 
-static void bridge_task(void *argument)
+static TASK_UNPRIVILEGED void bridge_task(void *argument)
 {
     (void)argument;
 
@@ -118,7 +118,7 @@ static void bridge_task(void *argument)
     }
 }
 
-static void high_task(void *argument)
+static TASK_UNPRIVILEGED void high_task(void *argument)
 {
     (void)argument;
 

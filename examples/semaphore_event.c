@@ -10,7 +10,7 @@ volatile uint32_t g_semaphore_events_sent;
 volatile uint32_t g_semaphore_events_received;
 volatile uint32_t g_semaphore_event_error;
 
-static void event_source_task(void *argument)
+static TASK_UNPRIVILEGED void event_source_task(void *argument)
 {
     (void)argument;
     while (1)
@@ -21,7 +21,7 @@ static void event_source_task(void *argument)
     }
 }
 
-static void event_worker_task(void *argument)
+static TASK_UNPRIVILEGED void event_worker_task(void *argument)
 {
     (void)argument;
     while (1)

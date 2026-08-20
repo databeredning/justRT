@@ -22,7 +22,7 @@ volatile uint32_t g_timeout_restore_bridge_still_blocked;
 volatile uint32_t g_timeout_restore_error;
 volatile uint32_t g_timeout_restore_done;
 
-static void owner_task(void *argument)
+static TASK_UNPRIVILEGED void owner_task(void *argument)
 {
     task_state_t bridge_state;
     task_state_t high_state;
@@ -104,7 +104,7 @@ static void owner_task(void *argument)
     }
 }
 
-static void bridge_task(void *argument)
+static TASK_UNPRIVILEGED void bridge_task(void *argument)
 {
     (void)argument;
 
@@ -131,7 +131,7 @@ static void bridge_task(void *argument)
     }
 }
 
-static void high_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void high_waiter_task(void *argument)
 {
     (void)argument;
 

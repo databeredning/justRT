@@ -1,7 +1,9 @@
 #ifndef JUSTBOOT_BOARD_H
 #define JUSTBOOT_BOARD_H
 
-void board_init(void);
-void board_led_toggle(void);
+#define BOARD_PRIVILEGED __attribute__((section(".privileged_functions")))
+
+void board_init(void) BOARD_PRIVILEGED;
+void board_led_toggle(void) BOARD_PRIVILEGED;
 
 #endif

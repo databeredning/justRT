@@ -15,7 +15,7 @@ volatile uint32_t g_mutex_contender_state;
 volatile uint32_t g_mutex_contender_state_after_unlock;
 volatile uint32_t g_mutex_contender_stack_used;
 
-static void owner_task(void *argument)
+static TASK_UNPRIVILEGED void owner_task(void *argument)
 {
     (void)argument;
     while (1)
@@ -67,7 +67,7 @@ static void owner_task(void *argument)
     }
 }
 
-static void contender_task(void *argument)
+static TASK_UNPRIVILEGED void contender_task(void *argument)
 {
     (void)argument;
     while (1)

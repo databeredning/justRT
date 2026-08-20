@@ -96,7 +96,7 @@ void kernel_tick_isr_hook(void)
     }
 }
 
-static void consumer_task(void *argument)
+static TASK_UNPRIVILEGED void consumer_task(void *argument)
 {
     uint32_t value;
 
@@ -150,7 +150,7 @@ static void consumer_task(void *argument)
     }
 }
 
-static void soak_heartbeat_task(void *argument)
+static TASK_UNPRIVILEGED void soak_heartbeat_task(void *argument)
 {
     (void)argument;
 
@@ -161,7 +161,7 @@ static void soak_heartbeat_task(void *argument)
     }
 }
 
-static void soak_mutex_owner_task(void *argument)
+static TASK_UNPRIVILEGED void soak_mutex_owner_task(void *argument)
 {
     (void)argument;
 
@@ -182,7 +182,7 @@ static void soak_mutex_owner_task(void *argument)
     }
 }
 
-static void soak_mutex_contender_task(void *argument)
+static TASK_UNPRIVILEGED void soak_mutex_contender_task(void *argument)
 {
     (void)argument;
 
@@ -202,7 +202,7 @@ static void soak_mutex_contender_task(void *argument)
     }
 }
 
-static void monitor_task(void *argument)
+static TASK_UNPRIVILEGED void monitor_task(void *argument)
 {
     (void)argument;
 

@@ -61,8 +61,7 @@ volatile uint32_t g_wait_timeout_mutex = 0U;
 volatile uint32_t g_stack_fault = 0U;
 volatile uint32_t g_stack_fault_task = 0U;
 volatile uint32_t g_stack_fault_sp = 0U;
-static task_storage_t task_storage[KERNEL_MAX_TASKS]
-    __attribute__((section(".unprivileged_task_data")));
+static task_storage_t task_storage[KERNEL_MAX_TASKS] TASK_UNPRIVILEGED_DATA;
 static task_t tasks[KERNEL_MAX_TASKS] = { 0U };
 static task_t *current_task = &tasks[0];
 static uint32_t task_count;

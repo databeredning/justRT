@@ -17,7 +17,7 @@ volatile uint32_t g_waiter_timeout_wake_count;
 volatile uint32_t g_waiter_timeout_error;
 volatile uint32_t g_waiter_timeout_done;
 
-static void timeout_then_give_task(void *argument)
+static TASK_UNPRIVILEGED void timeout_then_give_task(void *argument)
 {
     (void)argument;
 
@@ -51,7 +51,7 @@ static void timeout_then_give_task(void *argument)
     }
 }
 
-static void remaining_high_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void remaining_high_waiter_task(void *argument)
 {
     (void)argument;
 
@@ -75,7 +75,7 @@ static void remaining_high_waiter_task(void *argument)
     }
 }
 
-static void remaining_low_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void remaining_low_waiter_task(void *argument)
 {
     (void)argument;
 

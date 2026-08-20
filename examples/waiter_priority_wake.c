@@ -15,7 +15,7 @@ volatile uint32_t g_waiter_wake_count;
 volatile uint32_t g_waiter_wake_error;
 volatile uint32_t g_waiter_wake_done;
 
-static void high_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void high_waiter_task(void *argument)
 {
     (void)argument;
 
@@ -39,7 +39,7 @@ static void high_waiter_task(void *argument)
     }
 }
 
-static void low_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void low_waiter_task(void *argument)
 {
     (void)argument;
 
@@ -63,7 +63,7 @@ static void low_waiter_task(void *argument)
     }
 }
 
-static void controller_task(void *argument)
+static TASK_UNPRIVILEGED void controller_task(void *argument)
 {
     (void)argument;
 

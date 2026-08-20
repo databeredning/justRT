@@ -12,7 +12,7 @@ volatile uint32_t g_sync_producer_value;
 volatile uint32_t g_sync_consumer_value;
 volatile uint32_t g_sync_error;
 
-static void producer_task(void *argument)
+static TASK_UNPRIVILEGED void producer_task(void *argument)
 {
     uint32_t value = 0U;
 
@@ -32,7 +32,7 @@ static void producer_task(void *argument)
     }
 }
 
-static void consumer_task(void *argument)
+static TASK_UNPRIVILEGED void consumer_task(void *argument)
 {
     uint32_t expected = 1U;
     uint32_t value;

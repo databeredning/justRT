@@ -22,7 +22,7 @@ volatile uint32_t g_multi_restore_mid_waiter_acquired;
 volatile uint32_t g_multi_restore_error;
 volatile uint32_t g_multi_restore_done;
 
-static void owner_task(void *argument)
+static TASK_UNPRIVILEGED void owner_task(void *argument)
 {
     uint32_t priority;
     task_state_t high_state;
@@ -121,7 +121,7 @@ static void owner_task(void *argument)
     }
 }
 
-static void high_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void high_waiter_task(void *argument)
 {
     (void)argument;
 
@@ -141,7 +141,7 @@ static void high_waiter_task(void *argument)
     }
 }
 
-static void mid_waiter_task(void *argument)
+static TASK_UNPRIVILEGED void mid_waiter_task(void *argument)
 {
     (void)argument;
 

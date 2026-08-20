@@ -4,7 +4,7 @@
 
 #define RUN_LED_PERIOD_MS 100U
 
-static void heartbeat_task(void *argument)
+static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
 {
     (void)argument;
     while (1)
@@ -14,7 +14,7 @@ static void heartbeat_task(void *argument)
     }
 }
 
-static void activity_task(void *argument)
+static TASK_UNPRIVILEGED void activity_task(void *argument)
 {
     static uint32_t run_count;
 

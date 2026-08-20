@@ -13,6 +13,10 @@
 #define KERNEL_TASK_GUARD_WORDS 8U
 #define KERNEL_TASK_STACK_FILL 0xA5A5A5A5UL
 #define KERNEL_INITIAL_STACK_USED_WORDS 16U
+#define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))
+#define KERNEL_PRIVILEGED_DATA __attribute__((section(".privileged_data")))
+#define TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
+#define TASK_UNPRIVILEGED_DATA __attribute__((section(".unprivileged_task_data")))
 
 typedef void (*task_entry_t)(void *argument);
 
@@ -68,29 +72,29 @@ typedef enum
 	TASK_WAIT_MUTEX
 } task_wait_kind_t;
 
-kernel_status_t kernel_init(const kernel_config_t *config);
-void kernel_start(void);
-kernel_status_t task_get_state(uint32_t task_id, task_state_t *state);
-kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info);
-kernel_status_t task_get_name(uint32_t task_id, const char **name);
-kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority);
+kernel_status_t kernel_init(const kernel_config_t *config) KERNEL_PRIVILEGED;
+void kernel_start(void) KERNEL_PRIVILEGED;
+kernel_status_t task_get_state(uint32_t task_id, task_state_t *state) KERNEL_PRIVILEGED;
+kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info) KERNEL_PRIVILEGED;
+kernel_status_t task_get_name(uint32_t task_id, const char **name) KERNEL_PRIVILEGED;
+kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
 void yield(void);
 void sleep_ticks(uint32_t ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);
-void tick_init(void);
-void request_switch(void);
-int kernel_in_isr(void);
-uint32_t critical_enter(void);
-void critical_exit(uint32_t saved_primask);
-void tick_tasks(void);
-void sleep_current(uint32_t ticks);
-int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks);
-void task_wake(void *object, task_wait_kind_t wait_kind);
-uint32_t task_current_index(void);
-uint32_t task_current_priority(void);
-void task_inherit_priority(uint32_t task_id, uint32_t priority);
-void task_restore_priority(uint32_t task_id);
-uint32_t *pendsv_switch(uint32_t *current_sp);
+void tick_init(void) KERNEL_PRIVILEGED;
+void request_switch(void) KERNEL_PRIVILEGED;
+int kernel_in_isr(void) KERNEL_PRIVILEGED;
+uint32_t critical_enter(void) KERNEL_PRIVILEGED;
+void critical_exit(uint32_t saved_primask) KERNEL_PRIVILEGED;
+void tick_tasks(void) KERNEL_PRIVILEGED;
+void sleep_current(uint32_t ticks) KERNEL_PRIVILEGED;
+int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks) KERNEL_PRIVILEGED;
+void task_wake(void *object, task_wait_kind_t wait_kind) KERNEL_PRIVILEGED;
+uint32_t task_current_index(void) KERNEL_PRIVILEGED;
+uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
+void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
+void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;
+uint32_t *pendsv_switch(uint32_t *current_sp) KERNEL_PRIVILEGED;
 
 extern volatile uint32_t g_current_task_index;
 extern volatile uint32_t g_idle_kicks;

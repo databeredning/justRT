@@ -13,7 +13,7 @@ volatile uint32_t g_mutex_recursive_second_unlock;
 volatile uint32_t g_mutex_non_owner_unlock;
 volatile uint32_t g_mutex_edge_error;
 
-static void mutex_edge_task(void *argument)
+static TASK_UNPRIVILEGED void mutex_edge_task(void *argument)
 {
     (void)argument;
 
@@ -39,7 +39,7 @@ static void mutex_edge_task(void *argument)
     }
 }
 
-static void non_owner_task(void *argument)
+static TASK_UNPRIVILEGED void non_owner_task(void *argument)
 {
     (void)argument;
     g_mutex_non_owner_unlock = (uint32_t)mutex_unlock(&test_mutex);
