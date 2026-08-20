@@ -5,6 +5,7 @@
 #define MAIN_PROFILE_BRINGUP 0U
 #define MAIN_PROFILE_REGRESSION_ISR_SYNC 1U
 #define MAIN_PROFILE_REGRESSION_ISR_QFULL 2U
+#define MAIN_PROFILE_SOAK 3U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -16,6 +17,8 @@ int main(void)
     isr_sync_paths_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_REGRESSION_ISR_QFULL
     isr_sync_queue_full_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_SOAK
+    isr_sync_soak_start();
 #else
     heartbeat_example_start();
 #endif

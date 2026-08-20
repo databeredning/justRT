@@ -2,18 +2,23 @@
 
 #include "kernel.h"
 #include "isr_sync_paths.h"
+#include "../board/board.h"
 
 #define ISR_QUEUE_CAPACITY 8U
 #define ISR_HOOK_PERIOD_TICKS 4U
 #define ISR_EXPECTED_EVENTS 32U
 #define ISR_QUEUE_FULL_EXPECTED_RECEIVES 48U
+#define ISR_SOAK_EXPECTED_RECEIVES 128U
+#define ISR_SOAK_LED_PERIOD_MS 100U
 
 #define ISR_MODE_SYNC 0U
 #define ISR_MODE_QUEUE_FULL 1U
+#define ISR_MODE_SOAK 2U
 
 static semaphore_t isr_semaphore;
 static queue_t isr_queue;
 static uint32_t isr_queue_storage[ISR_QUEUE_CAPACITY];
+static mutex_t soak_mutex;
 static uint32_t isr_mode;
 
 volatile uint32_t g_isr_sync_tick_count;
@@ -30,6 +35,10 @@ volatile uint32_t g_isr_qfull_received;
 volatile uint32_t g_isr_qfull_dropped;
 volatile uint32_t g_isr_qfull_error;
 volatile uint32_t g_isr_qfull_done;
+volatile uint32_t g_isr_soak_done;
+volatile uint32_t g_isr_soak_error;
+volatile uint32_t g_isr_soak_mutex_owner_loops;
+volatile uint32_t g_isr_soak_mutex_contender_loops;
 
 void kernel_tick_isr_hook(void)
 {
@@ -37,7 +46,9 @@ void kernel_tick_isr_hook(void)
     uint32_t period_ticks;
 
     g_isr_sync_tick_count++;
-    period_ticks = (isr_mode == ISR_MODE_QUEUE_FULL) ? 1U : ISR_HOOK_PERIOD_TICKS;
+    period_ticks = ((isr_mode == ISR_MODE_QUEUE_FULL) || (isr_mode == ISR_MODE_SOAK))
+        ? 1U
+        : ISR_HOOK_PERIOD_TICKS;
     if ((g_isr_sync_tick_count % period_ticks) != 0U)
     {
         return;
@@ -112,6 +123,10 @@ static void consumer_task(void *argument)
             {
                 g_isr_qfull_error = 3U;
             }
+            else if (isr_mode == ISR_MODE_SOAK)
+            {
+                g_isr_soak_error = 3U;
+            }
             else
             {
                 g_isr_sync_error = 3U;
@@ -123,10 +138,67 @@ static void consumer_task(void *argument)
             g_isr_qfull_received++;
             sleep_ticks(3U);
         }
+        else if (isr_mode == ISR_MODE_SOAK)
+        {
+            g_isr_sync_queue_received++;
+            sleep_ticks(2U);
+        }
         else
         {
             g_isr_sync_queue_received++;
         }
+    }
+}
+
+static void soak_heartbeat_task(void *argument)
+{
+    (void)argument;
+
+    while (1)
+    {
+        board_led_toggle();
+        sleep_ticks(ms_to_ticks(ISR_SOAK_LED_PERIOD_MS));
+    }
+}
+
+static void soak_mutex_owner_task(void *argument)
+{
+    (void)argument;
+
+    while (1)
+    {
+        if (mutex_lock(&soak_mutex, SEMAPHORE_WAIT_FOREVER) == 0)
+        {
+            g_isr_soak_error = 10U;
+            continue;
+        }
+        g_isr_soak_mutex_owner_loops++;
+        sleep_ticks(2U);
+        if (mutex_unlock(&soak_mutex) == 0)
+        {
+            g_isr_soak_error = 11U;
+        }
+        sleep_ticks(1U);
+    }
+}
+
+static void soak_mutex_contender_task(void *argument)
+{
+    (void)argument;
+
+    while (1)
+    {
+        if (mutex_lock(&soak_mutex, SEMAPHORE_WAIT_FOREVER) == 0)
+        {
+            g_isr_soak_error = 12U;
+            continue;
+        }
+        g_isr_soak_mutex_contender_loops++;
+        if (mutex_unlock(&soak_mutex) == 0)
+        {
+            g_isr_soak_error = 13U;
+        }
+        sleep_ticks(1U);
     }
 }
 
@@ -136,7 +208,8 @@ static void monitor_task(void *argument)
 
     while (1)
     {
-        if ((g_isr_sync_error != 0U) || (g_isr_qfull_error != 0U))
+        if ((g_isr_sync_error != 0U) || (g_isr_qfull_error != 0U)
+            || (g_isr_soak_error != 0U))
         {
             while (1)
             {
@@ -184,6 +257,23 @@ static void monitor_task(void *argument)
             }
         }
 
+        if ((isr_mode == ISR_MODE_SOAK)
+            && (g_isr_sync_queue_received >= ISR_SOAK_EXPECTED_RECEIVES))
+        {
+            if ((g_isr_queue_send_dropped == 0U)
+                || (g_sync_context_misuse != 0U)
+                || (g_isr_soak_mutex_owner_loops == 0U)
+                || (g_isr_soak_mutex_contender_loops == 0U))
+            {
+                g_isr_soak_error = 4U;
+            }
+            g_isr_soak_done = 1U;
+            while (1)
+            {
+                sleep_ticks(1U);
+            }
+        }
+
         sleep_ticks(1U);
     }
 }
@@ -191,6 +281,14 @@ static void monitor_task(void *argument)
 static const task_definition_t isr_sync_tasks[] = {
     { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 3U, "isr-consumer", 0U },
     { monitor_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "isr-monitor", 0U }
+};
+
+static const task_definition_t isr_soak_tasks[] = {
+    { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 4U, "soak-consumer", 0U },
+    { monitor_task, 0U, KERNEL_TASK_STACK_WORDS, 3U, "soak-monitor", 0U },
+    { soak_mutex_owner_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "soak-owner", 0U },
+    { soak_mutex_contender_task, 0U, KERNEL_TASK_STACK_WORDS, 2U, "soak-contender", 0U },
+    { soak_heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "soak-heartbeat", 0U }
 };
 
 void isr_sync_paths_start(void)
@@ -217,6 +315,10 @@ void isr_sync_paths_start(void)
     g_isr_qfull_dropped = 0U;
     g_isr_qfull_error = 0U;
     g_isr_qfull_done = 0U;
+    g_isr_soak_done = 0U;
+    g_isr_soak_error = 0U;
+    g_isr_soak_mutex_owner_loops = 0U;
+    g_isr_soak_mutex_contender_loops = 0U;
 
     if (kernel_init(&config) != KERNEL_OK)
     {
@@ -251,6 +353,50 @@ void isr_sync_queue_full_start(void)
     g_isr_qfull_dropped = 0U;
     g_isr_qfull_error = 0U;
     g_isr_qfull_done = 0U;
+    g_isr_soak_done = 0U;
+    g_isr_soak_error = 0U;
+    g_isr_soak_mutex_owner_loops = 0U;
+    g_isr_soak_mutex_contender_loops = 0U;
+
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void isr_sync_soak_start(void)
+{
+    const kernel_config_t config = {
+        isr_soak_tasks,
+        sizeof(isr_soak_tasks) / sizeof(isr_soak_tasks[0])
+    };
+
+    board_init();
+    isr_mode = ISR_MODE_SOAK;
+    semaphore_init(&isr_semaphore, 0U);
+    queue_init(&isr_queue, isr_queue_storage, ISR_QUEUE_CAPACITY, sizeof(uint32_t));
+    mutex_init(&soak_mutex);
+    g_isr_sync_tick_count = 0U;
+    g_isr_sync_irq_give_count = 0U;
+    g_isr_sync_irq_queue_sent = 0U;
+    g_isr_sync_irq_queue_dropped = 0U;
+    g_isr_sync_sem_taken = 0U;
+    g_isr_sync_queue_received = 0U;
+    g_isr_sync_last_value = 0U;
+    g_isr_sync_error = 0U;
+    g_isr_sync_done = 0U;
+    g_isr_qfull_sent = 0U;
+    g_isr_qfull_received = 0U;
+    g_isr_qfull_dropped = 0U;
+    g_isr_qfull_error = 0U;
+    g_isr_qfull_done = 0U;
+    g_isr_soak_done = 0U;
+    g_isr_soak_error = 0U;
+    g_isr_soak_mutex_owner_loops = 0U;
+    g_isr_soak_mutex_contender_loops = 0U;
 
     if (kernel_init(&config) != KERNEL_OK)
     {

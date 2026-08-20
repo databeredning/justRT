@@ -95,6 +95,12 @@ To run the ISR queue-full stress regression from `main.c`, set:
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_QFULL
 ```
 
+To run the long-duration soak profile from `main.c`, set:
+
+```c
+#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_SOAK
+```
+
 
 ## 4. Public Kernel Declarations
 
@@ -1099,6 +1105,19 @@ Inspect `g_isr_qfull_done`, `g_isr_qfull_error`, `g_isr_qfull_dropped`,
 `g_isr_qfull_received`, `g_isr_sync_irq_queue_sent`, and
 `g_sync_context_misuse`. Expected pass values are done `1`, error `0`, drop
 count greater than `0`, receive count increasing, and context misuse `0`.
+
+### 17.24 Soak profile
+
+`MAIN_PROFILE_SOAK` runs a combined long-duration stress workload through
+`isr_sync_soak_start()`: ISR queue traffic and backpressure, semaphore-driven
+consumer activity, mutex contention between two tasks, and a periodic board LED
+heartbeat. This profile is intended for sustained runtime validation.
+
+Inspect `g_isr_soak_done`, `g_isr_soak_error`,
+`g_isr_soak_mutex_owner_loops`, `g_isr_soak_mutex_contender_loops`,
+`g_isr_queue_send_dropped`, and `g_sync_context_misuse`. Healthy behavior is
+soak done set, soak error clear, both mutex loop counters increasing, drop
+count nonzero under pressure, and context misuse remaining zero.
 
 ## 18. Commit History Context
 
