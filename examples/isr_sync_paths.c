@@ -165,7 +165,15 @@ static void monitor_task(void *argument)
         {
             if ((g_isr_qfull_dropped == 0U)
                 || (g_isr_sync_irq_queue_sent < g_isr_qfull_received)
-                || (g_sync_context_misuse != 0U))
+                || (g_sync_context_misuse != 0U)
+                || (g_sync_misuse_semaphore_take != 0U)
+                || (g_sync_misuse_semaphore_give != 0U)
+                || (g_sync_misuse_semaphore_give_from_isr != 0U)
+                || (g_sync_misuse_mutex_lock != 0U)
+                || (g_sync_misuse_mutex_unlock != 0U)
+                || (g_sync_misuse_queue_send != 0U)
+                || (g_sync_misuse_queue_receive != 0U)
+                || (g_sync_misuse_queue_send_from_isr != 0U))
             {
                 g_isr_qfull_error = 4U;
             }

@@ -2,10 +2,24 @@
 #include "sync.h"
 
 volatile uint32_t g_sync_context_misuse;
+volatile uint32_t g_sync_misuse_semaphore_take;
+volatile uint32_t g_sync_misuse_semaphore_give;
+volatile uint32_t g_sync_misuse_semaphore_give_from_isr;
+volatile uint32_t g_sync_misuse_mutex_lock;
+volatile uint32_t g_sync_misuse_mutex_unlock;
+volatile uint32_t g_sync_misuse_queue_send;
+volatile uint32_t g_sync_misuse_queue_receive;
+volatile uint32_t g_sync_misuse_queue_send_from_isr;
 volatile uint32_t g_isr_queue_send_attempted;
 volatile uint32_t g_isr_queue_send_accepted;
 volatile uint32_t g_isr_queue_send_dropped;
 volatile uint32_t g_isr_queue_count_high_water;
+
+static void count_context_misuse(volatile uint32_t *counter)
+{
+    (*counter)++;
+    g_sync_context_misuse++;
+}
 
 void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
 {
@@ -19,7 +33,7 @@ int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
 {
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_semaphore_take);
         return 0;
     }
 
@@ -51,7 +65,7 @@ void semaphore_give(semaphore_t *semaphore)
 {
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_semaphore_give);
         return;
     }
 
@@ -66,7 +80,7 @@ void semaphore_give_from_isr(semaphore_t *semaphore)
 {
     if (kernel_in_isr() == 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_semaphore_give_from_isr);
         return;
     }
 
@@ -94,7 +108,7 @@ int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
 
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_mutex_lock);
         return 0;
     }
 
@@ -134,7 +148,7 @@ int mutex_unlock(mutex_t *mutex)
 {
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_mutex_unlock);
         return 0;
     }
 
@@ -179,7 +193,7 @@ int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
 {
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_queue_send);
         return 0;
     }
 
@@ -221,7 +235,7 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
 {
     if (kernel_in_isr() != 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_queue_receive);
         return 0;
     }
 
@@ -262,7 +276,7 @@ int queue_send_from_isr(queue_t *queue, const void *item)
 {
     if (kernel_in_isr() == 0)
     {
-        g_sync_context_misuse++;
+        count_context_misuse(&g_sync_misuse_queue_send_from_isr);
         return 0;
     }
 

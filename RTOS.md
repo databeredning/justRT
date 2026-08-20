@@ -910,6 +910,13 @@ queue is full, the send returns failure and does not block. The kernel exposes
 `g_isr_queue_send_dropped`, and `g_isr_queue_count_high_water` for runtime
 verification of ISR traffic and saturation behavior.
 
+Context-guard misuse is tracked both as an aggregate
+(`g_sync_context_misuse`) and as per-API counters:
+`g_sync_misuse_semaphore_take`, `g_sync_misuse_semaphore_give`,
+`g_sync_misuse_semaphore_give_from_isr`, `g_sync_misuse_mutex_lock`,
+`g_sync_misuse_mutex_unlock`, `g_sync_misuse_queue_send`,
+`g_sync_misuse_queue_receive`, and `g_sync_misuse_queue_send_from_isr`.
+
 ### 17.10 Synchronization example
 
 `examples/sync_producer_consumer.c` provides a selectable producer/consumer
