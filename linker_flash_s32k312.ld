@@ -26,20 +26,24 @@ SECTIONS
         *(.gnu.linkonce.armexidx.*)
     }
 
-    /* Named code ranges reserved for future MPU permissions. */
+    /* Kernel and board code are the privileged executable range. */
     .privileged_functions :
     {
         . = ALIGN(4);
         __privileged_functions_start = .;
+        obj/kernel/*.o(.text .text.*)
+        obj/board/*.o(.text .text.*)
         *(.privileged_functions .privileged_functions.*)
         . = ALIGN(4);
         __privileged_functions_end = .;
     } > int_flash
 
+    /* Example task code is the future unprivileged executable range. */
     .unprivileged_functions :
     {
         . = ALIGN(4);
         __unprivileged_functions_start = .;
+        obj/examples/*.o(.text .text.*)
         *(.unprivileged_functions .unprivileged_functions.*)
         . = ALIGN(4);
         __unprivileged_functions_end = .;
