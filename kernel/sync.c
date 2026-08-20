@@ -2,6 +2,10 @@
 #include "sync.h"
 
 volatile uint32_t g_sync_context_misuse;
+volatile uint32_t g_isr_queue_send_attempted;
+volatile uint32_t g_isr_queue_send_accepted;
+volatile uint32_t g_isr_queue_send_dropped;
+volatile uint32_t g_isr_queue_count_high_water;
 
 void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
 {
@@ -264,6 +268,8 @@ int queue_send_from_isr(queue_t *queue, const void *item)
 
     uint32_t saved_primask = critical_enter();
 
+    g_isr_queue_send_attempted++;
+
     if ((queue->capacity != 0U) && (queue->item_size != 0U)
         && (queue->count < queue->capacity))
     {
@@ -277,12 +283,18 @@ int queue_send_from_isr(queue_t *queue, const void *item)
         }
         queue->head = (queue->head + 1U) % queue->capacity;
         queue->count++;
+        g_isr_queue_send_accepted++;
+        if (queue->count > g_isr_queue_count_high_water)
+        {
+            g_isr_queue_count_high_water = queue->count;
+        }
         task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
         critical_exit(saved_primask);
         request_switch();
         return 1;
     }
 
+    g_isr_queue_send_dropped++;
     critical_exit(saved_primask);
     return 0;
 }

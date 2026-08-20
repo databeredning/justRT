@@ -904,6 +904,12 @@ For interrupt context, use `semaphore_give_from_isr()` and
 `queue_send_from_isr()`. These APIs never block and explicitly pend PendSV via
 `request_switch()` after waking waiters.
 
+`queue_send_from_isr()` uses a fixed drop-on-full backpressure policy. When the
+queue is full, the send returns failure and does not block. The kernel exposes
+`g_isr_queue_send_attempted`, `g_isr_queue_send_accepted`,
+`g_isr_queue_send_dropped`, and `g_isr_queue_count_high_water` for runtime
+verification of ISR traffic and saturation behavior.
+
 ### 17.10 Synchronization example
 
 `examples/sync_producer_consumer.c` provides a selectable producer/consumer
