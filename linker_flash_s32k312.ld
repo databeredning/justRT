@@ -45,13 +45,13 @@ SECTIONS
         __unprivileged_functions_end = .;
     } > int_flash
 
-    .freertos_system_calls :
+    .system_calls :
     {
         . = ALIGN(4);
-        __syscalls_flash_start = .;
-        *(.freertos_system_calls .freertos_system_calls.*)
+        __system_calls_flash_start = .;
+        *(.system_calls .system_calls.*)
         . = ALIGN(4);
-        __syscalls_flash_end = .;
+        __system_calls_flash_end = .;
     } > int_flash
 
     /* Boot header, vectors, startup code, application code, constants, and
