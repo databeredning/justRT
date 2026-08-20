@@ -836,9 +836,14 @@ Add fault nesting detection, a reset policy, and persistent fault storage in a r
 
 ### 17.4 MPU setup
 
-Guard regions are configured. The remaining MPU work is to define linker
-sections for complete kernel and task memory regions before enabling
-unprivileged tasks.
+The MPU now configures explicit flash, SRAM, unprivileged-function,
+unprivileged-read-only-data, and unprivileged-task-data regions during kernel
+initialization. Guard regions use the higher MPU region numbers so their
+no-access priority overrides the general SRAM and task-data regions.
+
+`PRIVDEFENA` remains enabled and tasks still launch privileged. This stage
+validates the memory layout and attributes without changing the execution
+privilege level.
 
 The linker now reserves named ranges for privileged functions, unprivileged
 functions, unprivileged read-only data, privileged data, unprivileged task data, and system-call
