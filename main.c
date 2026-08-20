@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/mutex_priority_inheritance.h"
+#include "examples/mutex_edge_cases.h"
 
 int main(void)
 {
-    mutex_priority_inheritance_start();
+    mutex_edge_cases_start();
 
     return 0;
 }

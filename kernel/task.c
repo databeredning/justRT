@@ -3,7 +3,6 @@
 #include "kernel.h"
 
 #define TASK_MAX_TASKS 4U
-#define TASK_IDLE_INDEX (TASK_MAX_TASKS - 1U)
 #define TASK_STACK_WORDS 128U
 #define TASK_STACK_FILL 0xA5A5A5A5U
 #define TASK_GUARD_WORDS 8U
@@ -303,20 +302,22 @@ static void prepare_task(uint32_t index, const task_definition_t *definition)
 
 static void prepare_idle_task(void)
 {
+    uint32_t idle_index = task_count - 1U;
+
     fill_stack(&idle_storage.stack[0], &idle_storage.stack[TASK_STACK_WORDS]);
-    tasks[TASK_IDLE_INDEX].stack_bottom = &idle_storage.stack[0];
-    tasks[TASK_IDLE_INDEX].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
-    tasks[TASK_IDLE_INDEX].sp = build_initial_stack(
-        tasks[TASK_IDLE_INDEX].stack_top, idle_body, 0U);
-    tasks[TASK_IDLE_INDEX].state = TASK_READY;
-    tasks[TASK_IDLE_INDEX].minimum_sp = tasks[TASK_IDLE_INDEX].sp;
-    tasks[TASK_IDLE_INDEX].high_water_words = 16U;
-    tasks[TASK_IDLE_INDEX].entry = idle_body;
-    tasks[TASK_IDLE_INDEX].argument = 0U;
-    tasks[TASK_IDLE_INDEX].priority = 0U;
-    tasks[TASK_IDLE_INDEX].base_priority = 0U;
-    tasks[TASK_IDLE_INDEX].name = "idle";
-    tasks[TASK_IDLE_INDEX].flags = 0U;
+    tasks[idle_index].stack_bottom = &idle_storage.stack[0];
+    tasks[idle_index].stack_top = &idle_storage.stack[TASK_STACK_WORDS];
+    tasks[idle_index].sp = build_initial_stack(
+        tasks[idle_index].stack_top, idle_body, 0U);
+    tasks[idle_index].state = TASK_READY;
+    tasks[idle_index].minimum_sp = tasks[idle_index].sp;
+    tasks[idle_index].high_water_words = 16U;
+    tasks[idle_index].entry = idle_body;
+    tasks[idle_index].argument = 0U;
+    tasks[idle_index].priority = 0U;
+    tasks[idle_index].base_priority = 0U;
+    tasks[idle_index].name = "idle";
+    tasks[idle_index].flags = 0U;
 }
 
 void sleep_current(uint32_t ticks)

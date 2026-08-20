@@ -953,6 +953,16 @@ the final slot.
 The inspection API provides the foundation for future watchdog service-window
 monitoring, but watchdog behavior is not yet integrated.
 
+### 17.16 Mutex edge-case example
+
+`examples/mutex_edge_cases.c` verifies recursive lock/unlock behavior and
+rejects unlock attempts by a non-owner. Inspect
+`g_mutex_recursive_first_lock`, `g_mutex_recursive_second_lock`,
+`g_mutex_recursive_first_unlock`, `g_mutex_recursive_second_unlock`,
+`g_mutex_non_owner_unlock`, and `g_mutex_edge_error`. All lock/unlock results
+should be `1` except `g_mutex_non_owner_unlock`, which should be `0`; the
+error value should remain `0`.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:
