@@ -1006,6 +1006,18 @@ Inspect `g_multi_restore_owner_priority_before_release`,
 is `3`, `2`, and `1` for the three priority snapshots, both acquired flags set
 to `1`, `g_multi_restore_error == 0`, and `g_multi_restore_done == 1`.
 
+### 17.20 Chained mutex inheritance example
+
+`examples/mutex_chain_inheritance.c` validates transitive inheritance through
+a wait chain. A low-priority owner holds `mutex_1`, a medium-priority bridge
+holds `mutex_2` and blocks on `mutex_1`, and a high-priority task blocks on
+`mutex_2`. The owner must inherit the high priority through the bridge task.
+Inspect `g_chain_owner_priority_after_chain`, `g_chain_bridge_blocked`,
+`g_chain_high_blocked`, `g_chain_bridge_acquired_mutex_1`,
+`g_chain_high_acquired_mutex_2`, `g_chain_error`, and `g_chain_done`.
+Expected pass values are owner priority `3`, all block/acquire flags set to
+`1`, `g_chain_error == 0`, and `g_chain_done == 1`.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:

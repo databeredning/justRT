@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/mutex_multi_restore.h"
+#include "examples/mutex_chain_inheritance.h"
 
 int main(void)
 {
-    mutex_multi_restore_start();
+    mutex_chain_inheritance_start();
 
     return 0;
 }

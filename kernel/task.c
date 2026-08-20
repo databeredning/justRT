@@ -134,11 +134,42 @@ uint32_t task_current_priority(void)
 void task_inherit_priority(uint32_t task_id, uint32_t priority)
 {
     uint32_t saved_primask = critical_enter();
+    uint32_t inherited_priority = priority;
+    uint32_t owner_id = task_id;
+    uint32_t depth;
 
-    if ((task_id < task_count) && (tasks[task_id].priority < priority))
+    for (depth = 0U; depth < task_count; depth++)
     {
-        tasks[task_id].priority = priority;
+        if (owner_id >= task_count)
+        {
+            break;
+        }
+
+        if (tasks[owner_id].priority < inherited_priority)
+        {
+            tasks[owner_id].priority = inherited_priority;
+        }
+
+        if ((tasks[owner_id].state != TASK_STATE_BLOCKED)
+            || (tasks[owner_id].wait_kind != TASK_WAIT_MUTEX)
+            || (tasks[owner_id].wait_object == 0U))
+        {
+            break;
+        }
+
+        {
+            mutex_t *blocking_mutex = (mutex_t *)tasks[owner_id].wait_object;
+
+            if ((blocking_mutex->locked == 0U)
+                || (blocking_mutex->owner >= task_count)
+                || (blocking_mutex->owner == owner_id))
+            {
+                break;
+            }
+            owner_id = blocking_mutex->owner;
+        }
     }
+
     critical_exit(saved_primask);
 }
 
