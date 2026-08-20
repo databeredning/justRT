@@ -1018,6 +1018,21 @@ Inspect `g_chain_owner_priority_after_chain`, `g_chain_bridge_blocked`,
 Expected pass values are owner priority `3`, all block/acquire flags set to
 `1`, `g_chain_error == 0`, and `g_chain_done == 1`.
 
+### 17.21 Mutex timeout priority-restore example
+
+`examples/mutex_timeout_restore.c` validates that a waiter timeout propagates
+priority recalculation up the ownership chain. A low-priority owner holds
+`mutex_1`; a medium-priority bridge holds `mutex_2` and blocks on `mutex_1`
+with no timeout; a high-priority task blocks on `mutex_2` with a finite
+timeout. While the full chain exists the owner must be boosted to high
+priority; after the high-priority waiter times out, the owner must drop
+back to medium (the bridge still blocks on `mutex_1`) — not all the way
+to base. Inspect `g_timeout_restore_owner_priority_full_chain`,
+`g_timeout_restore_owner_priority_after_timeout`,
+`g_timeout_restore_bridge_still_blocked`, `g_timeout_restore_error`, and
+`g_timeout_restore_done`. Expected pass values: `3`, `2`, bridge flag `1`,
+error `0`, done `1`.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:

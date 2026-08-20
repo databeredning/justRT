@@ -173,6 +173,68 @@ void task_inherit_priority(uint32_t task_id, uint32_t priority)
     critical_exit(saved_primask);
 }
 
+/* Recalculate inherited priority up the ownership chain after a waiter is removed. */
+static void restore_priority_chain(uint32_t start_id)
+{
+    uint32_t id = start_id;
+    uint32_t depth;
+
+    for (depth = 0U; depth < task_count; depth++)
+    {
+        uint32_t old_priority;
+        uint32_t effective;
+        uint32_t scan;
+
+        if (id >= task_count)
+        {
+            break;
+        }
+
+        old_priority = tasks[id].priority;
+        effective = tasks[id].base_priority;
+        for (scan = 0U; scan < task_count; scan++)
+        {
+            if ((tasks[scan].state == TASK_STATE_BLOCKED)
+                && (tasks[scan].wait_kind == TASK_WAIT_MUTEX)
+                && (tasks[scan].wait_object != 0U))
+            {
+                mutex_t *m = (mutex_t *)tasks[scan].wait_object;
+
+                if ((m->locked != 0U)
+                    && (m->owner == id)
+                    && (tasks[scan].priority > effective))
+                {
+                    effective = tasks[scan].priority;
+                }
+            }
+        }
+        tasks[id].priority = effective;
+
+        if (effective == old_priority)
+        {
+            break;
+        }
+
+        if ((tasks[id].state != TASK_STATE_BLOCKED)
+            || (tasks[id].wait_kind != TASK_WAIT_MUTEX)
+            || (tasks[id].wait_object == 0U))
+        {
+            break;
+        }
+        {
+            mutex_t *m = (mutex_t *)tasks[id].wait_object;
+
+            if ((m->locked == 0U)
+                || (m->owner >= task_count)
+                || (m->owner == id))
+            {
+                break;
+            }
+            id = m->owner;
+        }
+    }
+}
+
 void task_restore_priority(uint32_t task_id)
 {
     uint32_t saved_primask = critical_enter();
@@ -428,10 +490,28 @@ void tick_tasks(void)
             tasks[index].wait_ticks--;
             if (tasks[index].wait_ticks == 0U)
             {
+                uint32_t mutex_owner_id = task_count;
+
+                if ((tasks[index].wait_kind == TASK_WAIT_MUTEX)
+                    && (tasks[index].wait_object != 0U))
+                {
+                    mutex_t *m = (mutex_t *)tasks[index].wait_object;
+
+                    if ((m->locked != 0U) && (m->owner < task_count))
+                    {
+                        mutex_owner_id = m->owner;
+                    }
+                }
+
                 tasks[index].state = TASK_STATE_READY;
                 tasks[index].wait_result = 0U;
                 tasks[index].wait_object = 0U;
                 tasks[index].wait_kind = TASK_WAIT_NONE;
+
+                if (mutex_owner_id < task_count)
+                {
+                    restore_priority_chain(mutex_owner_id);
+                }
             }
         }
     }
