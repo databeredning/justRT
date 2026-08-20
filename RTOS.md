@@ -973,6 +973,8 @@ the final slot.
 
 The kernel also exposes debugger-visible runtime diagnostics:
 `g_context_switches`, `g_ready_scan_depth_max`,
+`g_sched_pass1_iters_total`, `g_sched_pass2_iters_total`,
+`g_sched_pass2_iters_max`,
 `g_wait_timeout_semaphore`, `g_wait_timeout_queue_send`,
 `g_wait_timeout_queue_receive`, `g_wait_timeout_mutex`, and
 `g_sync_context_misuse`.

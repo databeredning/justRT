@@ -51,6 +51,9 @@ volatile uint32_t g_current_task_index = 0U;
 volatile uint32_t g_idle_kicks = 0U;
 volatile uint32_t g_context_switches = 0U;
 volatile uint32_t g_ready_scan_depth_max = 0U;
+volatile uint32_t g_sched_pass1_iters_total = 0U;
+volatile uint32_t g_sched_pass2_iters_total = 0U;
+volatile uint32_t g_sched_pass2_iters_max = 0U;
 volatile uint32_t g_wait_timeout_semaphore = 0U;
 volatile uint32_t g_wait_timeout_queue_send = 0U;
 volatile uint32_t g_wait_timeout_queue_receive = 0U;
@@ -555,6 +558,8 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     uint32_t next_index = base_index;
     uint32_t best_priority = 0U;
     uint32_t selected_offset = task_count;
+    uint32_t pass1_iters = 0U;
+    uint32_t pass2_iters = 0U;
 
     current_task->sp = current_sp;
     update_stack_usage(current_task, current_sp);
@@ -566,6 +571,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     for (offset = 0U; offset < task_count; offset++)
     {
+        pass1_iters++;
         next_index = (base_index + offset) % task_count;
         if ((tasks[next_index].state == TASK_STATE_READY)
             && (tasks[next_index].priority > best_priority))
@@ -576,6 +582,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     for (offset = 1U; offset <= task_count; offset++)
     {
+        pass2_iters++;
         next_index = (base_index + offset) % task_count;
         if ((tasks[next_index].state == TASK_STATE_READY)
             && (tasks[next_index].priority == best_priority))
@@ -584,6 +591,13 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
             selected_offset = offset;
             break;
         }
+    }
+
+    g_sched_pass1_iters_total += pass1_iters;
+    g_sched_pass2_iters_total += pass2_iters;
+    if (pass2_iters > g_sched_pass2_iters_max)
+    {
+        g_sched_pass2_iters_max = pass2_iters;
     }
 
     if ((selected_offset < task_count) && (selected_offset > g_ready_scan_depth_max))
@@ -666,6 +680,9 @@ kernel_status_t kernel_init(const kernel_config_t *config)
     g_current_task_index = 0U;
     g_context_switches = 0U;
     g_ready_scan_depth_max = 0U;
+    g_sched_pass1_iters_total = 0U;
+    g_sched_pass2_iters_total = 0U;
+    g_sched_pass2_iters_max = 0U;
     g_wait_timeout_semaphore = 0U;
     g_wait_timeout_queue_send = 0U;
     g_wait_timeout_queue_receive = 0U;
