@@ -89,6 +89,12 @@ To run the ISR synchronization regression from `main.c`, set:
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_SYNC
 ```
 
+To run the ISR queue-full stress regression from `main.c`, set:
+
+```c
+#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_QFULL
+```
+
 
 ## 4. Public Kernel Declarations
 
@@ -1059,6 +1065,19 @@ Inspect `g_isr_sync_irq_give_count`, `g_isr_sync_irq_queue_sent`,
 `g_isr_sync_queue_received`, `g_isr_sync_error`, and `g_isr_sync_done`.
 Expected pass behavior: done becomes `1`, error stays `0`, drops stay `0`, and
 sent counts match received counts.
+
+### 17.23 ISR queue-full regression example
+
+`examples/isr_sync_paths.c` also provides `isr_sync_queue_full_start()` to
+stress `queue_send_from_isr()` when the queue is intentionally allowed to fill.
+The SysTick hook pushes queue traffic every tick while the consumer task
+throttles itself, forcing queue-full drops. This validates that full-queue
+behavior returns failure without corrupting order or blocking in ISR context.
+
+Inspect `g_isr_qfull_done`, `g_isr_qfull_error`, `g_isr_qfull_dropped`,
+`g_isr_qfull_received`, `g_isr_sync_irq_queue_sent`, and
+`g_sync_context_misuse`. Expected pass values are done `1`, error `0`, drop
+count greater than `0`, receive count increasing, and context misuse `0`.
 
 ## 18. Commit History Context
 
