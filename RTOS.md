@@ -79,8 +79,15 @@ Reset_Handler
 
 #### `main()`
 
-The entry point calls `heartbeat_example_start()`. The example initializes
-the board and passes its task-entry table to `kernel_start()`.
+The entry point now selects an example through `JUSTBOOT_MAIN_PROFILE`.
+The default profile is bring-up (`heartbeat_example_start()`) so board
+clocking, GPIO, and scheduler basics are exercised on every normal boot.
+
+To run the ISR synchronization regression from `main.c`, set:
+
+```c
+#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_SYNC
+```
 
 
 ## 4. Public Kernel Declarations
