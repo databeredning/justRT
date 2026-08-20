@@ -44,6 +44,16 @@ void semaphore_give(semaphore_t *semaphore)
     critical_exit(saved_primask);
 }
 
+void semaphore_give_from_isr(semaphore_t *semaphore)
+{
+    uint32_t saved_primask = critical_enter();
+
+    semaphore->available = 1U;
+    task_wake(semaphore, TASK_WAIT_SEMAPHORE);
+    critical_exit(saved_primask);
+    request_switch();
+}
+
 void mutex_init(mutex_t *mutex)
 {
     uint32_t saved_primask = critical_enter();
@@ -198,4 +208,31 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
             return 0;
         }
     }
+}
+
+int queue_send_from_isr(queue_t *queue, const void *item)
+{
+    uint32_t saved_primask = critical_enter();
+
+    if ((queue->capacity != 0U) && (queue->item_size != 0U)
+        && (queue->count < queue->capacity))
+    {
+        uint8_t *destination = &queue->storage[queue->head * queue->item_size];
+        const uint8_t *source = (const uint8_t *)item;
+        uint32_t index;
+
+        for (index = 0U; index < queue->item_size; index++)
+        {
+            destination[index] = source[index];
+        }
+        queue->head = (queue->head + 1U) % queue->capacity;
+        queue->count++;
+        task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
+        critical_exit(saved_primask);
+        request_switch();
+        return 1;
+    }
+
+    critical_exit(saved_primask);
+    return 0;
 }

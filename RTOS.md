@@ -887,6 +887,10 @@ priorities retain static slot order. Ring-buffer state and item copies are
 protected by PRIMASK. These APIs are currently intended for task context;
 ISR-specific operations are not yet defined.
 
+For interrupt context, use `semaphore_give_from_isr()` and
+`queue_send_from_isr()`. These APIs never block and explicitly pend PendSV via
+`request_switch()` after waking waiters.
+
 ### 17.10 Synchronization example
 
 `examples/sync_producer_consumer.c` provides a selectable producer/consumer
