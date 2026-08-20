@@ -50,6 +50,19 @@ void request_switch(void)
     SCB_ICSR = SCB_ICSR_PENDSVSET;
 }
 
+int kernel_in_isr(void)
+{
+    uint32_t ipsr;
+
+    __asm volatile (
+        "mrs %0, ipsr\n"
+        : "=r" (ipsr)
+        :
+        : "memory");
+
+    return (ipsr != 0U) ? 1 : 0;
+}
+
 uint32_t critical_enter(void)
 {
     uint32_t saved_primask;

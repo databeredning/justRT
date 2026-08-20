@@ -79,6 +79,7 @@ void sleep_ticks(uint32_t ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);
 void tick_init(void);
 void request_switch(void);
+int kernel_in_isr(void);
 uint32_t critical_enter(void);
 void critical_exit(uint32_t saved_primask);
 void tick_tasks(void);
@@ -93,6 +94,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp);
 
 extern volatile uint32_t g_current_task_index;
 extern volatile uint32_t g_idle_kicks;
+extern volatile uint32_t g_sync_context_misuse;
 extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;

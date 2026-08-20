@@ -1,6 +1,8 @@
 #include "kernel.h"
 #include "sync.h"
 
+volatile uint32_t g_sync_context_misuse;
+
 void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
 {
     uint32_t saved_primask = critical_enter();
@@ -11,6 +13,12 @@ void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
 
 int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
 {
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
+
     while (1)
     {
         uint32_t saved_primask = critical_enter();
@@ -37,6 +45,12 @@ int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
 
 void semaphore_give(semaphore_t *semaphore)
 {
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return;
+    }
+
     uint32_t saved_primask = critical_enter();
 
     semaphore->available = 1U;
@@ -46,6 +60,12 @@ void semaphore_give(semaphore_t *semaphore)
 
 void semaphore_give_from_isr(semaphore_t *semaphore)
 {
+    if (kernel_in_isr() == 0)
+    {
+        g_sync_context_misuse++;
+        return;
+    }
+
     uint32_t saved_primask = critical_enter();
 
     semaphore->available = 1U;
@@ -67,6 +87,12 @@ void mutex_init(mutex_t *mutex)
 int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
 {
     uint32_t current_index = task_current_index();
+
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
 
     while (1)
     {
@@ -102,6 +128,12 @@ int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
 
 int mutex_unlock(mutex_t *mutex)
 {
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
+
     uint32_t saved_primask = critical_enter();
     uint32_t owner_id;
 
@@ -141,6 +173,12 @@ void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_
 
 int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
 {
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
+
     while (1)
     {
         uint32_t saved_primask = critical_enter();
@@ -177,6 +215,12 @@ int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
 
 int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
 {
+    if (kernel_in_isr() != 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
+
     while (1)
     {
         uint32_t saved_primask = critical_enter();
@@ -212,6 +256,12 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
 
 int queue_send_from_isr(queue_t *queue, const void *item)
 {
+    if (kernel_in_isr() == 0)
+    {
+        g_sync_context_misuse++;
+        return 0;
+    }
+
     uint32_t saved_primask = critical_enter();
 
     if ((queue->capacity != 0U) && (queue->item_size != 0U)
