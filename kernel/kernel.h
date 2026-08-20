@@ -92,6 +92,7 @@ void task_restore_priority(uint32_t task_id);
 uint32_t *pendsv_switch(uint32_t *current_sp);
 
 extern volatile uint32_t g_current_task_index;
+extern volatile uint32_t g_idle_kicks;
 extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;

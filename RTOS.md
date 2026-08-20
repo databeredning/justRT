@@ -956,8 +956,9 @@ the final slot.
 
 ### 17.15 Watchdog integration
 
-The inspection API provides the foundation for future watchdog service-window
-monitoring, but watchdog behavior is not yet integrated.
+The kernel now increments `g_idle_kicks` on every idle-loop pass before `WFI`.
+This provides a debugger-visible software watchdog heartbeat that confirms the
+scheduler is still making progress when the system is otherwise idle.
 
 ### 17.16 Mutex edge-case example
 

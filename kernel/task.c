@@ -48,6 +48,7 @@ typedef struct __attribute__((aligned(32)))
 } task_storage_t;
 
 volatile uint32_t g_current_task_index = 0U;
+volatile uint32_t g_idle_kicks = 0U;
 volatile uint32_t g_stack_fault = 0U;
 volatile uint32_t g_stack_fault_task = 0U;
 volatile uint32_t g_stack_fault_sp = 0U;
@@ -361,6 +362,7 @@ static void idle_body(void *argument)
     (void)argument;
     while (1)
     {
+        g_idle_kicks++;
         __asm volatile ("wfi" : : : "memory");
     }
 }
