@@ -145,10 +145,31 @@ void task_inherit_priority(uint32_t task_id, uint32_t priority)
 void task_restore_priority(uint32_t task_id)
 {
     uint32_t saved_primask = critical_enter();
+    uint32_t index;
+    uint32_t effective_priority;
 
     if (task_id < task_count)
     {
-        tasks[task_id].priority = tasks[task_id].base_priority;
+        effective_priority = tasks[task_id].base_priority;
+
+        for (index = 0U; index < task_count; index++)
+        {
+            if ((tasks[index].state == TASK_STATE_BLOCKED)
+                && (tasks[index].wait_kind == TASK_WAIT_MUTEX)
+                && (tasks[index].wait_object != 0U))
+            {
+                mutex_t *mutex = (mutex_t *)tasks[index].wait_object;
+
+                if ((mutex->locked != 0U)
+                    && (mutex->owner == task_id)
+                    && (tasks[index].priority > effective_priority))
+                {
+                    effective_priority = tasks[index].priority;
+                }
+            }
+        }
+
+        tasks[task_id].priority = effective_priority;
     }
     critical_exit(saved_primask);
 }

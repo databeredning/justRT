@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/waiter_timeout_wake.h"
+#include "examples/mutex_multi_restore.h"
 
 int main(void)
 {
-    waiter_timeout_wake_start();
+    mutex_multi_restore_start();
 
     return 0;
 }

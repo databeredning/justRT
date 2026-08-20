@@ -991,6 +991,21 @@ Inspect `g_waiter_timeout_flag`, `g_waiter_timeout_wake_order[0]`,
 `g_waiter_timeout_error == 0`, and
 `g_waiter_timeout_wake_order[0] == 0xC3`.
 
+### 17.19 Multi-mutex priority restore example
+
+`examples/mutex_multi_restore.c` validates that priority inheritance restore
+is recalculated across all currently owned mutexes. The owner task takes two
+mutexes, a high-priority waiter blocks on one mutex, and a medium-priority
+waiter blocks on the other. After the first unlock, the owner priority must
+drop from high to medium; after the second unlock, it must drop to base.
+Inspect `g_multi_restore_owner_priority_before_release`,
+`g_multi_restore_owner_priority_after_first_release`,
+`g_multi_restore_owner_priority_after_second_release`,
+`g_multi_restore_high_waiter_acquired`, `g_multi_restore_mid_waiter_acquired`,
+`g_multi_restore_error`, and `g_multi_restore_done`. The expected pass result
+is `3`, `2`, and `1` for the three priority snapshots, both acquired flags set
+to `1`, `g_multi_restore_error == 0`, and `g_multi_restore_done == 1`.
+
 ## 18. Commit History Context
 
 The implementation evolved through small debugger-tested increments:
