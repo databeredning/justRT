@@ -880,9 +880,11 @@ queue_init(&queue, storage, 4U, sizeof(uint32_t));
 `queue_send()` and `queue_receive()` use the same zero, finite, and
 `SEMAPHORE_WAIT_FOREVER` timeout meanings as the semaphore. Full senders and
 empty receivers enter `TASK_BLOCKED`; a successful receive wakes a blocked
-sender and a successful send wakes a blocked receiver. Ring-buffer state and
-item copies are protected by PRIMASK. These APIs are currently intended for
-task context; ISR-specific operations are not yet defined.
+sender and a successful send wakes a blocked receiver. When multiple tasks
+wait on the same object, the highest-priority waiter is selected; equal
+priorities retain static slot order. Ring-buffer state and item copies are
+protected by PRIMASK. These APIs are currently intended for task context;
+ISR-specific operations are not yet defined.
 
 ### 17.10 Synchronization example
 

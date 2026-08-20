@@ -325,6 +325,8 @@ void task_wake(void *object, task_wait_kind_t wait_kind)
 {
     uint32_t saved_primask = critical_enter();
     uint32_t index;
+    uint32_t selected_index = task_count;
+    uint32_t selected_priority = 0U;
 
     for (index = 0U; index < task_count; index++)
     {
@@ -332,12 +334,21 @@ void task_wake(void *object, task_wait_kind_t wait_kind)
             && (tasks[index].wait_object == object)
             && (tasks[index].wait_kind == wait_kind))
         {
-            tasks[index].state = TASK_STATE_READY;
-            tasks[index].wait_result = 1U;
-            tasks[index].wait_object = 0U;
-            tasks[index].wait_kind = TASK_WAIT_NONE;
-            break;
+            if ((selected_index == task_count)
+                || (tasks[index].priority > selected_priority))
+            {
+                selected_index = index;
+                selected_priority = tasks[index].priority;
+            }
         }
+    }
+
+    if (selected_index != task_count)
+    {
+        tasks[selected_index].state = TASK_STATE_READY;
+        tasks[selected_index].wait_result = 1U;
+        tasks[selected_index].wait_object = 0U;
+        tasks[selected_index].wait_kind = TASK_WAIT_NONE;
     }
 
     critical_exit(saved_primask);

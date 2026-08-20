@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "examples/mutex_edge_cases.h"
+#include "examples/waiter_priority_wake.h"
 
 int main(void)
 {
-    mutex_edge_cases_start();
+    waiter_priority_wake_start();
 
     return 0;
 }

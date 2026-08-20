@@ -9,7 +9,7 @@ DEBUGFLAGS := -Og -g3
 CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o examples/semaphore_event.o examples/mutex_contention.o examples/mutex_priority_inheritance.o examples/mutex_edge_cases.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o examples/semaphore_event.o examples/mutex_contention.o examples/mutex_priority_inheritance.o examples/mutex_edge_cases.o examples/waiter_priority_wake.o kernel/task.o kernel/port_cm7.o kernel/fault.o kernel/sync.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -50,6 +50,9 @@ $(OBJDIR)/examples/mutex_priority_inheritance.o: examples/mutex_priority_inherit
 	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
 
 $(OBJDIR)/examples/mutex_edge_cases.o: examples/mutex_edge_cases.c examples/mutex_edge_cases.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/examples
+	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
+
+$(OBJDIR)/examples/waiter_priority_wake.o: examples/waiter_priority_wake.c examples/waiter_priority_wake.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/examples
 	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@
 
 $(OBJDIR)/kernel/task.o: kernel/task.c kernel/kernel.h | $(OBJDIR)/kernel
