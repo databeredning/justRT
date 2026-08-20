@@ -129,22 +129,6 @@ void svc_dispatch(uint32_t *stacked_frame)
     request_switch();
 }
 
-void SVC_Handler(void) __attribute__((naked));
-
-void SVC_Handler(void)
-{
-    __asm volatile (
-        "tst lr, #4\n"
-        "ite eq\n"
-        "mrseq r0, msp\n"
-        "mrsne r0, psp\n"
-        "push {r3, lr}\n"
-        "bl svc_dispatch\n"
-        "pop {r3, lr}\n"
-        "bx lr\n"
-    );
-}
-
 void PendSV_Handler(void) __attribute__((naked));
 
 void PendSV_Handler(void)
