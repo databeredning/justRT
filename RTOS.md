@@ -298,7 +298,8 @@ Task entry function associated with the task.
 
 ## 6. Static Tasks and Stacks
 
-The kernel has three statically allocated task slots:
+The kernel has four statically allocated task slots: up to three application
+tasks plus one kernel-owned idle task.
 
 ```c
 static uint32_t task0_stack[128] __attribute__((aligned(8)));
@@ -306,7 +307,9 @@ static uint32_t task1_stack[128] __attribute__((aligned(8)));
 static uint32_t idle_stack[128] __attribute__((aligned(8)));
 ```
 
-Each stack contains 128 32-bit words, or 512 bytes. The alignment attribute provides the 8-byte alignment required by the Cortex-M exception and ABI conventions.
+Each stack contains `KERNEL_TASK_STACK_WORDS` 32-bit words, or 512 bytes by
+default. The alignment attribute provides the 8-byte alignment required by the
+Cortex-M exception and ABI conventions.
 
 There is no heap allocation. Task storage and stacks are known at link time.
 
@@ -772,8 +775,8 @@ The current design provides these useful guarantees:
 
 The following limitations are known and intentional at this stage:
 
-1. The scheduler has three hard-coded task slots.
-2. Task stacks are fixed at 512 bytes each.
+1. The scheduler has a fixed maximum of `KERNEL_MAX_TASKS` slots.
+2. Task stacks are bounded by `KERNEL_TASK_STACK_WORDS` words.
 3. There is no public task creation API.
 4. There is no task deletion or termination service.
 5. There is no priority scheduler.

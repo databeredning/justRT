@@ -61,8 +61,8 @@ static void consumer_task(void *argument)
 }
 
 static const task_definition_t sync_tasks[] = {
-    { producer_task, 0U, 128U, 1U, "producer", 0U },
-    { consumer_task, 0U, 128U, 1U, "consumer", 0U }
+    { producer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "producer", 0U },
+    { consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "consumer", 0U }
 };
 
 void sync_producer_consumer_start(void)

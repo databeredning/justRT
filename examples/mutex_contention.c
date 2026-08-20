@@ -90,8 +90,8 @@ static void contender_task(void *argument)
 }
 
 static const task_definition_t mutex_tasks[] = {
-    { owner_task, 0U, 128U, 1U, "mutex-owner", 0U },
-    { contender_task, 0U, 128U, 1U, "mutex-contender", 0U }
+    { owner_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "mutex-owner", 0U },
+    { contender_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "mutex-contender", 0U }
 };
 
 void mutex_contention_start(void)

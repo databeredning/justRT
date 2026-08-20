@@ -84,9 +84,9 @@ static void medium_task(void *argument)
 }
 
 static const task_definition_t inheritance_tasks[] = {
-    { low_owner_task, 0U, 128U, LOW_BASE_PRIORITY, "low-owner", 0U },
-    { high_waiter_task, 0U, 128U, HIGH_PRIORITY, "high-waiter", 0U },
-    { medium_task, 0U, 128U, MEDIUM_PRIORITY, "medium", 0U }
+    { low_owner_task, 0U, KERNEL_TASK_STACK_WORDS, LOW_BASE_PRIORITY, "low-owner", 0U },
+    { high_waiter_task, 0U, KERNEL_TASK_STACK_WORDS, HIGH_PRIORITY, "high-waiter", 0U },
+    { medium_task, 0U, KERNEL_TASK_STACK_WORDS, MEDIUM_PRIORITY, "medium", 0U }
 };
 
 void mutex_priority_inheritance_start(void)

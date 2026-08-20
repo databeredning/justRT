@@ -31,8 +31,8 @@ static void activity_task(void *argument)
 }
 
 static const task_definition_t heartbeat_tasks[] = {
-    { heartbeat_task, 0U, 128U, 1U, "heartbeat", 0U },
-    { activity_task, 0U, 128U, 1U, "activity", 0U }
+    { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
+    { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
 };
 
 void heartbeat_example_start(void)
