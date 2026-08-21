@@ -71,7 +71,8 @@ typedef enum
 	TASK_WAIT_SEMAPHORE,
 	TASK_WAIT_QUEUE_SEND,
 	TASK_WAIT_QUEUE_RECEIVE,
-	TASK_WAIT_MUTEX
+	TASK_WAIT_MUTEX,
+	TASK_WAIT_NOTIFICATION
 } task_wait_kind_t;
 
 kernel_status_t kernel_init(const kernel_config_t *config) KERNEL_PRIVILEGED;
@@ -100,6 +101,9 @@ uint32_t task_current_index(void) KERNEL_PRIVILEGED;
 uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
 void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
 void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;
+int task_notify(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
+int task_notify_from_isr(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
+int task_notify_take(uint32_t *value, uint32_t timeout_ticks) KERNEL_PRIVILEGED;
 uint32_t *pendsv_switch(uint32_t *current_sp) KERNEL_PRIVILEGED;
 
 extern volatile uint32_t g_current_task_index;

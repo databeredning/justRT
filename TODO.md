@@ -11,6 +11,7 @@
 - [ ] Validate the time-foundation checkpoint on hardware (profile 7)
 - [ ] Validate timer expiry bookkeeping on hardware (profile 8)
 - [ ] Validate deferred timer callbacks on hardware (profile 9)
+- [ ] Validate task notifications on hardware (profile 10)
 
 ## Next features
 

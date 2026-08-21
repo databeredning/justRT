@@ -61,6 +61,7 @@ typedef struct
     task_wait_kind_t wait_kind;
     uint32_t wait_ticks;
     uint32_t wait_result;
+    uint32_t notification_value;
 } task_t;
 
 typedef struct __attribute__((aligned(32)))
@@ -470,6 +471,7 @@ static void prepare_task(uint32_t index, const task_definition_t *definition)
     tasks[index].base_priority = definition->priority;
     tasks[index].name = definition->name;
     tasks[index].flags = definition->flags;
+    tasks[index].notification_value = 0U;
 }
 
 static void prepare_idle_task(void)
@@ -491,6 +493,86 @@ static void prepare_idle_task(void)
     tasks[idle_index].base_priority = 0U;
     tasks[idle_index].name = "idle";
     tasks[idle_index].flags = 0U;
+    tasks[idle_index].notification_value = 0U;
+}
+
+static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
+{
+    uint32_t saved_primask;
+
+    if ((from_isr != 0) ? (kernel_in_isr() == 0) : (kernel_in_isr() != 0))
+    {
+        return 0;
+    }
+    if (validate_task_id(task_id) != KERNEL_OK)
+    {
+        return 0;
+    }
+
+    saved_primask = critical_enter();
+    tasks[task_id].notification_value += value;
+    if ((tasks[task_id].state == TASK_STATE_BLOCKED)
+        && (tasks[task_id].wait_kind == TASK_WAIT_NOTIFICATION))
+    {
+        tasks[task_id].state = TASK_STATE_READY;
+        tasks[task_id].wait_result = 1U;
+        tasks[task_id].wait_object = 0U;
+        tasks[task_id].wait_kind = TASK_WAIT_NONE;
+        tasks[task_id].wait_ticks = 0U;
+    }
+    critical_exit(saved_primask);
+    request_switch();
+    return 1;
+}
+
+int task_notify(uint32_t task_id, uint32_t value)
+{
+    return task_notify_common(task_id, value, 0);
+}
+
+int task_notify_from_isr(uint32_t task_id, uint32_t value)
+{
+    return task_notify_common(task_id, value, 1);
+}
+
+int task_notify_take(uint32_t *value, uint32_t timeout_ticks)
+{
+    uint32_t saved_primask;
+    uint32_t notification;
+
+    if (value == 0U || kernel_in_isr() != 0)
+    {
+        return 0;
+    }
+
+    saved_primask = critical_enter();
+    notification = current_task->notification_value;
+    if (notification != 0U)
+    {
+        current_task->notification_value = 0U;
+        critical_exit(saved_primask);
+        *value = notification;
+        return 1;
+    }
+    if (timeout_ticks == 0U)
+    {
+        critical_exit(saved_primask);
+        return 0;
+    }
+    current_task->wait_object = current_task;
+    current_task->wait_kind = TASK_WAIT_NOTIFICATION;
+    current_task->wait_ticks = timeout_ticks;
+    current_task->wait_result = 0U;
+    current_task->state = TASK_STATE_BLOCKED;
+    critical_exit(saved_primask);
+    yield();
+
+    saved_primask = critical_enter();
+    notification = current_task->notification_value;
+    current_task->notification_value = 0U;
+    critical_exit(saved_primask);
+    *value = notification;
+    return (notification != 0U) ? 1 : 0;
 }
 
 void sleep_current(uint32_t ticks)

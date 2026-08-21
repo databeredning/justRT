@@ -11,6 +11,9 @@ volatile uint32_t g_timer_expirations;
 volatile uint32_t g_timer_last_tick;
 volatile uint32_t g_timer_callback_runs;
 volatile uint32_t g_timer_callback_last_tick;
+volatile uint32_t g_notification_sent;
+volatile uint32_t g_notification_received;
+volatile uint32_t g_notification_error;
 
 static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
 {
@@ -103,6 +106,41 @@ static void timer_callback_task(void *argument)
     }
 }
 
+static void notification_producer_task(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        if (task_notify(1U, 1U) == 0)
+        {
+            g_notification_error++;
+        }
+        else
+        {
+            g_notification_sent++;
+        }
+        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
+    }
+}
+
+static void notification_consumer_task(void *argument)
+{
+    uint32_t value;
+
+    (void)argument;
+    while (1)
+    {
+        if (task_notify_take(&value, SEMAPHORE_WAIT_FOREVER) == 0)
+        {
+            g_notification_error++;
+        }
+        else
+        {
+            g_notification_received += value;
+        }
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
@@ -125,6 +163,13 @@ static const task_definition_t timer_tasks[] TASK_UNPRIVILEGED_RODATA = {
 static const task_definition_t timer_callback_tasks[] TASK_UNPRIVILEGED_RODATA = {
         { timer_callback_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
             "timer-callback", 0U }
+};
+
+static const task_definition_t notification_tasks[] TASK_UNPRIVILEGED_RODATA = {
+        { notification_producer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+            "notify-producer", 0U },
+        { notification_consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 2U,
+            "notify-consumer", 0U }
 };
 
 void heartbeat_example_start(void)
@@ -198,6 +243,22 @@ void heartbeat_timer_callback_start(void)
     const kernel_config_t config = {
         timer_callback_tasks,
         sizeof(timer_callback_tasks) / sizeof(timer_callback_tasks[0])
+    };
+
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_notification_start(void)
+{
+    const kernel_config_t config = {
+        notification_tasks,
+        sizeof(notification_tasks) / sizeof(notification_tasks[0])
     };
 
     if (kernel_init(&config) != KERNEL_OK)
