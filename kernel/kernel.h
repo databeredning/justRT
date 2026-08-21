@@ -106,6 +106,7 @@ kernel_status_t task_get_name(uint32_t task_id, const char **name) KERNEL_PRIVIL
 kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
 void yield(void);
 void sleep_ticks(uint32_t ticks);
+void led_toggle(void);
 uint32_t ms_to_ticks(uint32_t milliseconds);
 void tick_init(void) KERNEL_PRIVILEGED;
 void request_switch(void) KERNEL_PRIVILEGED;

@@ -51,6 +51,16 @@ static TASK_UNPRIVILEGED void unprivileged_svc_task(void *argument)
     }
 }
 
+static TASK_UNPRIVILEGED void unprivileged_led_task(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        led_toggle();
+        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
@@ -64,6 +74,11 @@ static const task_definition_t privilege_counter_tasks[] TASK_UNPRIVILEGED_RODAT
 static const task_definition_t unprivileged_svc_tasks[] TASK_UNPRIVILEGED_RODATA = {
         { unprivileged_svc_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
             "unprivileged-svc", TASK_FLAG_UNPRIVILEGED }
+};
+
+static const task_definition_t unprivileged_led_tasks[] TASK_UNPRIVILEGED_RODATA = {
+        { unprivileged_led_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+            "unprivileged-led", TASK_FLAG_UNPRIVILEGED }
 };
 
 void heartbeat_example_start(void)
@@ -106,6 +121,23 @@ void heartbeat_unprivileged_svc_start(void)
         sizeof(unprivileged_svc_tasks) / sizeof(unprivileged_svc_tasks[0])
     };
 
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_unprivileged_led_start(void)
+{
+    const kernel_config_t config = {
+        unprivileged_led_tasks,
+        sizeof(unprivileged_led_tasks) / sizeof(unprivileged_led_tasks[0])
+    };
+
+    board_init();
     if (kernel_init(&config) != KERNEL_OK)
     {
         while (1)
