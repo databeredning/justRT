@@ -15,192 +15,220 @@ The current code is a small, statically configured, preemptive kernel experiment
 - Static task stacks.
 - Task states for ready, running, and sleeping tasks.
 - A fallback idle task using `WFI`.
-- Debugger-visible counters and boot markers.
 - Fault capture for HardFault, MemManage, BusFault, and UsageFault.
+## 4. Core Execution Architecture
 
-This is not yet a production RTOS. It does not yet provide complete task
-memory isolation, queues, interrupt-safe APIs, watchdog
-integration, or a general public task creation API.
-
-## 2. Source Layout
-
-The current source layout is:
+The kernel uses three Cortex-M7 exception paths around a static task model:
 
 ```text
-main.c                         Platform/application entry point
-examples/heartbeat.c           Example task definitions and board startup
-examples/heartbeat.h           Heartbeat example entry point
-system.c                       Runtime data/BSS initialization and default handlers
-startup_cm7.s                  Reset sequence, stack setup, ECC/TCM initialization
-Vector_Table.s                 Cortex-M vector table
-linker_flash_s32k312.ld       Flash/SRAM layout and linker symbols
-kernel/kernel.h                Kernel-facing declarations
-kernel/task.c                  Task model, stacks, scheduler, task registration
-kernel/port_cm7.c              SysTick, SVC, PendSV, and Cortex-M7 instructions
-kernel/fault.c                 Fault frame and system register capture
-board/board.h                  Board-facing LED interface
-board/board.c                  Native SIUL2 PTB18 implementation
-Makefile                      Cross-compilation and link rules
+Thread mode on PSP
+    |  SVC: voluntary service request
+    v
+SVC handler on MSP
+    |  service dispatch, then PendSV request
+    v
+PendSV handler on MSP
+    |  save/restore r4-r11 and select the next task
+    v
+Thread mode on the selected task's PSP
 ```
 
-The `kernel` directory is the logical namespace for kernel code. Function names are intentionally short and generic within that directory, for example `start`, `yield`, `tick_init`, and `pendsv_switch`.
+### Vector table
 
-## 3. Boot and Startup Flow
+`Vector_Table.s` places the immutable vector table in `.intc_vector`. The
+linker aligns it at `__ROM_INTERRUPT_START`, and startup writes that address
+to VTOR. The relevant entries are:
 
-The high-level execution flow is:
+| Exception | Handler | Role |
+|---|---|---|
+| HardFault | `HardFault_Handler` | Fault capture fallback |
+| MemManage | `MemManage_Handler` | MPU violation capture |
+| BusFault | `BusFault_Handler` | Bus error capture |
+| UsageFault | `UsageFault_Handler` | Invalid instruction/state capture |
+| SVCall | `SVC_Handler` | Thread-mode kernel service entry |
+| PendSV | `PendSV_Handler` | Deferred context switch |
+| SysTick | `SysTick_Handler` | Tick accounting and reschedule request |
 
-```text
-Reset_Handler
-    |
-    +-- mask interrupts
-    +-- enable required early clocks
-    +-- point VTOR to the flash interrupt table
-    +-- select the core stack
-    +-- disable the startup watchdog on core 0
-    +-- initialize SRAM ECC
-    +-- initialize DTCM and ITCM
-    +-- initialize .data and .bss through init_data_bss()
-    +-- call SystemInit()
-    +-- call main()
-             |
-             +-- heartbeat_example_start()
-                      |
-                      +-- board_init()
-                      +-- kernel_start()
-                               |
-                               +-- prepare configured tasks
-                      +-- tick_init()
-                      +-- launch_first_task()
-                               |
-                               +-- task 0 starts on PSP
+### `PendSV_Handler`
+
+The naked handler runs with MSP and preserves the exception return token in
+`lr` while the C scheduler selects the next task:
+
+```asm
+mrs     r0, psp
+push    {r3, lr}
+stmdb   r0!, {r4-r11}
+bl      pendsv_switch
+ldmia   r0!, {r4-r11}
+msr     psp, r0
+pop     {r3, lr}
+bx      lr
 ```
 
-### 3.1 `main.c`
+`pendsv_switch()` saves the outgoing task PSP, normalizes its state, selects
+the highest-priority ready task, marks it running, and returns its saved PSP.
+PendSV is configured at the lowest exception priority so a SysTick or SVC
+request completes before the switch occurs.
 
-#### `main()`
+### `SVC_Handler`
 
-The entry point now selects an example through `JUSTBOOT_MAIN_PROFILE`.
-The default profile is bring-up (`heartbeat_example_start()`) so board
-clocking, GPIO, and scheduler basics are exercised on every normal boot.
+The handler is implemented in `kernel/svc_cm7.s`. It uses bit 2 of
+`EXC_RETURN` to select the hardware-stacked frame from MSP or PSP, calls
+`svc_dispatch()`, restores the original exception return value, and exits with
+`bx lr`. Kernel service implementations run privileged on MSP.
 
-To run the ISR synchronization regression from `main.c`, set:
+### `SysTick_Handler`
 
-```c
-#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_SYNC
-```
+SysTick calls `tick_tasks()`, which advances the monotonic tick and updates
+sleep, timeout, and timer state. It then requests PendSV. SysTick does not
+perform a context switch directly.
 
-To run the ISR queue-full stress regression from `main.c`, set:
+### Initial task launch
 
-```c
-#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_REGRESSION_ISR_QFULL
-```
+`launch_first_task()` restores the first task's synthetic frame, writes its PSP,
+clears PRIMASK while still privileged, and then applies the task's privilege
+state through CONTROL. This ordering is required because unprivileged Thread
+mode cannot clear PRIMASK.
 
-To run the long-duration soak profile from `main.c`, set:
+## 5. Kernel API Reference
 
-```c
-#define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_SOAK
-```
+The following APIs are the public kernel contract. Functions marked as
+ISR-safe never block; task-only functions must not be called from an
+exception handler.
 
-
-## 4. Public Kernel Declarations
-
-The declarations shared by the kernel files are in `kernel/kernel.h`.
-
-### `kernel_init()` and `kernel_start()`
+### Kernel and task control
 
 ```c
 kernel_status_t kernel_init(const kernel_config_t *config);
 void kernel_start(void);
+kernel_status_t task_get_state(uint32_t task_id, task_state_t *state);
+kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info);
+kernel_status_t task_get_name(uint32_t task_id, const char **name);
+kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority);
 ```
 
-`kernel_init()` validates and prepares application-provided static task
-definitions. It returns an error instead of entering the scheduler when the
-configuration is invalid. `kernel_start()` must be called after successful
-initialization; it enables the tick source and launches the first task. The
-configuration can provide up to seven worker definitions; the final slot is
-reserved for the kernel idle task.
+`kernel_init()` validates static task definitions and prepares their stacks.
+`kernel_start()` enables SysTick and launches the first task. The inspection
+functions return state, stack usage, name, or effective priority for a valid
+task ID.
 
-This function is called from `main()` after platform sanity checks.
-
-### `yield()`
+### Scheduling and time
 
 ```c
 void yield(void);
-```
-
-Requests a voluntary reschedule through SVC number zero and pends PendSV.
-
-The task continues after the SVC instruction when it is eventually scheduled again.
-
-### `sleep_ticks()`
-
-```c
 void sleep_ticks(uint32_t ticks);
+uint32_t ms_to_ticks(uint32_t milliseconds);
+uint32_t kernel_ticks_now(void);
+int kernel_tick_reached(uint32_t deadline);
+void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks);
 ```
 
-Requests that the current task sleep for a number of SysTick intervals. It uses SVC number one and passes the tick count in `r0`.
+`yield()` requests a reschedule through SVC. `sleep_ticks()` makes the current
+task unavailable for the requested number of ticks. `kernel_ticks_now()` reads
+the monotonic tick count. `kernel_tick_reached()` uses signed subtraction and
+is safe across 32-bit tick wraparound. `task_delay_until()` advances a fixed
+deadline, avoiding drift in periodic tasks.
 
-A zero duration does not block the task.
-
-### `tick_init()`
-
-Configures and enables the Cortex-M SysTick peripheral.
-
-The tick rate is configured as 7500 Hz from a 120 MHz core clock, producing a
-reload value of 15999. Millisecond delays should use `ms_to_ticks()` rather
-than embedding raw tick counts.
-
-### `request_switch()`
-
-Sets the PendSV pending bit in SCB ICSR. PendSV performs the actual context switch at the lowest configured exception priority.
-
-### `critical_enter()` and `critical_exit()`
-
-These Cortex-M7 port primitives provide a save-and-restore interrupt mask boundary using PRIMASK:
+### Port and kernel-internal entry points
 
 ```c
-uint32_t saved_primask = critical_enter();
-/* protected kernel state access */
-critical_exit(saved_primask);
-```
-
-`critical_enter()` returns the previous PRIMASK value before executing `CPSID I`. `critical_exit()` restores that exact value rather than blindly enabling interrupts, preserving an already-disabled outer critical section.
-
-These primitives are applied around task state changes, sleep accounting, and scheduler selection. Critical sections should remain short and must not be used around task bodies or blocking operations.
-
-### `tick_tasks()`
-
-Called by SysTick. It decrements the sleep counter for every sleeping task and changes tasks whose counter reaches zero back to `TASK_READY`.
-
-### `sleep_current()`
-
-```c
+void tick_init(void);
+void request_switch(void);
+int kernel_in_isr(void);
+uint32_t critical_enter(void);
+void critical_exit(uint32_t saved_primask);
+void tick_tasks(void);
 void sleep_current(uint32_t ticks);
-```
-
-Changes the current task to `TASK_SLEEPING` when `ticks` is nonzero. A zero value leaves the task ready.
-
-This function is called from the SVC dispatcher rather than directly by task code.
-
-### `pendsv_switch()`
-
-```c
+int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks);
+void task_wake(void *object, task_wait_kind_t wait_kind);
+uint32_t task_current_index(void);
+uint32_t task_current_priority(void);
+void task_inherit_priority(uint32_t task_id, uint32_t priority);
+void task_restore_priority(uint32_t task_id);
 uint32_t *pendsv_switch(uint32_t *current_sp);
 ```
 
-C-level scheduler helper called by the naked PendSV handler.
+These functions support the port and synchronization implementations.
+`critical_enter()` and `critical_exit()` save and restore PRIMASK. Blocking
+functions change task state and rely on PendSV to select another task.
 
-It:
+### Semaphores, mutexes, and queues
 
-1. Saves the current task's software stack pointer.
-2. Increments its run count.
-3. Changes a running task back to ready unless it has already been put to sleep.
-4. Searches for the next non-sleeping task.
-5. Updates `current_task` and `g_current_task_index`.
-6. Marks the selected task as running.
-7. Returns the selected task's saved stack pointer.
+```c
+void semaphore_init(semaphore_t *semaphore, uint32_t initially_available);
+int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks);
+void semaphore_give(semaphore_t *semaphore);
+void semaphore_give_from_isr(semaphore_t *semaphore);
 
-## 5. Task Model
+void mutex_init(mutex_t *mutex);
+int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks);
+int mutex_unlock(mutex_t *mutex);
+
+void queue_init(queue_t *queue, void *storage,
+                uint32_t capacity, uint32_t item_size);
+int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks);
+int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks);
+int queue_send_from_isr(queue_t *queue, const void *item);
+```
+
+Semaphore, mutex, and queue operations may block only in task context.
+`semaphore_give_from_isr()` and `queue_send_from_isr()` are non-blocking.
+The ISR queue send uses the documented drop-on-full policy. Mutexes implement
+priority inheritance, including chained ownership restoration.
+
+### Task notifications and event groups
+
+```c
+int task_notify(uint32_t task_id, uint32_t value);
+int task_notify_from_isr(uint32_t task_id, uint32_t value);
+int task_notify_take(uint32_t *value, uint32_t timeout_ticks);
+
+void event_group_init(event_group_t *group);
+uint32_t event_group_set_bits(event_group_t *group, uint32_t bits);
+uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits);
+uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
+                               int wait_all, int clear_on_exit,
+                               uint32_t timeout_ticks);
+```
+
+Notifications provide one accumulated value per task. Event groups provide
+bit-based wait-any or wait-all synchronization and optional clear-on-exit.
+Their ISR set functions do not block.
+
+### Software timers
+
+```c
+void kernel_timer_init(kernel_timer_t *timer);
+void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks);
+void kernel_timer_start_periodic(kernel_timer_t *timer, uint32_t period_ticks);
+void kernel_timer_restart(kernel_timer_t *timer);
+void kernel_timer_set_callback(kernel_timer_t *timer,
+                               kernel_timer_callback_t callback,
+                               void *argument);
+void kernel_timer_stop(kernel_timer_t *timer);
+uint32_t kernel_timer_take_expirations(kernel_timer_t *timer);
+void kernel_timer_dispatch(kernel_timer_t *timer);
+```
+
+Timers use monotonic deadlines and support one-shot and periodic operation.
+SysTick records expirations; callbacks are dispatched by task code rather than
+from interrupt context.
+
+### Memory pools
+
+```c
+void memory_pool_init(memory_pool_t *pool, void *storage,
+                      uint32_t block_size, uint32_t block_count,
+                      uint32_t *used_bitmap);
+void *memory_pool_alloc(memory_pool_t *pool);
+int memory_pool_free(memory_pool_t *pool, void *block);
+```
+
+Memory pools allocate fixed-size blocks from caller-provided storage. They do
+not use a heap, have bounded allocation behavior, reject invalid or
+misaligned frees, and reject double frees.
+
+## 6. Task Model
 
 The task model is currently private to `kernel/task.c`.
 
@@ -258,9 +286,9 @@ The task is delayed until its `sleep_ticks` counter reaches zero.
 
 #### `TASK_BLOCKED`
 
-The task is waiting on a semaphore or queue operation. It is removed from
-scheduler selection until the synchronization object wakes it or its timeout
-expires.
+The task is waiting on a synchronization object such as a semaphore, queue,
+notification, mutex, or event group. It is removed from scheduler selection
+until the object wakes it or its timeout expires.
 
 ### `task_t`
 
@@ -315,15 +343,17 @@ Number of stack words that have been used according to the fill-pattern scan. Th
 
 Task entry function associated with the task.
 
-## 6. Static Tasks and Stacks
+## 7. Static Tasks and Stacks
 
-The kernel has four statically allocated task slots: up to three application
-tasks plus one kernel-owned idle task.
+The kernel has eight statically allocated task slots: up to seven application
+tasks plus one kernel-owned idle task. An application provides between one and
+seven task definitions to `kernel_init()`; the kernel reserves the final slot
+for idle.
 
 ```c
-static uint32_t task0_stack[128] __attribute__((aligned(8)));
-static uint32_t task1_stack[128] __attribute__((aligned(8)));
-static uint32_t idle_stack[128] __attribute__((aligned(8)));
+enum { APPLICATION_TASKS = 2U };
+static const task_definition_t definitions[APPLICATION_TASKS] = { ... };
+kernel_config_t config = { definitions, APPLICATION_TASKS };
 ```
 
 Each stack contains `KERNEL_TASK_STACK_WORDS` 32-bit words, or 512 bytes by
@@ -349,7 +379,8 @@ The kernel idle task executes:
 __asm volatile ("wfi" : : : "memory");
 ```
 
-The idle task is selected when the worker tasks are sleeping or otherwise unavailable. `WFI` allows the core to wait for the next interrupt.
+The idle task is selected when all application tasks are sleeping or blocked.
+`WFI` allows the core to wait for the next interrupt.
 
 ### `prepare_task()`
 
@@ -365,7 +396,7 @@ The kernel owns storage and scheduling; applications own task entry functions
 and their selection. Future examples can provide a different entry table
 without modifying kernel sources.
 
-## 6.1 Native Board LED
+## 7.1 Native Board LED
 
 Board-specific hardware is kept outside the kernel in `board/`:
 
@@ -391,7 +422,7 @@ The implementation assumes the board LED is connected directly to PTB18, GPIO is
 
 When NXP RTD is introduced, keep this interface and replace the register operations with the generated Port/Dio calls. The kernel should not include RTD headers.
 
-## 7.1 Stack Safety Instrumentation
+## 8. Stack Safety Instrumentation
 
 Each task stack is initialized with `TASK_STACK_FILL` before its synthetic startup frame is built:
 
@@ -408,7 +439,7 @@ Each task stack is initialized with `TASK_STACK_FILL` before its synthetic start
 
 It then updates `minimum_sp` and scans upward from `stack_bottom` until it finds the first untouched fill-pattern word. The distance from that word to `stack_top` is stored in `high_water_words`.
 
-On a violation, the kernel sets these debugger-visible globals and stops:
+On a violation, the kernel records the task and stack address, then stops:
 
 ```c
 g_stack_fault      = 1U;
@@ -422,7 +453,7 @@ first task launches. A downward stack overflow therefore raises a MemManage
 fault before it reaches another task's storage. The software bounds check is
 still retained for saved-PSP validation.
 
-## 7. Initial Task Stack Frame
+## 9. Initial Task Stack Frame
 
 ### `build_initial_stack()`
 
@@ -484,7 +515,7 @@ A naked Cortex-M7 assembly function used only for the initial task launch. It:
 
 This path is separate from exception return because the first task is launched directly from kernel startup rather than resumed from an exception.
 
-## 8. Scheduler and Context Switching
+## 10. Scheduler and Context Switching
 
 ### Scheduler selection
 
@@ -523,13 +554,13 @@ The `push {r3, lr}` pair is important. Saving only `lr` would misalign MSP durin
 
 ### `g_current_task_index`
 
-Debugger-visible index of the current task slot. The current slots are:
+Current task slot index. Application slots come first and the final configured
+slot is idle:
 
-- `0`: worker task 0.
-- `1`: worker task 1.
-- `2`: idle task.
+- `0` through `task_count - 2`: application tasks.
+- `task_count - 1`: idle task.
 
-## 9. SysTick and Timekeeping
+## 11. SysTick and Timekeeping
 
 ### `tick_init()`
 
@@ -561,7 +592,7 @@ On every timer tick it:
 1. Calls `tick_tasks()` to decrement sleep counters.
 2. Pends PendSV through `request_switch()`.
 
-## 10. SVC Services
+## 12. SVC Services
 
 ### SVC instruction numbers
 
@@ -632,7 +663,7 @@ The current dispatcher is intentionally minimal:
 - There is no return-value convention.
 - The handler assumes a standard eight-word exception frame and does not yet handle the optional floating-point extended frame.
 
-## 11. Fault Diagnostics
+## 13. Fault Handling
 
 Fault handling is implemented in `kernel/fault.c`.
 
@@ -662,13 +693,13 @@ typedef struct
 
 ### `g_fault_record`
 
-A volatile global record intended for debugger inspection after a fault.
+A volatile global record intended for post-fault inspection.
 
 The stacked registers identify the interrupted instruction and execution context. The SCB registers identify the processor fault cause.
 
 ### `g_fault_active`
 
-Set to `1` after a fault has been captured. The capture function then enters a permanent loop so the debugger can inspect the record without the system continuing and overwriting it.
+Set to `1` after a fault has been captured. The capture function then enters a permanent loop so the record remains stable for recovery handling.
 
 ### `fault_capture()`
 
@@ -695,7 +726,7 @@ The following handlers are implemented as naked wrappers that select MSP or PSP 
 
 `system.c` still provides `undefined_handler()` and weak aliases for handlers that have not yet received specialized implementations, including NMI and DebugMonitor.
 
-## 12. Runtime Initialization
+## 14. Runtime Initialization
 
 ### `init_data_bss()`
 
@@ -708,9 +739,10 @@ It copies initialized data and zeros BSS-like regions before normal C code relie
 
 ### `SystemInit()`
 
-Currently empty. It is reserved for later system-level initialization such as clock setup, MPU configuration, cache policy, and security-domain configuration.
+Currently empty. Board clock and peripheral setup remains outside the kernel;
+the kernel performs its MPU setup during task initialization.
 
-## 13. Linker and Memory Considerations
+## 15. Linker and Memory Considerations
 
 The linker script currently defines separate regions for:
 
@@ -725,63 +757,16 @@ The linker script currently defines separate regions for:
 
 The startup assembly initializes ECC and TCM regions before entering C code.
 
-The task stacks currently live in the ordinary C data/BSS placement selected by the linker. They are not yet placed in dedicated linker sections. Before MPU enforcement, task stacks should move into explicit sections with symbols for:
+The linker uses explicit ownership sections for task storage and kernel data.
+The current layout defines symbols for:
 
 - Kernel stack.
 - Per-task stack regions.
-- Guard gaps or no-access regions.
+- Guard gaps and no-access regions.
 - Privileged kernel data.
 - Unprivileged task data.
 
-## 14. Debugger Test Procedure
-
-Build the image:
-
-```text
-make
-```
-
-Start the target and add these watch expressions:
-
-```text
-g_current_task_index
-g_fault_active
-g_fault_record.pc
-g_fault_record.lr
-g_fault_record.cfsr
-g_fault_record.hfsr
-```
-
-For `mutex_priority_inheritance_start()`, also watch:
-
-```text
-g_inheritance_low_priority
-g_inheritance_high_state
-g_inheritance_low_operations
-g_inheritance_high_operations
-g_inheritance_error
-```
-
-Expected behavior is that `g_inheritance_low_priority` rises from `1` to
-`3` while the high-priority task waits on the mutex, then returns to `1`
-after the owner unlocks it. `g_inheritance_error` should remain `0`.
-
-Expected runtime behavior:
-
-- The run LED toggles every 100 ticks.
-- Task 1 periodically enters `TASK_SLEEPING` for seven ticks.
-- The idle task can run while workers are unavailable.
-- No fault handler should be reached during normal operation.
-
-If execution stops in a fault handler:
-
-1. Inspect `g_fault_active`.
-2. Read `g_fault_record.fault_type`.
-3. Inspect `g_fault_record.pc` and `g_fault_record.lr`.
-4. Decode `g_fault_record.cfsr`.
-5. Compare `g_fault_record.exc_return` with whether the fault came from MSP or PSP.
-
-## 15. Current Guarantees
+## 16. Current Guarantees
 
 The current design provides these useful guarantees:
 
@@ -791,54 +776,47 @@ The current design provides these useful guarantees:
 - PendSV is lower priority than SysTick.
 - Task 1 cannot continue running while its state is sleeping.
 - An idle task is available as a scheduler fallback.
-- Faults can be inspected after capture instead of immediately losing context.
+- Fault handlers capture the stacked frame and SCB fault status before stopping.
 - The build is freestanding and does not depend on a C runtime or standard library.
 
-## 16. Current Limitations
+## 17. Current Limitations
 
 The following limitations are known and intentional at this stage:
 
 1. The scheduler has a fixed maximum of `KERNEL_MAX_TASKS` slots.
 The current default is `8` total slots: up to seven worker tasks plus idle.
 2. Task stacks are bounded by `KERNEL_TASK_STACK_WORDS` words.
-3. There is no public task creation API.
-4. There is no task deletion or termination service.
-5. There is no priority scheduler.
-6. There is no timeout overflow policy.
-7. There is no synchronization primitive.
-8. There is no queue or general IPC mechanism.
-9. MPU protection currently covers task-stack guard regions only.
-10. Tasks currently execute privileged.
-11. Fault handlers do not yet capture the floating-point extended frame.
-12. The task scheduler does not yet document every interrupt-context restriction for its shared-data helpers.
-13. The SysTick reload value is hard-coded.
-14. Watchdog servicing and watchdog recovery are not integrated.
-15. Cache maintenance and memory attributes are not yet part of the kernel API.
+3. There is no public dynamic task creation or task deletion API.
+4. Timer callbacks run through explicit dispatch task code; no general timer service task exists.
+5. SVC pointer-bearing services and return-value conventions are not defined.
+6. The memory pool has no ownership or allocation-statistics API.
+7. Fault handlers do not yet capture the floating-point extended frame.
+8. Watchdog servicing and recovery are not integrated.
+9. Cache maintenance and memory attributes are not part of the kernel API.
 
-## 17. Recommended Development Order
+## 18. Recommended Development Order
 
 The next low-level milestones should be implemented in this order:
 
-### 17.1 Stack validation
+### 18.1 Stack validation
 
 Stack watermarking, scheduler-time bounds checks, and MPU no-access guard
 regions below each task stack are implemented. The next refinement is to
-exercise the guard deliberately under the debugger and verify the captured
-MemManage record.
+define a reset and recovery policy for captured MemManage records.
 
-### 17.2 Critical-section primitives
+### 18.2 Critical-section primitives
 
 Architecture-specific PRIMASK helpers are present and protect task state, sleep accounting, and scheduler selection. The next refinement is to define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
 
-### 17.3 Board and RTD boundary
+### 18.3 Board and RTD boundary
 
 The native board layer is now present for the PTB18 heartbeat. RTD should be introduced when additional production peripheral services are needed, such as clock, pin, GPIO, watchdog, CAN, or ADC configuration. Replace board implementations behind the same interface rather than coupling RTD to kernel code.
 
-### 17.4 Fault hardening
+### 18.4 Fault hardening
 
 Add fault nesting detection, a reset policy, and persistent fault storage in a reserved RAM or data-flash region.
 
-### 17.4 MPU setup
+### 18.5 MPU setup
 
 The MPU now configures explicit flash, SRAM, unprivileged-function,
 unprivileged-read-only-data, and unprivileged-task-data regions during kernel
@@ -858,16 +836,16 @@ collects those named sections. This preparation does not enable
 unprivileged execution or change MPU permissions. Existing task stacks and
 guard regions are the first storage assigned to the new task-data range.
 
-### 17.5 Privilege transition
+### 18.6 Privilege transition
 
-Tasks currently launch privileged. A future privilege transition must first
-define complete memory regions and validated SVC services.
+Tasks may launch privileged or unprivileged according to their task flags.
+Future services must continue to cross the validated SVC boundary.
 
-### 17.6 Time services
+### 18.7 Time services
 
 Add a monotonic tick type, timeout comparison helpers, and a defined tick-wrap policy.
 
-### 17.7 Binary semaphore
+### 18.8 Binary semaphore
 
 The kernel now provides a static binary semaphore:
 
@@ -884,7 +862,7 @@ the token and wakes the matching blocked task under a PRIMASK critical
 section. These APIs are currently intended for task context; ISR-specific
 give and take services are not yet defined.
 
-### 17.8 Mutex
+### 18.9 Mutex
 
 The kernel provides a static, task-owned mutex:
 
@@ -904,7 +882,7 @@ blocks on the mutex, the owner temporarily inherits that priority and returns
 to its base priority on unlock. Nested mutex priority chains are not yet
 implemented.
 
-### 17.9 IPC
+### 18.10 IPC
 
 The kernel now provides a bounded static byte queue. The caller owns the
 storage and initializes it with a capacity and fixed item size:
@@ -941,44 +919,44 @@ Context-guard misuse is tracked both as an aggregate
 `g_sync_misuse_mutex_unlock`, `g_sync_misuse_queue_send`,
 `g_sync_misuse_queue_receive`, and `g_sync_misuse_queue_send_from_isr`.
 
-### 17.10 Synchronization example
+### 18.10 Synchronization example
 
 `examples/sync_producer_consumer.c` provides a selectable producer/consumer
 application. The producer sends incrementing values into a bounded queue and
 gives a semaphore after each successful send. The consumer takes the
 semaphore, receives from the queue, and records FIFO mismatches in
 `g_sync_error`. `g_sync_producer_value` and `g_sync_consumer_value` expose
-progress to the debugger.
+producer and consumer progress.
 
 The default `main.c` continues to select the heartbeat example. To run this
 example, select `sync_producer_consumer_start()` from `main()` instead.
 
-### 17.11 Semaphore event example
+### 18.11 Semaphore event example
 
 `examples/semaphore_event.c` demonstrates semaphore-only event notification.
 The event source gives a binary semaphore every 100 ms. The worker blocks on
 `semaphore_take()` and increments its received counter when the event arrives.
-The debugger-visible counters are `g_semaphore_events_sent`,
+The runtime counters are `g_semaphore_events_sent`,
 `g_semaphore_events_received`, and `g_semaphore_event_error`.
 
 The default `main.c` continues to select the queue example. To run this
 example, select `semaphore_event_start()` from `main()` instead.
 
-### 17.12 Mutex contention example
+### 18.12 Mutex contention example
 
 `examples/mutex_contention.c` demonstrates mutex ownership and contention.
 The owner and contender update a shared counter only while holding the mutex.
-The debugger-visible counters are `g_mutex_owner_operations`,
+The runtime counters are `g_mutex_owner_operations`,
 `g_mutex_contender_operations`, `g_mutex_error`, `g_mutex_contender_state`,
 `g_mutex_contender_state_after_unlock`, and `g_mutex_contender_stack_used`.
 The two state values show the contender blocked while the mutex is held and
-ready immediately after the owner wakes it. A nonzero error indicates failed
+ready immediately after the owner wakes it. A nornero error indicates failed
 ownership, timeout, or inspection behavior.
 
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_contention_start()` from `main()` instead.
 
-### 17.13 Mutex priority-inheritance example
+### 18.13 Mutex priority-inheritance example
 
 `examples/mutex_priority_inheritance.c` starts a low-priority mutex owner, a
 medium-priority CPU task, and a high-priority waiter. When the waiter blocks,
@@ -986,12 +964,12 @@ the owner inherits the waiter's effective priority and runs ahead of the
 medium task until it unlocks the mutex. Inspect
 `g_inheritance_low_priority`, `g_inheritance_high_state`,
 `g_inheritance_low_operations`, `g_inheritance_high_operations`,
-`g_inheritance_medium_operations`, and `g_inheritance_error` in the debugger.
+`g_inheritance_medium_operations`, and `g_inheritance_error` as runtime state.
 
 The default `main.c` continues to select the semaphore example. To run this
 example, select `mutex_priority_inheritance_start()` from `main()` instead.
 
-### 17.14 Task inspection
+### 18.14 Task inspection
 
 The kernel exposes read-only diagnostic queries for each static task ID:
 
@@ -1008,7 +986,7 @@ pointers return `KERNEL_ERR_INVALID_TASK`. Task IDs are stable slot indexes;
 the current configuration uses worker tasks first and the kernel idle task in
 the final slot.
 
-The kernel also exposes debugger-visible runtime diagnostics:
+The kernel also exposes runtime state counters:
 `g_context_switches`, `g_ready_scan_depth_max`,
 `g_sched_pass1_iters_total`, `g_sched_pass2_iters_total`,
 `g_sched_pass2_iters_max`,
@@ -1016,13 +994,13 @@ The kernel also exposes debugger-visible runtime diagnostics:
 `g_wait_timeout_queue_receive`, `g_wait_timeout_mutex`, and
 `g_sync_context_misuse`.
 
-### 17.15 Watchdog integration
+### 18.15 Watchdog integration
 
 The kernel now increments `g_idle_kicks` on every idle-loop pass before `WFI`.
-This provides a debugger-visible software watchdog heartbeat that confirms the
+This provides a software heartbeat that confirms the
 scheduler is still making progress when the system is otherwise idle.
 
-### 17.16 Mutex edge-case example
+### 18.16 Mutex edge-case example
 
 `examples/mutex_edge_cases.c` verifies recursive lock/unlock behavior and
 rejects unlock attempts by a non-owner. Inspect
@@ -1032,7 +1010,7 @@ rejects unlock attempts by a non-owner. Inspect
 should be `1` except `g_mutex_non_owner_unlock`, which should be `0`; the
 error value should remain `0`.
 
-### 17.17 Waiter priority-wake example
+### 18.17 Waiter priority-wake example
 
 `examples/waiter_priority_wake.c` validates wake ordering when two tasks block
 on the same semaphore. The first give must wake the higher-priority waiter and
@@ -1042,7 +1020,7 @@ the second give must wake the lower-priority waiter. Inspect
 `g_waiter_wake_done == 1`, `g_waiter_wake_error == 0`,
 `g_waiter_wake_order[0] == 0xA1`, and `g_waiter_wake_order[1] == 0xB2`.
 
-### 17.18 Waiter timeout and wake-order example
+### 18.18 Waiter timeout and wake-order example
 
 `examples/waiter_timeout_wake.c` validates timeout interaction with wake
 selection. A high-priority task blocks with a finite timeout and must time
@@ -1055,7 +1033,7 @@ Inspect `g_waiter_timeout_flag`, `g_waiter_timeout_wake_order[0]`,
 `g_waiter_timeout_error == 0`, and
 `g_waiter_timeout_wake_order[0] == 0xC3`.
 
-### 17.19 Multi-mutex priority restore example
+### 18.19 Multi-mutex priority restore example
 
 `examples/mutex_multi_restore.c` validates that priority inheritance restore
 is recalculated across all currently owned mutexes. The owner task takes two
@@ -1070,7 +1048,7 @@ Inspect `g_multi_restore_owner_priority_before_release`,
 is `3`, `2`, and `1` for the three priority snapshots, both acquired flags set
 to `1`, `g_multi_restore_error == 0`, and `g_multi_restore_done == 1`.
 
-### 17.20 Chained mutex inheritance example
+### 18.20 Chained mutex inheritance example
 
 `examples/mutex_chain_inheritance.c` validates transitive inheritance through
 a wait chain. A low-priority owner holds `mutex_1`, a medium-priority bridge
@@ -1082,7 +1060,7 @@ Inspect `g_chain_owner_priority_after_chain`, `g_chain_bridge_blocked`,
 Expected pass values are owner priority `3`, all block/acquire flags set to
 `1`, `g_chain_error == 0`, and `g_chain_done == 1`.
 
-### 17.21 Mutex timeout priority-restore example
+### 18.21 Mutex timeout priority-restore example
 
 `examples/mutex_timeout_restore.c` validates that a waiter timeout propagates
 priority recalculation up the ownership chain. A low-priority owner holds
@@ -1097,7 +1075,7 @@ to base. Inspect `g_timeout_restore_owner_priority_full_chain`,
 `g_timeout_restore_done`. Expected pass values: `3`, `2`, bridge flag `1`,
 error `0`, done `1`.
 
-### 17.22 ISR synchronization API example
+### 18.22 ISR synchronization API example
 
 `examples/isr_sync_paths.c` validates `semaphore_give_from_isr()` and
 `queue_send_from_isr()` using a real SysTick interrupt hook. The interrupt
@@ -1110,45 +1088,3 @@ Inspect `g_isr_sync_irq_give_count`, `g_isr_sync_irq_queue_sent`,
 `g_isr_sync_queue_received`, `g_isr_sync_error`, and `g_isr_sync_done`.
 Expected pass behavior: done becomes `1`, error stays `0`, drops stay `0`, and
 sent counts match received counts.
-
-### 17.23 ISR queue-full regression example
-
-`examples/isr_sync_paths.c` also provides `isr_sync_queue_full_start()` to
-stress `queue_send_from_isr()` when the queue is intentionally allowed to fill.
-The SysTick hook pushes queue traffic every tick while the consumer task
-throttles itself, forcing queue-full drops. This validates that full-queue
-behavior returns failure without corrupting order or blocking in ISR context.
-
-Inspect `g_isr_qfull_done`, `g_isr_qfull_error`, `g_isr_qfull_dropped`,
-`g_isr_qfull_received`, `g_isr_sync_irq_queue_sent`, and
-`g_sync_context_misuse`. Expected pass values are done `1`, error `0`, drop
-count greater than `0`, receive count increasing, and context misuse `0`.
-
-### 17.24 Soak profile
-
-`MAIN_PROFILE_SOAK` runs a combined long-duration stress workload through
-`isr_sync_soak_start()`: ISR queue traffic and backpressure, semaphore-driven
-consumer activity, mutex contention between two tasks, and a periodic board LED
-heartbeat. This profile is intended for sustained runtime validation.
-
-Inspect `g_isr_soak_done`, `g_isr_soak_error`,
-`g_isr_soak_mutex_owner_loops`, `g_isr_soak_mutex_contender_loops`,
-`g_isr_queue_send_dropped`, and `g_sync_context_misuse`. Healthy behavior is
-soak done set, soak error clear, both mutex loop counters increasing, drop
-count nonzero under pressure, and context misuse remaining zero.
-
-## 18. Commit History Context
-
-The implementation evolved through small debugger-tested increments:
-
-- Boot-stage markers and kernel entry.
-- Static task model.
-- SysTick and PendSV instrumentation.
-- PSP-based task stacks.
-- First-task launch correction.
-- SVC yield and sleep services.
-- Idle task and sleeping task states.
-- Kernel folder refactor.
-- Fault capture diagnostics.
-
-The code should continue to be changed in small increments with a build and debugger check after each step.
