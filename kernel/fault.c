@@ -3,7 +3,11 @@
 #include "kernel.h"
 
 #define SCB_CFSR (*(volatile uint32_t *)0xE000ED28U)
+#define SCB_ICSR (*(volatile uint32_t *)0xE000ED04U)
+#define SCB_CCR (*(volatile uint32_t *)0xE000ED14U)
+#define SCB_SHCSR (*(volatile uint32_t *)0xE000ED24U)
 #define SCB_HFSR (*(volatile uint32_t *)0xE000ED2CU)
+#define SCB_AIRCR (*(volatile uint32_t *)0xE000ED0CU)
 #define SCB_DFSR (*(volatile uint32_t *)0xE000ED30U)
 #define SCB_MMFAR (*(volatile uint32_t *)0xE000ED34U)
 #define SCB_BFAR (*(volatile uint32_t *)0xE000ED38U)
@@ -31,6 +35,40 @@ typedef struct
 
 volatile fault_record_t g_fault_record KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_fault_active KERNEL_PRIVILEGED_DATA = 0U;
+volatile svc_diagnostic_t g_svc_diagnostic KERNEL_PRIVILEGED_DATA;
+
+void svc_capture(uint32_t *stacked_frame, uint32_t exc_return)
+{
+    uint32_t value;
+
+    __asm volatile ("mrs %0, ipsr" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_ipsr = value;
+    g_svc_diagnostic.live_icsr = SCB_ICSR;
+    __asm volatile ("mrs %0, control" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_control = value;
+    __asm volatile ("mrs %0, psp" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_psp = value;
+    __asm volatile ("mrs %0, msp" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_msp = value;
+    __asm volatile ("mrs %0, primask" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_primask = value;
+    __asm volatile ("mrs %0, basepri" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_basepri = value;
+    __asm volatile ("mrs %0, faultmask" : "=r" (value) : : "memory");
+    g_svc_diagnostic.live_faultmask = value;
+    g_svc_diagnostic.live_ccr = SCB_CCR;
+    g_svc_diagnostic.live_shcsr = SCB_SHCSR;
+    g_svc_diagnostic.live_aircr = SCB_AIRCR;
+    g_svc_diagnostic.exc_return = exc_return;
+    g_svc_diagnostic.stacked_r0 = stacked_frame[0];
+    g_svc_diagnostic.stacked_r1 = stacked_frame[1];
+    g_svc_diagnostic.stacked_r2 = stacked_frame[2];
+    g_svc_diagnostic.stacked_r3 = stacked_frame[3];
+    g_svc_diagnostic.stacked_r12 = stacked_frame[4];
+    g_svc_diagnostic.stacked_lr = stacked_frame[5];
+    g_svc_diagnostic.stacked_pc = stacked_frame[6];
+    g_svc_diagnostic.stacked_xpsr = stacked_frame[7];
+}
 
 void fault_capture(uint32_t *stacked_frame, uint32_t exc_return, uint32_t fault_type)
 {
