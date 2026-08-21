@@ -13,7 +13,7 @@
 - [x] Validate deferred timer callbacks on hardware (profile 9)
 - [x] Validate task notifications on hardware (profile 10)
 - [x] Validate event groups on hardware (profile 11)
-- [ ] Validate deterministic memory pools on hardware (profile 12)
+- [x] Validate deterministic memory pools on hardware (profile 12)
 
 ## Next features
 
