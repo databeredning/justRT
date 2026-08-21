@@ -32,6 +32,7 @@ void kernel_timer_init(kernel_timer_t *timer)
 
     timer->deadline = 0U;
     timer->period = 0U;
+    timer->reload_ticks = 0U;
     timer->expirations = 0U;
     timer->active = TIMER_INACTIVE;
     timer->periodic = 0U;
@@ -62,6 +63,7 @@ void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks)
     timer_link(timer);
     timer->deadline = kernel_ticks_now() + delay_ticks;
     timer->period = 0U;
+    timer->reload_ticks = delay_ticks;
     timer->periodic = 0U;
     timer->active = TIMER_ACTIVE;
 }
@@ -76,7 +78,19 @@ void kernel_timer_start_periodic(kernel_timer_t *timer, uint32_t period_ticks)
     timer_link(timer);
     timer->deadline = kernel_ticks_now() + period_ticks;
     timer->period = period_ticks;
+    timer->reload_ticks = period_ticks;
     timer->periodic = 1U;
+    timer->active = TIMER_ACTIVE;
+}
+
+void kernel_timer_restart(kernel_timer_t *timer)
+{
+    if (timer == 0U || timer->reload_ticks == 0U)
+    {
+        return;
+    }
+
+    timer->deadline = kernel_ticks_now() + timer->reload_ticks;
     timer->active = TIMER_ACTIVE;
 }
 

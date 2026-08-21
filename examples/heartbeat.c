@@ -106,6 +106,8 @@ static void timer_callback_task(void *argument)
     kernel_timer_init(&timer);
     kernel_timer_set_callback(&timer, timer_callback, 0U);
     kernel_timer_start_periodic(&timer, ms_to_ticks(RUN_LED_PERIOD_MS));
+    kernel_timer_stop(&timer);
+    kernel_timer_restart(&timer);
     while (1)
     {
         kernel_timer_dispatch(&timer);
