@@ -47,7 +47,7 @@ static TASK_UNPRIVILEGED void unprivileged_svc_task(void *argument)
     while (1)
     {
         g_privilege_probe_runs++;
-        yield();
+        sleep_ticks(1U);
     }
 }
 
