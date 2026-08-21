@@ -7,6 +7,7 @@
 #define MAIN_PROFILE_REGRESSION_ISR_QFULL 2U
 #define MAIN_PROFILE_SOAK 3U
 #define MAIN_PROFILE_UNPRIVILEGED_LED 6U
+#define MAIN_PROFILE_PERIODIC_DELAY 7U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -22,6 +23,8 @@ int main(void)
     isr_sync_soak_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_UNPRIVILEGED_LED
     heartbeat_unprivileged_led_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_PERIODIC_DELAY
+    heartbeat_periodic_delay_start();
 #else
     heartbeat_example_start();
 #endif

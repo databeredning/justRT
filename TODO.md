@@ -8,7 +8,7 @@
 - [x] MPU stack guards and privileged/unprivileged task execution
 - [x] SVC yield and sleep services
 - [x] Privileged LED gateway for unprivileged tasks
-- [ ] Validate the time-foundation checkpoint on hardware
+- [ ] Validate the time-foundation checkpoint on hardware (profile 7)
 
 ## Next features
 
