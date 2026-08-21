@@ -22,10 +22,7 @@
 
 #define MPU_FLASH_REGION 0U
 #define MPU_SRAM_REGION 1U
-#define MPU_UNPRIVILEGED_FUNCTIONS_REGION 2U
-#define MPU_UNPRIVILEGED_RODATA_REGION 3U
-#define MPU_UNPRIVILEGED_DATA_REGION 4U
-#define MPU_SYSTEM_CALLS_REGION 5U
+#define MPU_UNPRIVILEGED_DATA_REGION 2U
 #define MPU_GUARD_REGION_FIRST 8U
 #define MPU_REGION_COUNT 16U
 #define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
@@ -343,29 +340,14 @@ static void configure_memory_regions(void)
     const uint32_t sram_attributes = MPU_RASR_AP_FULL_ACCESS
         | MPU_RASR_XN | MPU_RASR_TEX_NORMAL | MPU_RASR_CACHEABLE
         | MPU_RASR_BUFFERABLE;
-    const uint32_t read_only_attributes = MPU_RASR_AP_PRIV_RO_UNPRIV_RO
-        | MPU_RASR_XN | MPU_RASR_CACHEABLE;
-
     configure_region_range(MPU_FLASH_REGION, 0x00400000U, 0x00600000U,
                            flash_attributes);
     configure_region_range(MPU_SRAM_REGION, 0x20400000U, 0x20420000U,
                            sram_attributes);
-    configure_region_range(MPU_UNPRIVILEGED_FUNCTIONS_REGION,
-                           (uintptr_t)__unprivileged_functions_start,
-                           (uintptr_t)__unprivileged_functions_end,
-                           flash_attributes);
-    configure_region_range(MPU_UNPRIVILEGED_RODATA_REGION,
-                           (uintptr_t)__unprivileged_rodata_start,
-                           (uintptr_t)__unprivileged_rodata_end,
-                           read_only_attributes);
     configure_region_range(MPU_UNPRIVILEGED_DATA_REGION,
                            (uintptr_t)__unprivileged_task_data_start,
                            (uintptr_t)__unprivileged_task_data_end,
                            sram_attributes);
-    configure_region_range(MPU_SYSTEM_CALLS_REGION,
-                           (uintptr_t)__system_calls_flash_start,
-                           (uintptr_t)__system_calls_flash_end,
-                           flash_attributes);
 }
 
 static void configure_stack_guards(void)
@@ -716,11 +698,11 @@ static void launch_first_task(uint32_t *sp __attribute__((unused)))
         "orr     r2,  r2, #1            \n"
         "adds    r0,  r0, #32           \n"
         "msr     psp, r0                \n"
+        "cpsie   i                      \n"
         "ldr     r1,  =task_launch_control\n"
         "ldr     r0,  [r1]              \n"
         "msr     control, r0            \n"
         "isb                            \n"
-        "cpsie   i                      \n"
         "movs    r0,  #0                \n"
         "movs    r1,  #0                \n"
         "movs    r3,  #0                \n"
