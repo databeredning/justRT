@@ -10,6 +10,7 @@
 - [x] Privileged LED gateway for unprivileged tasks
 - [ ] Validate the time-foundation checkpoint on hardware (profile 7)
 - [ ] Validate timer expiry bookkeeping on hardware (profile 8)
+- [ ] Validate deferred timer callbacks on hardware (profile 9)
 
 ## Next features
 

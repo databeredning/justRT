@@ -9,6 +9,7 @@
 #define MAIN_PROFILE_UNPRIVILEGED_LED 6U
 #define MAIN_PROFILE_PERIODIC_DELAY 7U
 #define MAIN_PROFILE_TIMER 8U
+#define MAIN_PROFILE_TIMER_CALLBACK 9U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -28,6 +29,8 @@ int main(void)
     heartbeat_periodic_delay_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_TIMER
     heartbeat_timer_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_TIMER_CALLBACK
+    heartbeat_timer_callback_start();
 #else
     heartbeat_example_start();
 #endif

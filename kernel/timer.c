@@ -35,8 +35,21 @@ void kernel_timer_init(kernel_timer_t *timer)
     timer->expirations = 0U;
     timer->active = TIMER_INACTIVE;
     timer->periodic = 0U;
+    timer->callback = 0U;
+    timer->argument = 0U;
     timer->next = 0U;
     timer_link(timer);
+}
+
+void kernel_timer_set_callback(kernel_timer_t *timer,
+                               kernel_timer_callback_t callback,
+                               void *argument)
+{
+    if (timer != 0U)
+    {
+        timer->callback = callback;
+        timer->argument = argument;
+    }
 }
 
 void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks)
@@ -90,6 +103,23 @@ uint32_t kernel_timer_take_expirations(kernel_timer_t *timer)
     timer->expirations = 0U;
     critical_exit(saved_primask);
     return expirations;
+}
+
+void kernel_timer_dispatch(kernel_timer_t *timer)
+{
+    uint32_t expirations;
+
+    if (timer == 0U || timer->callback == 0U)
+    {
+        return;
+    }
+
+    expirations = kernel_timer_take_expirations(timer);
+    while (expirations > 0U)
+    {
+        timer->callback(timer->argument);
+        expirations--;
+    }
 }
 
 void kernel_timer_tick(void)

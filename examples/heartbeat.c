@@ -9,6 +9,8 @@ volatile uint32_t g_periodic_delay_runs;
 volatile uint32_t g_periodic_delay_last_tick;
 volatile uint32_t g_timer_expirations;
 volatile uint32_t g_timer_last_tick;
+volatile uint32_t g_timer_callback_runs;
+volatile uint32_t g_timer_callback_last_tick;
 
 static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
 {
@@ -79,6 +81,28 @@ static void timer_task(void *argument)
     }
 }
 
+static void timer_callback(void *argument)
+{
+    (void)argument;
+    g_timer_callback_runs++;
+    g_timer_callback_last_tick = kernel_ticks_now();
+}
+
+static void timer_callback_task(void *argument)
+{
+    static kernel_timer_t timer;
+
+    (void)argument;
+    kernel_timer_init(&timer);
+    kernel_timer_set_callback(&timer, timer_callback, 0U);
+    kernel_timer_start_periodic(&timer, ms_to_ticks(RUN_LED_PERIOD_MS));
+    while (1)
+    {
+        kernel_timer_dispatch(&timer);
+        sleep_ticks(1U);
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
@@ -96,6 +120,11 @@ static const task_definition_t periodic_delay_tasks[] TASK_UNPRIVILEGED_RODATA =
 
 static const task_definition_t timer_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { timer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "timer-test", 0U }
+};
+
+static const task_definition_t timer_callback_tasks[] TASK_UNPRIVILEGED_RODATA = {
+        { timer_callback_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+            "timer-callback", 0U }
 };
 
 void heartbeat_example_start(void)
@@ -153,6 +182,22 @@ void heartbeat_timer_start(void)
     const kernel_config_t config = {
         timer_tasks,
         sizeof(timer_tasks) / sizeof(timer_tasks[0])
+    };
+
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_timer_callback_start(void)
+{
+    const kernel_config_t config = {
+        timer_callback_tasks,
+        sizeof(timer_callback_tasks) / sizeof(timer_callback_tasks[0])
     };
 
     if (kernel_init(&config) != KERNEL_OK)
