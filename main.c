@@ -12,6 +12,7 @@
 #define MAIN_PROFILE_TIMER_CALLBACK 9U
 #define MAIN_PROFILE_NOTIFICATION 10U
 #define MAIN_PROFILE_EVENT_GROUP 11U
+#define MAIN_PROFILE_MEMPOOL 12U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -37,6 +38,8 @@ int main(void)
     heartbeat_notification_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_EVENT_GROUP
     heartbeat_event_group_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_MEMPOOL
+    heartbeat_mempool_start();
 #else
     heartbeat_example_start();
 #endif

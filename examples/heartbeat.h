@@ -10,6 +10,7 @@ void heartbeat_timer_start(void);
 void heartbeat_timer_callback_start(void);
 void heartbeat_notification_start(void);
 void heartbeat_event_group_start(void);
+void heartbeat_mempool_start(void);
 
 extern volatile uint32_t g_periodic_delay_runs;
 extern volatile uint32_t g_periodic_delay_last_tick;
@@ -22,5 +23,8 @@ extern volatile uint32_t g_notification_received;
 extern volatile uint32_t g_notification_error;
 extern volatile uint32_t g_event_group_waits;
 extern volatile uint32_t g_event_group_error;
+extern volatile uint32_t g_mempool_allocated;
+extern volatile uint32_t g_mempool_reused;
+extern volatile uint32_t g_mempool_error;
 
 #endif

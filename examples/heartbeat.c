@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "../kernel/timer.h"
+#include "../kernel/mempool.h"
 #include "heartbeat.h"
 #include "../board/board.h"
 
@@ -16,6 +17,9 @@ volatile uint32_t g_notification_received;
 volatile uint32_t g_notification_error;
 volatile uint32_t g_event_group_waits;
 volatile uint32_t g_event_group_error;
+volatile uint32_t g_mempool_allocated;
+volatile uint32_t g_mempool_reused;
+volatile uint32_t g_mempool_error;
 static event_group_t test_event_group;
 
 static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
@@ -176,6 +180,70 @@ static void event_group_consumer_task(void *argument)
     }
 }
 
+static void mempool_task(void *argument)
+{
+    enum { POOL_BLOCKS = 4U, POOL_BLOCK_SIZE = 16U };
+    static uint8_t storage[POOL_BLOCKS * POOL_BLOCK_SIZE]
+        __attribute__((aligned(8)));
+    static uint32_t used_bitmap[1];
+    static memory_pool_t pool;
+    void *blocks[POOL_BLOCKS];
+    void *reused_block;
+    uint32_t index;
+
+    (void)argument;
+    memory_pool_init(&pool, storage, POOL_BLOCK_SIZE, POOL_BLOCKS,
+                     used_bitmap);
+    while (1)
+    {
+        for (index = 0U; index < POOL_BLOCKS; index++)
+        {
+            blocks[index] = memory_pool_alloc(&pool);
+            if (blocks[index] == 0U)
+            {
+                g_mempool_error++;
+            }
+            else
+            {
+                g_mempool_allocated++;
+            }
+        }
+        if (memory_pool_alloc(&pool) != 0U)
+        {
+            g_mempool_error++;
+        }
+        if (memory_pool_free(&pool, (uint8_t *)blocks[0] + 1U) != 0)
+        {
+            g_mempool_error++;
+        }
+        for (index = 0U; index < POOL_BLOCKS; index++)
+        {
+            if (memory_pool_free(&pool, blocks[index]) == 0)
+            {
+                g_mempool_error++;
+            }
+        }
+        if (memory_pool_free(&pool, blocks[0]) != 0)
+        {
+            g_mempool_error++;
+        }
+        reused_block = memory_pool_alloc(&pool);
+        if (reused_block == 0U)
+        {
+            g_mempool_error++;
+        }
+        else
+        {
+            g_mempool_reused++;
+            if (memory_pool_free(&pool, reused_block) == 0)
+            {
+                g_mempool_error++;
+            }
+        }
+        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
@@ -212,6 +280,10 @@ static const task_definition_t event_group_tasks[] TASK_UNPRIVILEGED_RODATA = {
             "event-producer", 0U },
         { event_group_consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 2U,
             "event-consumer", 0U }
+};
+
+static const task_definition_t mempool_tasks[] TASK_UNPRIVILEGED_RODATA = {
+    { mempool_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "mempool-test", 0U }
 };
 
 void heartbeat_example_start(void)
@@ -320,6 +392,22 @@ void heartbeat_event_group_start(void)
     };
 
     event_group_init(&test_event_group);
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_mempool_start(void)
+{
+    const kernel_config_t config = {
+        mempool_tasks,
+        sizeof(mempool_tasks) / sizeof(mempool_tasks[0])
+    };
+
     if (kernel_init(&config) != KERNEL_OK)
     {
         while (1)
