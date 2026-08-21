@@ -8,11 +8,11 @@
 - [x] MPU stack guards and privileged/unprivileged task execution
 - [x] SVC yield and sleep services
 - [x] Privileged LED gateway for unprivileged tasks
-- [ ] Validate the time-foundation checkpoint on hardware (profile 7)
-- [ ] Validate timer expiry bookkeeping on hardware (profile 8)
-- [ ] Validate deferred timer callbacks on hardware (profile 9)
-- [ ] Validate task notifications on hardware (profile 10)
-- [ ] Validate event groups on hardware (profile 11)
+- [x] Validate the time-foundation checkpoint on hardware (profile 7)
+- [x] Validate timer expiry bookkeeping on hardware (profile 8)
+- [x] Validate deferred timer callbacks on hardware (profile 9)
+- [x] Validate task notifications on hardware (profile 10)
+- [x] Validate event groups on hardware (profile 11)
 
 ## Next features
 
