@@ -12,6 +12,7 @@
 - [ ] Validate timer expiry bookkeeping on hardware (profile 8)
 - [ ] Validate deferred timer callbacks on hardware (profile 9)
 - [ ] Validate task notifications on hardware (profile 10)
+- [ ] Validate event groups on hardware (profile 11)
 
 ## Next features
 

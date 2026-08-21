@@ -14,6 +14,9 @@ volatile uint32_t g_timer_callback_last_tick;
 volatile uint32_t g_notification_sent;
 volatile uint32_t g_notification_received;
 volatile uint32_t g_notification_error;
+volatile uint32_t g_event_group_waits;
+volatile uint32_t g_event_group_error;
+static event_group_t test_event_group;
 
 static TASK_UNPRIVILEGED void heartbeat_task(void *argument)
 {
@@ -141,6 +144,38 @@ static void notification_consumer_task(void *argument)
     }
 }
 
+static void event_group_producer_task(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        event_group_set_bits(&test_event_group, 1U);
+        sleep_ticks(1U);
+        event_group_set_bits(&test_event_group, 2U);
+        sleep_ticks(ms_to_ticks(RUN_LED_PERIOD_MS));
+    }
+}
+
+static void event_group_consumer_task(void *argument)
+{
+    uint32_t result;
+
+    (void)argument;
+    while (1)
+    {
+        result = event_group_wait_bits(&test_event_group, 3U, 1, 1,
+                                       SEMAPHORE_WAIT_FOREVER);
+        if (result != 3U)
+        {
+            g_event_group_error++;
+        }
+        else
+        {
+            g_event_group_waits++;
+        }
+    }
+}
+
 static const task_definition_t heartbeat_tasks[] TASK_UNPRIVILEGED_RODATA = {
     { heartbeat_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "heartbeat", 0U },
     { activity_task, 0U, KERNEL_TASK_STACK_WORDS, 1U, "activity", 0U }
@@ -170,6 +205,13 @@ static const task_definition_t notification_tasks[] TASK_UNPRIVILEGED_RODATA = {
             "notify-producer", 0U },
         { notification_consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 2U,
             "notify-consumer", 0U }
+};
+
+static const task_definition_t event_group_tasks[] TASK_UNPRIVILEGED_RODATA = {
+        { event_group_producer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+            "event-producer", 0U },
+        { event_group_consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 2U,
+            "event-consumer", 0U }
 };
 
 void heartbeat_example_start(void)
@@ -261,6 +303,23 @@ void heartbeat_notification_start(void)
         sizeof(notification_tasks) / sizeof(notification_tasks[0])
     };
 
+    if (kernel_init(&config) != KERNEL_OK)
+    {
+        while (1)
+        {
+        }
+    }
+    kernel_start();
+}
+
+void heartbeat_event_group_start(void)
+{
+    const kernel_config_t config = {
+        event_group_tasks,
+        sizeof(event_group_tasks) / sizeof(event_group_tasks[0])
+    };
+
+    event_group_init(&test_event_group);
     if (kernel_init(&config) != KERNEL_OK)
     {
         while (1)

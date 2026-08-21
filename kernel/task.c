@@ -62,6 +62,9 @@ typedef struct
     uint32_t wait_ticks;
     uint32_t wait_result;
     uint32_t notification_value;
+    uint32_t event_wait_bits;
+    uint32_t event_wait_all;
+    uint32_t event_clear_on_exit;
 } task_t;
 
 typedef struct __attribute__((aligned(32)))
@@ -472,6 +475,9 @@ static void prepare_task(uint32_t index, const task_definition_t *definition)
     tasks[index].name = definition->name;
     tasks[index].flags = definition->flags;
     tasks[index].notification_value = 0U;
+    tasks[index].event_wait_bits = 0U;
+    tasks[index].event_wait_all = 0U;
+    tasks[index].event_clear_on_exit = 0U;
 }
 
 static void prepare_idle_task(void)
@@ -494,6 +500,121 @@ static void prepare_idle_task(void)
     tasks[idle_index].name = "idle";
     tasks[idle_index].flags = 0U;
     tasks[idle_index].notification_value = 0U;
+    tasks[idle_index].event_wait_bits = 0U;
+    tasks[idle_index].event_wait_all = 0U;
+    tasks[idle_index].event_clear_on_exit = 0U;
+}
+
+static int event_condition(uint32_t current, uint32_t requested, uint32_t wait_all)
+{
+    return (wait_all != 0U) ? ((current & requested) == requested)
+                            : ((current & requested) != 0U);
+}
+
+void event_group_init(event_group_t *group)
+{
+    if (group != 0U)
+    {
+        group->bits = 0U;
+    }
+}
+
+static uint32_t event_group_set_bits_common(event_group_t *group,
+                                            uint32_t bits, int from_isr)
+{
+    uint32_t saved_primask;
+    uint32_t index;
+    uint32_t result;
+
+    if (group == 0U
+        || ((from_isr != 0) ? (kernel_in_isr() == 0)
+                            : (kernel_in_isr() != 0)))
+    {
+        return 0U;
+    }
+    saved_primask = critical_enter();
+    group->bits |= bits;
+    result = group->bits;
+    for (index = 0U; index < task_count; index++)
+    {
+        if ((tasks[index].state == TASK_STATE_BLOCKED)
+            && (tasks[index].wait_kind == TASK_WAIT_EVENT_GROUP)
+            && (tasks[index].wait_object == group)
+            && event_condition(group->bits, tasks[index].event_wait_bits,
+                               tasks[index].event_wait_all))
+        {
+            tasks[index].state = TASK_STATE_READY;
+            tasks[index].wait_result = 1U;
+            tasks[index].wait_object = 0U;
+            tasks[index].wait_kind = TASK_WAIT_NONE;
+        }
+    }
+    critical_exit(saved_primask);
+    request_switch();
+    return result;
+}
+
+uint32_t event_group_set_bits(event_group_t *group, uint32_t bits)
+{
+    return event_group_set_bits_common(group, bits, 0);
+}
+
+uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits)
+{
+    if (kernel_in_isr() == 0)
+    {
+        return 0U;
+    }
+    return event_group_set_bits_common(group, bits, 1);
+}
+
+uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
+                               int wait_all, int clear_on_exit,
+                               uint32_t timeout_ticks)
+{
+    uint32_t saved_primask;
+    uint32_t result;
+
+    if (group == 0U || bits == 0U || kernel_in_isr() != 0)
+    {
+        return 0U;
+    }
+    saved_primask = critical_enter();
+    result = group->bits;
+    if (event_condition(result, bits, (wait_all != 0) ? 1U : 0U))
+    {
+        if (clear_on_exit != 0)
+        {
+            group->bits &= ~bits;
+        }
+        critical_exit(saved_primask);
+        return result & bits;
+    }
+    if (timeout_ticks == 0U)
+    {
+        critical_exit(saved_primask);
+        return 0U;
+    }
+    current_task->wait_object = group;
+    current_task->wait_kind = TASK_WAIT_EVENT_GROUP;
+    current_task->event_wait_bits = bits;
+    current_task->event_wait_all = (wait_all != 0) ? 1U : 0U;
+    current_task->event_clear_on_exit = (clear_on_exit != 0) ? 1U : 0U;
+    current_task->wait_ticks = timeout_ticks;
+    current_task->wait_result = 0U;
+    current_task->state = TASK_STATE_BLOCKED;
+    critical_exit(saved_primask);
+    yield();
+
+    saved_primask = critical_enter();
+    result = group->bits & bits;
+    if (event_condition(group->bits, bits, current_task->event_wait_all)
+        && (current_task->event_clear_on_exit != 0U))
+    {
+        group->bits &= ~bits;
+    }
+    critical_exit(saved_primask);
+    return result;
 }
 
 static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
