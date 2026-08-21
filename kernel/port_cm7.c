@@ -3,6 +3,8 @@
 #include "kernel.h"
 #include "../board/board.h"
 
+volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
+
 #define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
 #define SYST_RVR (*(volatile uint32_t *)0xE000E014U)
 #define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
@@ -133,6 +135,7 @@ void svc_dispatch(uint32_t *stacked_frame)
             board_led_toggle();
             break;
         default:
+            g_svc_invalid_service++;
             return;
     }
     request_switch();

@@ -150,6 +150,7 @@ extern volatile uint32_t g_wait_timeout_mutex;
 extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
+extern volatile uint32_t g_svc_invalid_service;
 extern volatile svc_diagnostic_t g_svc_diagnostic;
 
 #endif
