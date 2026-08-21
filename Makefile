@@ -11,7 +11,7 @@ MAIN_PROFILE ?= 0
 CFLAGS += -DJUSTBOOT_MAIN_PROFILE=$(MAIN_PROFILE)
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o examples/semaphore_event.o examples/mutex_contention.o examples/mutex_priority_inheritance.o examples/mutex_edge_cases.o examples/waiter_priority_wake.o examples/waiter_timeout_wake.o examples/mutex_multi_restore.o examples/mutex_chain_inheritance.o examples/mutex_timeout_restore.o examples/isr_sync_paths.o kernel/task.o kernel/port_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o examples/semaphore_event.o examples/mutex_contention.o examples/mutex_priority_inheritance.o examples/mutex_edge_cases.o examples/waiter_priority_wake.o examples/waiter_timeout_wake.o examples/mutex_multi_restore.o examples/mutex_chain_inheritance.o examples/mutex_timeout_restore.o examples/isr_sync_paths.o kernel/task.o kernel/port_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -85,6 +85,9 @@ $(OBJDIR)/kernel/fault.o: kernel/fault.c kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
 $(OBJDIR)/kernel/sync.o: kernel/sync.c kernel/sync.h kernel/kernel.h | $(OBJDIR)/kernel
+	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
+
+$(OBJDIR)/kernel/timer.o: kernel/timer.c kernel/timer.h kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
 $(OBJDIR)/board/board.o: board/board.c board/board.h | $(OBJDIR)/board

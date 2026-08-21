@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "kernel.h"
+#include "timer.h"
 
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
 #define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
@@ -593,6 +594,7 @@ void tick_tasks(void)
     uint32_t index;
 
     g_kernel_ticks++;
+    kernel_timer_tick();
     for (index = 0U; index < task_count; index++)
     {
         if ((tasks[index].state == TASK_STATE_SLEEPING) && (tasks[index].sleep_ticks > 0U))
