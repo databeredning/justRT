@@ -74,30 +74,6 @@ typedef enum
 	TASK_WAIT_MUTEX
 } task_wait_kind_t;
 
-typedef struct
-{
-	uint32_t live_ipsr;
-	uint32_t live_icsr;
-	uint32_t live_control;
-	uint32_t live_psp;
-	uint32_t live_msp;
-	uint32_t live_primask;
-	uint32_t live_basepri;
-	uint32_t live_faultmask;
-	uint32_t live_ccr;
-	uint32_t live_shcsr;
-	uint32_t live_aircr;
-	uint32_t exc_return;
-	uint32_t stacked_r0;
-	uint32_t stacked_r1;
-	uint32_t stacked_r2;
-	uint32_t stacked_r3;
-	uint32_t stacked_r12;
-	uint32_t stacked_lr;
-	uint32_t stacked_pc;
-	uint32_t stacked_xpsr;
-} svc_diagnostic_t;
-
 kernel_status_t kernel_init(const kernel_config_t *config) KERNEL_PRIVILEGED;
 void kernel_start(void) KERNEL_PRIVILEGED;
 kernel_status_t task_get_state(uint32_t task_id, task_state_t *state) KERNEL_PRIVILEGED;
@@ -151,6 +127,5 @@ extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
 extern volatile uint32_t g_svc_invalid_service;
-extern volatile svc_diagnostic_t g_svc_diagnostic;
 
 #endif

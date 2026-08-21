@@ -6,8 +6,6 @@
 #define MAIN_PROFILE_REGRESSION_ISR_SYNC 1U
 #define MAIN_PROFILE_REGRESSION_ISR_QFULL 2U
 #define MAIN_PROFILE_SOAK 3U
-#define MAIN_PROFILE_PRIVILEGE_COUNTER 4U
-#define MAIN_PROFILE_UNPRIVILEGED_SVC 5U
 #define MAIN_PROFILE_UNPRIVILEGED_LED 6U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
@@ -22,10 +20,6 @@ int main(void)
     isr_sync_queue_full_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_SOAK
     isr_sync_soak_start();
-#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_PRIVILEGE_COUNTER
-    heartbeat_privilege_counter_start();
-#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_UNPRIVILEGED_SVC
-    heartbeat_unprivileged_svc_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_UNPRIVILEGED_LED
     heartbeat_unprivileged_led_start();
 #else
