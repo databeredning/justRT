@@ -82,6 +82,7 @@ volatile uint32_t g_wait_timeout_mutex KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_task KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_sp KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_ticks KERNEL_PRIVILEGED_DATA = 0U;
 static task_storage_t task_storage[KERNEL_MAX_TASKS] TASK_UNPRIVILEGED_DATA;
 static task_t tasks[KERNEL_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
@@ -500,6 +501,39 @@ void sleep_current(uint32_t ticks)
     critical_exit(saved_primask);
 }
 
+uint32_t kernel_ticks_now(void)
+{
+    uint32_t saved_primask = critical_enter();
+    uint32_t ticks = g_kernel_ticks;
+
+    critical_exit(saved_primask);
+    return ticks;
+}
+
+int kernel_tick_reached(uint32_t deadline)
+{
+    return ((int32_t)(kernel_ticks_now() - deadline) >= 0) ? 1 : 0;
+}
+
+void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks)
+{
+    uint32_t next_wake;
+    uint32_t now;
+
+    if (previous_wake == 0U)
+    {
+        return;
+    }
+
+    next_wake = *previous_wake + period_ticks;
+    *previous_wake = next_wake;
+    now = kernel_ticks_now();
+    if ((int32_t)(now - next_wake) < 0)
+    {
+        sleep_ticks(next_wake - now);
+    }
+}
+
 int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
 {
     uint32_t saved_primask;
@@ -558,6 +592,7 @@ void tick_tasks(void)
     uint32_t saved_primask = critical_enter();
     uint32_t index;
 
+    g_kernel_ticks++;
     for (index = 0U; index < task_count; index++)
     {
         if ((tasks[index].state == TASK_STATE_SLEEPING) && (tasks[index].sleep_ticks > 0U))

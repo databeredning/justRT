@@ -83,6 +83,9 @@ kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority) KERNEL_P
 void yield(void);
 void sleep_ticks(uint32_t ticks);
 void led_toggle(void);
+uint32_t kernel_ticks_now(void);
+int kernel_tick_reached(uint32_t deadline);
+void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);
 void tick_init(void) KERNEL_PRIVILEGED;
 void request_switch(void) KERNEL_PRIVILEGED;
@@ -126,6 +129,7 @@ extern volatile uint32_t g_wait_timeout_mutex;
 extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
+extern volatile uint32_t g_kernel_ticks;
 extern volatile uint32_t g_svc_invalid_service;
 
 #endif
