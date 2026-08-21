@@ -617,6 +617,10 @@ For SVC number one it calls `sleep_current(stacked_frame[0])`. SVC number two
 calls the privileged board LED routine. SVC number zero requests a reschedule;
 unknown numbers are rejected.
 
+The dispatcher also rejects SVC requests originating from handler mode. Such
+requests increment `g_svc_invalid_context` and do not request a context
+switch.
+
 After dispatch it always requests PendSV.
 
 ### Important SVC limitations

@@ -11,6 +11,7 @@ SVC_Handler:
     mrseq   r0, msp
     mrsne   r0, psp
     push    {r3, lr}
+    mov     r1, lr
     bl      svc_dispatch
     pop     {r3, lr}
     bx      lr

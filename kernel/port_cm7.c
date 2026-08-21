@@ -4,6 +4,7 @@
 #include "../board/board.h"
 
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
 
 #define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
 #define SYST_RVR (*(volatile uint32_t *)0xE000E014U)
@@ -120,9 +121,15 @@ void SysTick_Handler(void)
     request_switch();
 }
 
-void svc_dispatch(uint32_t *stacked_frame)
+void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return)
 {
     uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
+
+    if ((exc_return & (1UL << 3)) == 0U)
+    {
+        g_svc_invalid_context++;
+        return;
+    }
 
     switch (svc_number)
     {

@@ -147,5 +147,6 @@ extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
 extern volatile uint32_t g_kernel_ticks;
 extern volatile uint32_t g_svc_invalid_service;
+extern volatile uint32_t g_svc_invalid_context;
 
 #endif
