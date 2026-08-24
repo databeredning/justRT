@@ -778,8 +778,9 @@ The codebase is split into three layers:
   `kernel/fault.c`): implements the contract functions
   (`arch_request_switch()`, `arch_critical_enter()`/`arch_critical_exit()`,
   `arch_in_isr()`, `arch_tick_init()`, `arch_yield()`,
-  `arch_configure_mpu()`) plus the exception vectors that are reached only
-  through the vector table (`SysTick_Handler`, `PendSV_Handler`,
+  `arch_configure_mpu()`, `arch_start_first_task()`,
+  `arch_wait_for_interrupt()`) plus the exception vectors that are reached
+  only through the vector table (`SysTick_Handler`, `PendSV_Handler`,
   `SVC_Handler`, and the fault handlers). Those vectors are not part of the
   contract because nothing in the portable kernel calls them directly.
 - **S32K312 platform** (`platform/s32k312/`): `startup_cm7.s`,
@@ -790,6 +791,10 @@ The codebase is split into three layers:
 `arch/cortex_m/port_contract.h` documents which functions have been given a
 contract name so far; anything not listed is still called by its native
 port name directly. See that header for the current extraction status.
+
+See [`PORT.md`](../PORT.md) for a full guide to implementing a new
+architecture or platform port, including a worked example targeting QEMU's
+`mps2-an385` Cortex-M3 machine.
 
 ## 17. Current Guarantees
 
