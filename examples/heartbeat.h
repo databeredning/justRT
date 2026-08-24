@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_HEARTBEAT_H
-#define JUSTBOOT_HEARTBEAT_H
+#ifndef JUSTRT_HEARTBEAT_H
+#define JUSTRT_HEARTBEAT_H
 
 #include <stdint.h>
 

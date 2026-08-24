@@ -1,4 +1,4 @@
-# JustBoot Examples
+# JustRT Examples
 
 This directory contains application-level tasks that exercise the kernel API
 (`kernel/kernel.h`, `kernel/sync.h`, `kernel/timer.h`, `kernel/mempool.h`).
@@ -7,7 +7,7 @@ port; it only calls the public API.
 
 ## Selecting an example
 
-`main.c` selects one example at compile time via `JUSTBOOT_MAIN_PROFILE`
+`main.c` selects one example at compile time via `JUSTRT_MAIN_PROFILE`
 (set with `make -B MAIN_PROFILE=<n>`). The wired profiles are:
 
 | Profile | Function | File | Description |

@@ -1,4 +1,4 @@
-# PORT.md — Porting JustBoot to a New Architecture or Platform
+# PORT.md — Porting JustRT to a New Architecture or Platform
 
 This document explains the port boundary established by the architecture
 extraction (see `RTOS.md` chapter 16), what exactly must be implemented to
@@ -23,7 +23,7 @@ should know about the CPU family's registers (NVIC, SysTick, MPU, PRIMASK,
 CONTROL). `kernel/` should know about neither — it only calls the contract
 functions declared in `arch/<family>/port_contract.h`.
 
-To port JustBoot to a new target you generally need:
+To port JustRT to a new target you generally need:
 
 - A new `arch/<family>/` **only if the CPU family changes** (different
   instruction set family, e.g. RISC-V, or a Cortex-M without MPU/FPU that
@@ -335,7 +335,7 @@ OBJS += $(OBJDIR)/startup.o $(OBJDIR)/Vector_Table.o $(OBJDIR)/board/board.o
 
 ```sh
 make -B MAIN_PROFILE=0
-qemu-system-arm -M mps2-an385 -nographic -kernel bin/justboot.elf
+qemu-system-arm -M mps2-an385 -nographic -kernel bin/justrt.elf
 ```
 
 Use `-s -S` to pause at reset and attach GDB (`target remote :1234`) the same

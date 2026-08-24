@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_TIMER_H
-#define JUSTBOOT_TIMER_H
+#ifndef JUSTRT_TIMER_H
+#define JUSTRT_TIMER_H
 
 #include <stdint.h>
 

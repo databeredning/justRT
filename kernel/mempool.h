@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_MEMPOOL_H
-#define JUSTBOOT_MEMPOOL_H
+#ifndef JUSTRT_MEMPOOL_H
+#define JUSTRT_MEMPOOL_H
 
 #include <stdint.h>
 

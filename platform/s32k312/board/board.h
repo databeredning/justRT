@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_BOARD_H
-#define JUSTBOOT_BOARD_H
+#ifndef JUSTRT_BOARD_H
+#define JUSTRT_BOARD_H
 
 #define BOARD_PRIVILEGED __attribute__((section(".privileged_functions")))
 

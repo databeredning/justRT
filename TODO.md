@@ -60,8 +60,8 @@ Useful checks:
 ```bash
 make -B MAIN_PROFILE=0
 git diff --check
-arm-none-eabi-readelf -SW bin/justboot.elf
-arm-none-eabi-nm -n bin/justboot.elf
+arm-none-eabi-readelf -SW bin/justrt.elf
+arm-none-eabi-nm -n bin/justrt.elf
 git status --short --branch
 ```
 

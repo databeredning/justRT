@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_KERNEL_H
-#define JUSTBOOT_KERNEL_H
+#ifndef JUSTRT_KERNEL_H
+#define JUSTRT_KERNEL_H
 
 #include <stdint.h>
 

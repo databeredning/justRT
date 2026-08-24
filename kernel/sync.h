@@ -1,5 +1,5 @@
-#ifndef JUSTBOOT_SYNC_H
-#define JUSTBOOT_SYNC_H
+#ifndef JUSTRT_SYNC_H
+#define JUSTRT_SYNC_H
 
 #include <stdint.h>
 

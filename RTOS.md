@@ -1,8 +1,8 @@
-# JustBoot RTOS Notes
+# JustRT RTOS Notes
 
 ## 1. Purpose and Scope
 
-This document describes the current RTOS foundation implemented in the JustBoot project for the S32K312 Cortex-M7 target.
+This document describes the current RTOS foundation implemented in the JustRT project for the S32K312 Cortex-M7 target.
 
 The current code is a small, statically configured, preemptive kernel experiment. It is intentionally low level and currently focuses on:
 

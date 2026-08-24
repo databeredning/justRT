@@ -1,5 +1,5 @@
 /*
- * justboot linker script for the NXP S32K312 CM7_0.
+ * justrt linker script for the NXP S32K312 CM7_0.
  *
  * This image is a freestanding, single-core firmware. It contains the
  * startup code, vector table, native RTOS kernel, and native PTB18 GPIO

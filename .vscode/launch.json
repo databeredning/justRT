@@ -7,10 +7,10 @@
       {
         "type": "cortex-debug",
         "request": "launch",
-        "name": "Flash and debug justboot",
+        "name": "Flash and debug justrt",
         "cwd": "${workspaceRoot}",
-        "loadFiles": ["${workspaceRoot}/bin/justboot.hex"],
-        "executable": "${workspaceRoot}/bin/justboot.elf",
+        "loadFiles": ["${workspaceRoot}/bin/justrt.hex"],
+        "executable": "${workspaceRoot}/bin/justrt.elf",
         "runToEntryPoint": "main",
         "serverpath": "C:/Program Files/SEGGER/JLink/JLinkGDBServerCL.exe",
         "armToolchainPath": "C:/devtools/gcc/gcc-10.2-arm32-eabi/bin",
@@ -22,15 +22,15 @@
           "enabled": true,
           "samplesPerSecond": 4
         },
-        "preLaunchTask": "build justboot"
+        "preLaunchTask": "build justrt"
       },
       {
         "type": "cortex-debug",
         "request": "attach",
-        "name": "Attach and debug justboot",
+        "name": "Attach and debug justrt",
         "cwd": "${workspaceRoot}",
-        "loadFiles": ["${workspaceRoot}/bin/justboot.hex"],
-        "executable": "${workspaceRoot}/bin/justboot.elf",
+        "loadFiles": ["${workspaceRoot}/bin/justrt.hex"],
+        "executable": "${workspaceRoot}/bin/justrt.elf",
         "serverpath": "C:/Program Files/SEGGER/JLink/JLinkGDBServerCL.exe",
         "armToolchainPath": "C:/devtools/gcc/gcc-10.2-arm32-eabi/bin",
         "servertype": "jlink",
