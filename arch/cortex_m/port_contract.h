@@ -18,10 +18,11 @@
  *     sections.
  *   - arch_in_isr(): true when called from exception/interrupt context.
  *   - arch_tick_init(): configure and start the periodic tick source.
+ *   - arch_yield(): request an immediate reschedule via SVC.
  *
- * SysTick_Handler() and PendSV_Handler() are exception vectors and stay
- * named by the vector table (Vector_Table.s); they are already fully owned
- * by the port and are not renamed here.
+ * SysTick_Handler(), PendSV_Handler() and SVC_Handler() are exception
+ * vectors and stay named by the vector table (Vector_Table.s); they are
+ * already fully owned by the port and are not renamed here.
  */
 
 void arch_request_switch(void);
@@ -29,5 +30,6 @@ uint32_t arch_critical_enter(void);
 void arch_critical_exit(uint32_t saved_primask);
 int arch_in_isr(void);
 void arch_tick_init(void);
+void arch_yield(void);
 
 #endif

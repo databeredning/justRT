@@ -125,6 +125,11 @@ void yield(void)
     __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_YIELD) : "memory");
 }
 
+void arch_yield(void)
+{
+    yield();
+}
+
 void sleep_ticks(uint32_t ticks)
 {
     register uint32_t argument asm("r0") = ticks;

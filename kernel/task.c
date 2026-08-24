@@ -639,7 +639,7 @@ uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
     current_task->event_clear_on_exit = (clear_on_exit != 0) ? 1U : 0U;
     task_wait_begin(current_task, group, TASK_WAIT_EVENT_GROUP, timeout_ticks);
     arch_critical_exit(saved_primask);
-    yield();
+    arch_yield();
 
     saved_primask = arch_critical_enter();
     result = group->bits & bits;
@@ -714,7 +714,7 @@ int task_notify_take(uint32_t *value, uint32_t timeout_ticks)
     task_wait_begin(current_task, current_task, TASK_WAIT_NOTIFICATION,
                     timeout_ticks);
     arch_critical_exit(saved_primask);
-    yield();
+    arch_yield();
 
     saved_primask = arch_critical_enter();
     notification = current_task->notification_value;
@@ -778,7 +778,7 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
     saved_primask = arch_critical_enter();
     task_wait_begin(current_task, object, wait_kind, timeout_ticks);
     arch_critical_exit(saved_primask);
-    yield();
+    arch_yield();
     return (int)current_task->wait_result;
 }
 
