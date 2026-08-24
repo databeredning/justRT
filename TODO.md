@@ -14,48 +14,31 @@
 - [x] Validate task notifications on hardware (profile 10)
 - [x] Validate event groups on hardware (profile 11)
 - [x] Validate deterministic memory pools on hardware (profile 12)
+- [x] Shared wait/wake helpers (`task_wait_begin`/`task_wait_end`/`task_wait_reset`)
+- [x] Event-group timeout/ISR regression (profile 13)
+- [x] Full architecture extraction: portable kernel (`kernel/task.c`,
+      `sync.c`, `timer.c`, `mempool.c`) contains zero Cortex-M register
+      access; `arch/cortex_m/port_contract.h` documents the seam
+      (`arch_request_switch`, `arch_critical_enter`/`arch_critical_exit`,
+      `arch_in_isr`, `arch_tick_init`, `arch_yield`, `arch_configure_mpu`,
+      `arch_start_first_task`, `arch_wait_for_interrupt`)
+- [x] Platform layer extracted to `platform/s32k312/` (startup, vector
+      table, system init, linker script, board)
+- [x] Documentation reorganized: `RTOS.md` (kernel/API), `examples/README.md`
+      (application examples), `PORT.md` (new-port guide), all validated
+      against hardware profiles 0-13
 
 ## Next features
 
-1. Tick and timeout abstraction
-   - Monotonic tick counter
-   - Wrap-safe deadline comparisons
-   - `task_delay_until()` for drift-free periodic work
-   - Convert timeout paths to shared helpers
-
-2. Software timers
-   - One-shot timers
-   - Periodic timers
-   - Start, stop, restart, and expiry state
-   - Timer service task for callbacks
-   - Never execute arbitrary callbacks inside SysTick
-
-3. Task notifications
-   - Direct task signal
-   - Counter and bit notifications
-   - Blocking wait with timeout
-   - ISR notification path
-
-4. Event groups
-   - Set and clear bits
-   - Wait-any and wait-all
-   - Optional clear-on-exit behavior
-
-5. Deterministic memory pools
-   - Fixed-size block allocation
-   - Exhaustion behavior
-   - Double-free and ownership diagnostics
-
-6. SVC and MPU hardening
-   - Validate service numbers and caller context
-   - Validate pointer-bearing arguments before adding such services
-   - Preserve invalid-service diagnostics
-   - Add controlled gateway tests
-
-7. Task lifecycle
+1. Task lifecycle
    - Suspend and resume
    - Periodic runtime statistics
    - Restart and delete only after ownership rules are defined
+
+2. Second port to prove the architecture split
+   - Follow `PORT.md`; QEMU `mps2-an385` (Cortex-M3) is the suggested target
+   - Confirms `arch/cortex_m` is genuinely reusable and not S32K312-shaped
+     by accident
 
 ## Working method
 
