@@ -8,9 +8,10 @@
  *
  * This header names the boundary between the portable kernel (kernel/task.c,
  * kernel/sync.c, kernel/timer.c, kernel/mempool.c) and the Cortex-M-specific
- * port (currently kernel/port_cm7.c, kernel/svc_cm7.s). Functions are added
- * here incrementally as each piece of port behavior is extracted; until a
- * function is listed, the kernel still calls the port's native name directly.
+ * port (currently kernel/port_cm7.c, kernel/svc_cm7.s, kernel/fault.c).
+ * Functions are added here incrementally as each piece of port behavior is
+ * extracted; until a function is listed, the kernel still calls the port's
+ * native name directly.
  *
  * Extracted so far:
  *   - arch_request_switch(): pend a context switch (PendSV).
@@ -25,6 +26,11 @@
  * SysTick_Handler(), PendSV_Handler() and SVC_Handler() are exception
  * vectors and stay named by the vector table (Vector_Table.s); they are
  * already fully owned by the port and are not renamed here.
+ *
+ * kernel/fault.c (HardFault/MemManage/BusFault/UsageFault handlers and
+ * fault_capture()) has no call sites from the portable kernel at all -- it
+ * is reached only via the vector table -- so it needs no seam here. It is
+ * already fully arch-owned.
  */
 
 /* Number of MPU regions available for per-task stack guards on this port. */
