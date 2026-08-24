@@ -766,7 +766,32 @@ The current layout defines symbols for:
 - Privileged kernel data.
 - Unprivileged task data.
 
-## 16. Current Guarantees
+## 16. Architecture and Platform Layering
+
+The codebase is split into three layers:
+
+- **Portable kernel** (`kernel/task.c`, `kernel/sync.c`, `kernel/timer.c`,
+  `kernel/mempool.c`): scheduler, synchronization primitives, software
+  timers, and memory pools. This code contains no Cortex-M register access;
+  it calls into the port through `arch/cortex_m/port_contract.h`.
+- **Cortex-M port** (`kernel/port_cm7.c`, `kernel/svc_cm7.s`,
+  `kernel/fault.c`): implements the contract functions
+  (`arch_request_switch()`, `arch_critical_enter()`/`arch_critical_exit()`,
+  `arch_in_isr()`, `arch_tick_init()`, `arch_yield()`,
+  `arch_configure_mpu()`) plus the exception vectors that are reached only
+  through the vector table (`SysTick_Handler`, `PendSV_Handler`,
+  `SVC_Handler`, and the fault handlers). Those vectors are not part of the
+  contract because nothing in the portable kernel calls them directly.
+- **S32K312 platform** (`platform/s32k312/`): `startup_cm7.s`,
+  `Vector_Table.s`, `system.c`, `linker_flash_s32k312.ld`, and `board/`. This
+  is the only layer with board- and silicon-specific details such as clock
+  configuration, the boot header, and the LED GPIO mapping.
+
+`arch/cortex_m/port_contract.h` documents which functions have been given a
+contract name so far; anything not listed is still called by its native
+port name directly. See that header for the current extraction status.
+
+## 17. Current Guarantees
 
 The current design provides these useful guarantees:
 
@@ -779,7 +804,7 @@ The current design provides these useful guarantees:
 - Fault handlers capture the stacked frame and SCB fault status before stopping.
 - The build is freestanding and does not depend on a C runtime or standard library.
 
-## 17. Current Limitations
+## 18. Current Limitations
 
 The following limitations are known and intentional at this stage:
 
@@ -794,29 +819,29 @@ The current default is `8` total slots: up to seven worker tasks plus idle.
 8. Watchdog servicing and recovery are not integrated.
 9. Cache maintenance and memory attributes are not part of the kernel API.
 
-## 18. Recommended Development Order
+## 19. Recommended Development Order
 
 The next low-level milestones should be implemented in this order:
 
-### 18.1 Stack validation
+### 19.1 Stack validation
 
 Stack watermarking, scheduler-time bounds checks, and MPU no-access guard
 regions below each task stack are implemented. The next refinement is to
 define a reset and recovery policy for captured MemManage records.
 
-### 18.2 Critical-section primitives
+### 19.2 Critical-section primitives
 
 Architecture-specific PRIMASK helpers are present and protect task state, sleep accounting, and scheduler selection. The next refinement is to define which APIs are legal from thread mode, SVC, SysTick, and PendSV context.
 
-### 18.3 Board and RTD boundary
+### 19.3 Board and RTD boundary
 
 The native board layer is now present for the PTB18 heartbeat. RTD should be introduced when additional production peripheral services are needed, such as clock, pin, GPIO, watchdog, CAN, or ADC configuration. Replace board implementations behind the same interface rather than coupling RTD to kernel code.
 
-### 18.4 Fault hardening
+### 19.4 Fault hardening
 
 Add fault nesting detection, a reset policy, and persistent fault storage in a reserved RAM or data-flash region.
 
-### 18.5 MPU setup
+### 19.5 MPU setup
 
 The MPU now configures explicit flash, SRAM, unprivileged-function,
 unprivileged-read-only-data, and unprivileged-task-data regions during kernel
@@ -836,16 +861,16 @@ collects those named sections. This preparation does not enable
 unprivileged execution or change MPU permissions. Existing task stacks and
 guard regions are the first storage assigned to the new task-data range.
 
-### 18.6 Privilege transition
+### 19.6 Privilege transition
 
 Tasks may launch privileged or unprivileged according to their task flags.
 Future services must continue to cross the validated SVC boundary.
 
-### 18.7 Time services
+### 19.7 Time services
 
 Add a monotonic tick type, timeout comparison helpers, and a defined tick-wrap policy.
 
-### 18.8 Binary semaphore
+### 19.8 Binary semaphore
 
 The kernel now provides a static binary semaphore:
 
@@ -862,7 +887,7 @@ the token and wakes the matching blocked task under a PRIMASK critical
 section. These APIs are currently intended for task context; ISR-specific
 give and take services are not yet defined.
 
-### 18.9 Mutex
+### 19.9 Mutex
 
 The kernel provides a static, task-owned mutex:
 
@@ -882,7 +907,7 @@ blocks on the mutex, the owner temporarily inherits that priority and returns
 to its base priority on unlock. Nested mutex priority chains are not yet
 implemented.
 
-### 18.10 IPC
+### 19.10 IPC
 
 The kernel now provides a bounded static byte queue. The caller owns the
 storage and initializes it with a capacity and fixed item size:
@@ -919,57 +944,7 @@ Context-guard misuse is tracked both as an aggregate
 `g_sync_misuse_mutex_unlock`, `g_sync_misuse_queue_send`,
 `g_sync_misuse_queue_receive`, and `g_sync_misuse_queue_send_from_isr`.
 
-### 18.10 Synchronization example
-
-`examples/sync_producer_consumer.c` provides a selectable producer/consumer
-application. The producer sends incrementing values into a bounded queue and
-gives a semaphore after each successful send. The consumer takes the
-semaphore, receives from the queue, and records FIFO mismatches in
-`g_sync_error`. `g_sync_producer_value` and `g_sync_consumer_value` expose
-producer and consumer progress.
-
-The default `main.c` continues to select the heartbeat example. To run this
-example, select `sync_producer_consumer_start()` from `main()` instead.
-
-### 18.11 Semaphore event example
-
-`examples/semaphore_event.c` demonstrates semaphore-only event notification.
-The event source gives a binary semaphore every 100 ms. The worker blocks on
-`semaphore_take()` and increments its received counter when the event arrives.
-The runtime counters are `g_semaphore_events_sent`,
-`g_semaphore_events_received`, and `g_semaphore_event_error`.
-
-The default `main.c` continues to select the queue example. To run this
-example, select `semaphore_event_start()` from `main()` instead.
-
-### 18.12 Mutex contention example
-
-`examples/mutex_contention.c` demonstrates mutex ownership and contention.
-The owner and contender update a shared counter only while holding the mutex.
-The runtime counters are `g_mutex_owner_operations`,
-`g_mutex_contender_operations`, `g_mutex_error`, `g_mutex_contender_state`,
-`g_mutex_contender_state_after_unlock`, and `g_mutex_contender_stack_used`.
-The two state values show the contender blocked while the mutex is held and
-ready immediately after the owner wakes it. A nornero error indicates failed
-ownership, timeout, or inspection behavior.
-
-The default `main.c` continues to select the semaphore example. To run this
-example, select `mutex_contention_start()` from `main()` instead.
-
-### 18.13 Mutex priority-inheritance example
-
-`examples/mutex_priority_inheritance.c` starts a low-priority mutex owner, a
-medium-priority CPU task, and a high-priority waiter. When the waiter blocks,
-the owner inherits the waiter's effective priority and runs ahead of the
-medium task until it unlocks the mutex. Inspect
-`g_inheritance_low_priority`, `g_inheritance_high_state`,
-`g_inheritance_low_operations`, `g_inheritance_high_operations`,
-`g_inheritance_medium_operations`, and `g_inheritance_error` as runtime state.
-
-The default `main.c` continues to select the semaphore example. To run this
-example, select `mutex_priority_inheritance_start()` from `main()` instead.
-
-### 18.14 Task inspection
+### 19.11 Task inspection
 
 The kernel exposes read-only diagnostic queries for each static task ID:
 
@@ -994,97 +969,17 @@ The kernel also exposes runtime state counters:
 `g_wait_timeout_queue_receive`, `g_wait_timeout_mutex`, and
 `g_sync_context_misuse`.
 
-### 18.15 Watchdog integration
+### 19.12 Watchdog integration
 
 The kernel now increments `g_idle_kicks` on every idle-loop pass before `WFI`.
 This provides a software heartbeat that confirms the
 scheduler is still making progress when the system is otherwise idle.
 
-### 18.16 Mutex edge-case example
+### 19.13 Example applications
 
-`examples/mutex_edge_cases.c` verifies recursive lock/unlock behavior and
-rejects unlock attempts by a non-owner. Inspect
-`g_mutex_recursive_first_lock`, `g_mutex_recursive_second_lock`,
-`g_mutex_recursive_first_unlock`, `g_mutex_recursive_second_unlock`,
-`g_mutex_non_owner_unlock`, and `g_mutex_edge_error`. All lock/unlock results
-should be `1` except `g_mutex_non_owner_unlock`, which should be `0`; the
-error value should remain `0`.
+All application-level task code that exercises this API (heartbeat, ISR
+synchronization, event groups, mutex/semaphore/queue demonstrations, and the
+standalone regression examples) lives under `examples/` and is documented in
+[`examples/README.md`](../examples/README.md), including the profile-to-file
+mapping and the pass/fail counters for each one.
 
-### 18.17 Waiter priority-wake example
-
-`examples/waiter_priority_wake.c` validates wake ordering when two tasks block
-on the same semaphore. The first give must wake the higher-priority waiter and
-the second give must wake the lower-priority waiter. Inspect
-`g_waiter_wake_order[0]`, `g_waiter_wake_order[1]`, `g_waiter_wake_count`,
-`g_waiter_wake_error`, and `g_waiter_wake_done`. The expected pass result is:
-`g_waiter_wake_done == 1`, `g_waiter_wake_error == 0`,
-`g_waiter_wake_order[0] == 0xA1`, and `g_waiter_wake_order[1] == 0xB2`.
-
-### 18.18 Waiter timeout and wake-order example
-
-`examples/waiter_timeout_wake.c` validates timeout interaction with wake
-selection. A high-priority task blocks with a finite timeout and must time
-out, then gives the semaphore once while two lower-priority waiters remain
-blocked. The wake must select the highest-priority remaining waiter first.
-Inspect `g_waiter_timeout_flag`, `g_waiter_timeout_wake_order[0]`,
-`g_waiter_timeout_wake_count`, `g_waiter_timeout_error`, and
-`g_waiter_timeout_done`. The expected pass result is:
-`g_waiter_timeout_flag == 1`, `g_waiter_timeout_done == 1`,
-`g_waiter_timeout_error == 0`, and
-`g_waiter_timeout_wake_order[0] == 0xC3`.
-
-### 18.19 Multi-mutex priority restore example
-
-`examples/mutex_multi_restore.c` validates that priority inheritance restore
-is recalculated across all currently owned mutexes. The owner task takes two
-mutexes, a high-priority waiter blocks on one mutex, and a medium-priority
-waiter blocks on the other. After the first unlock, the owner priority must
-drop from high to medium; after the second unlock, it must drop to base.
-Inspect `g_multi_restore_owner_priority_before_release`,
-`g_multi_restore_owner_priority_after_first_release`,
-`g_multi_restore_owner_priority_after_second_release`,
-`g_multi_restore_high_waiter_acquired`, `g_multi_restore_mid_waiter_acquired`,
-`g_multi_restore_error`, and `g_multi_restore_done`. The expected pass result
-is `3`, `2`, and `1` for the three priority snapshots, both acquired flags set
-to `1`, `g_multi_restore_error == 0`, and `g_multi_restore_done == 1`.
-
-### 18.20 Chained mutex inheritance example
-
-`examples/mutex_chain_inheritance.c` validates transitive inheritance through
-a wait chain. A low-priority owner holds `mutex_1`, a medium-priority bridge
-holds `mutex_2` and blocks on `mutex_1`, and a high-priority task blocks on
-`mutex_2`. The owner must inherit the high priority through the bridge task.
-Inspect `g_chain_owner_priority_after_chain`, `g_chain_bridge_blocked`,
-`g_chain_high_blocked`, `g_chain_bridge_acquired_mutex_1`,
-`g_chain_high_acquired_mutex_2`, `g_chain_error`, and `g_chain_done`.
-Expected pass values are owner priority `3`, all block/acquire flags set to
-`1`, `g_chain_error == 0`, and `g_chain_done == 1`.
-
-### 18.21 Mutex timeout priority-restore example
-
-`examples/mutex_timeout_restore.c` validates that a waiter timeout propagates
-priority recalculation up the ownership chain. A low-priority owner holds
-`mutex_1`; a medium-priority bridge holds `mutex_2` and blocks on `mutex_1`
-with no timeout; a high-priority task blocks on `mutex_2` with a finite
-timeout. While the full chain exists the owner must be boosted to high
-priority; after the high-priority waiter times out, the owner must drop
-back to medium (the bridge still blocks on `mutex_1`) — not all the way
-to base. Inspect `g_timeout_restore_owner_priority_full_chain`,
-`g_timeout_restore_owner_priority_after_timeout`,
-`g_timeout_restore_bridge_still_blocked`, `g_timeout_restore_error`, and
-`g_timeout_restore_done`. Expected pass values: `3`, `2`, bridge flag `1`,
-error `0`, done `1`.
-
-### 18.22 ISR synchronization API example
-
-`examples/isr_sync_paths.c` validates `semaphore_give_from_isr()` and
-`queue_send_from_isr()` using a real SysTick interrupt hook. The interrupt
-periodically gives a semaphore and enqueues increasing values; a consumer task
-blocks on these objects and verifies monotonic queue data. A monitor task sets
-completion once enough interrupt events are consumed.
-
-Inspect `g_isr_sync_irq_give_count`, `g_isr_sync_irq_queue_sent`,
-`g_isr_sync_irq_queue_dropped`, `g_isr_sync_sem_taken`,
-`g_isr_sync_queue_received`, `g_isr_sync_error`, and `g_isr_sync_done`.
-Expected pass behavior: done becomes `1`, error stays `0`, drops stay `0`, and
-sent counts match received counts.
