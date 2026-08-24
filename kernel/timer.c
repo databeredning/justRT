@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "timer.h"
+#include "cortex_m/port_contract.h"
 
 #define TIMER_ACTIVE 1U
 #define TIMER_INACTIVE 0U
@@ -112,10 +113,10 @@ uint32_t kernel_timer_take_expirations(kernel_timer_t *timer)
         return 0U;
     }
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     expirations = timer->expirations;
     timer->expirations = 0U;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return expirations;
 }
 

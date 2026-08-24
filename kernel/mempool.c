@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "mempool.h"
+#include "cortex_m/port_contract.h"
 
 static uint32_t bitmap_words(uint32_t block_count)
 {
@@ -37,7 +38,7 @@ void *memory_pool_alloc(memory_pool_t *pool)
         return 0U;
     }
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     for (index = 0U; index < pool->block_count; index++)
     {
         uint32_t word = index / 32U;
@@ -46,11 +47,11 @@ void *memory_pool_alloc(memory_pool_t *pool)
         if ((pool->used_bitmap[word] & mask) == 0U)
         {
             pool->used_bitmap[word] |= mask;
-            critical_exit(saved_primask);
+            arch_critical_exit(saved_primask);
             return &pool->storage[index * pool->block_size];
         }
     }
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return 0U;
 }
 
@@ -87,13 +88,13 @@ int memory_pool_free(memory_pool_t *pool, void *block)
     index = (uint32_t)(offset / pool->block_size);
     word = index / 32U;
     mask = 1UL << (index % 32U);
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     if ((pool->used_bitmap[word] & mask) == 0U)
     {
-        critical_exit(saved_primask);
+        arch_critical_exit(saved_primask);
         return 0;
     }
     pool->used_bitmap[word] &= ~mask;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return 1;
 }

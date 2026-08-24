@@ -1,6 +1,8 @@
 #ifndef JUSTBOOT_ARCH_CORTEX_M_PORT_CONTRACT_H
 #define JUSTBOOT_ARCH_CORTEX_M_PORT_CONTRACT_H
 
+#include <stdint.h>
+
 /*
  * Cortex-M port contract.
  *
@@ -12,8 +14,14 @@
  *
  * Extracted so far:
  *   - arch_request_switch(): pend a context switch (PendSV).
+ *   - arch_critical_enter()/arch_critical_exit(): PRIMASK-based critical
+ *     sections.
+ *   - arch_in_isr(): true when called from exception/interrupt context.
  */
 
 void arch_request_switch(void);
+uint32_t arch_critical_enter(void);
+void arch_critical_exit(uint32_t saved_primask);
+int arch_in_isr(void);
 
 #endif

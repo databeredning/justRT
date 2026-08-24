@@ -109,9 +109,9 @@ kernel_status_t task_get_state(uint32_t task_id, task_state_t *state)
     {
         return KERNEL_ERR_INVALID_TASK;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     *state = (task_state_t)tasks[task_id].state;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return KERNEL_OK;
 }
 
@@ -124,13 +124,13 @@ kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info)
     {
         return KERNEL_ERR_INVALID_TASK;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     task = &tasks[task_id];
     info->stack_words = (uint32_t)(task->stack_top - task->stack_bottom);
     info->used_words = task->high_water_words;
     info->minimum_sp = (uint32_t)(uintptr_t)task->minimum_sp;
     info->current_sp = (uint32_t)(uintptr_t)task->sp;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return KERNEL_OK;
 }
 
@@ -142,9 +142,9 @@ kernel_status_t task_get_name(uint32_t task_id, const char **name)
     {
         return KERNEL_ERR_INVALID_TASK;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     *name = tasks[task_id].name;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return KERNEL_OK;
 }
 
@@ -156,9 +156,9 @@ kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority)
     {
         return KERNEL_ERR_INVALID_TASK;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     *priority = tasks[task_id].priority;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return KERNEL_OK;
 }
 
@@ -174,7 +174,7 @@ uint32_t task_current_priority(void)
 
 void task_inherit_priority(uint32_t task_id, uint32_t priority)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t inherited_priority = priority;
     uint32_t owner_id = task_id;
     uint32_t depth;
@@ -211,7 +211,7 @@ void task_inherit_priority(uint32_t task_id, uint32_t priority)
         }
     }
 
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
 }
 
 /* Recalculate inherited priority up the ownership chain after a waiter is removed. */
@@ -278,7 +278,7 @@ static void restore_priority_chain(uint32_t start_id)
 
 void task_restore_priority(uint32_t task_id)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t index;
     uint32_t effective_priority;
 
@@ -305,7 +305,7 @@ void task_restore_priority(uint32_t task_id)
 
         tasks[task_id].priority = effective_priority;
     }
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
 }
 
 static void configure_region_range(uint32_t region, uintptr_t start,
@@ -554,12 +554,12 @@ static uint32_t event_group_set_bits_common(event_group_t *group,
     uint32_t result;
 
     if (group == 0U
-        || ((from_isr != 0) ? (kernel_in_isr() == 0)
-                            : (kernel_in_isr() != 0)))
+        || ((from_isr != 0) ? (arch_in_isr() == 0)
+                            : (arch_in_isr() != 0)))
     {
         return 0U;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     group->bits |= bits;
     result = group->bits;
     for (index = 0U; index < task_count; index++)
@@ -573,7 +573,7 @@ static uint32_t event_group_set_bits_common(event_group_t *group,
             task_wait_end(&tasks[index], 1U);
         }
     }
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     arch_request_switch();
     return result;
 }
@@ -592,15 +592,15 @@ uint32_t event_group_get_bits(const event_group_t *group)
     {
         return 0U;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     result = group->bits;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return result;
 }
 
 uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits)
 {
-    if (kernel_in_isr() == 0)
+    if (arch_in_isr() == 0)
     {
         return 0U;
     }
@@ -614,11 +614,11 @@ uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
     uint32_t saved_primask;
     uint32_t result;
 
-    if (group == 0U || bits == 0U || kernel_in_isr() != 0)
+    if (group == 0U || bits == 0U || arch_in_isr() != 0)
     {
         return 0U;
     }
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     result = group->bits;
     if (event_condition(result, bits, (wait_all != 0) ? 1U : 0U))
     {
@@ -626,29 +626,29 @@ uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
         {
             group->bits &= ~bits;
         }
-        critical_exit(saved_primask);
+        arch_critical_exit(saved_primask);
         return result & bits;
     }
     if (timeout_ticks == 0U)
     {
-        critical_exit(saved_primask);
+        arch_critical_exit(saved_primask);
         return 0U;
     }
     current_task->event_wait_bits = bits;
     current_task->event_wait_all = (wait_all != 0) ? 1U : 0U;
     current_task->event_clear_on_exit = (clear_on_exit != 0) ? 1U : 0U;
     task_wait_begin(current_task, group, TASK_WAIT_EVENT_GROUP, timeout_ticks);
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     yield();
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     result = group->bits & bits;
     if (event_condition(group->bits, bits, current_task->event_wait_all)
         && (current_task->event_clear_on_exit != 0U))
     {
         group->bits &= ~bits;
     }
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return result;
 }
 
@@ -656,7 +656,7 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
 {
     uint32_t saved_primask;
 
-    if ((from_isr != 0) ? (kernel_in_isr() == 0) : (kernel_in_isr() != 0))
+    if ((from_isr != 0) ? (arch_in_isr() == 0) : (arch_in_isr() != 0))
     {
         return 0;
     }
@@ -665,14 +665,14 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
         return 0;
     }
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     tasks[task_id].notification_value += value;
     if ((tasks[task_id].state == TASK_STATE_BLOCKED)
         && (tasks[task_id].wait_kind == TASK_WAIT_NOTIFICATION))
     {
         task_wait_end(&tasks[task_id], 1U);
     }
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     arch_request_switch();
     return 1;
 }
@@ -692,53 +692,53 @@ int task_notify_take(uint32_t *value, uint32_t timeout_ticks)
     uint32_t saved_primask;
     uint32_t notification;
 
-    if (value == 0U || kernel_in_isr() != 0)
+    if (value == 0U || arch_in_isr() != 0)
     {
         return 0;
     }
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     notification = current_task->notification_value;
     if (notification != 0U)
     {
         current_task->notification_value = 0U;
-        critical_exit(saved_primask);
+        arch_critical_exit(saved_primask);
         *value = notification;
         return 1;
     }
     if (timeout_ticks == 0U)
     {
-        critical_exit(saved_primask);
+        arch_critical_exit(saved_primask);
         return 0;
     }
     task_wait_begin(current_task, current_task, TASK_WAIT_NOTIFICATION,
                     timeout_ticks);
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     yield();
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     notification = current_task->notification_value;
     current_task->notification_value = 0U;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     *value = notification;
     return (notification != 0U) ? 1 : 0;
 }
 
 void sleep_current(uint32_t ticks)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
 
     current_task->sleep_ticks = ticks;
     current_task->state = (ticks == 0U) ? TASK_STATE_READY : TASK_STATE_SLEEPING;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
 }
 
 uint32_t kernel_ticks_now(void)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t ticks = g_kernel_ticks;
 
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return ticks;
 }
 
@@ -775,16 +775,16 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
         return 0;
     }
 
-    saved_primask = critical_enter();
+    saved_primask = arch_critical_enter();
     task_wait_begin(current_task, object, wait_kind, timeout_ticks);
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     yield();
     return (int)current_task->wait_result;
 }
 
 void task_wake(void *object, task_wait_kind_t wait_kind)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t index;
     uint32_t selected_index = task_count;
     uint32_t selected_priority = 0U;
@@ -809,12 +809,12 @@ void task_wake(void *object, task_wait_kind_t wait_kind)
         task_wait_end(&tasks[selected_index], 1U);
     }
 
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
 }
 
 void tick_tasks(void)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t index;
 
     g_kernel_ticks++;
@@ -877,12 +877,12 @@ void tick_tasks(void)
         }
     }
 
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
 }
 
 uint32_t *pendsv_switch(uint32_t *current_sp)
 {
-    uint32_t saved_primask = critical_enter();
+    uint32_t saved_primask = arch_critical_enter();
     uint32_t offset;
     uint32_t base_index = g_current_task_index;
     uint32_t next_index = base_index;
@@ -941,7 +941,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     current_task = &tasks[g_current_task_index];
     current_task->state = TASK_STATE_RUNNING;
-    critical_exit(saved_primask);
+    arch_critical_exit(saved_primask);
     return current_task->sp;
 }
 

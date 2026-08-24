@@ -100,6 +100,21 @@ void critical_exit(uint32_t saved_primask)
         : "memory");
 }
 
+int arch_in_isr(void)
+{
+    return kernel_in_isr();
+}
+
+uint32_t arch_critical_enter(void)
+{
+    return critical_enter();
+}
+
+void arch_critical_exit(uint32_t saved_primask)
+{
+    critical_exit(saved_primask);
+}
+
 void yield(void)
 {
     __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_YIELD) : "memory");
