@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "examples/heartbeat.h"
 #include "examples/isr_sync_paths.h"
+#include "examples/event_group_regression.h"
 
 #define MAIN_PROFILE_BRINGUP 0U
 #define MAIN_PROFILE_REGRESSION_ISR_SYNC 1U
@@ -13,6 +14,7 @@
 #define MAIN_PROFILE_NOTIFICATION 10U
 #define MAIN_PROFILE_EVENT_GROUP 11U
 #define MAIN_PROFILE_MEMPOOL 12U
+#define MAIN_PROFILE_EVENT_GROUP_REGRESSION 13U
 
 #ifndef JUSTBOOT_MAIN_PROFILE
 #define JUSTBOOT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
@@ -40,6 +42,8 @@ int main(void)
     heartbeat_event_group_start();
 #elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_MEMPOOL
     heartbeat_mempool_start();
+#elif JUSTBOOT_MAIN_PROFILE == MAIN_PROFILE_EVENT_GROUP_REGRESSION
+    event_group_regression_start();
 #else
     heartbeat_example_start();
 #endif

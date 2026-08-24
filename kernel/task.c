@@ -582,6 +582,21 @@ uint32_t event_group_set_bits(event_group_t *group, uint32_t bits)
     return event_group_set_bits_common(group, bits, 0);
 }
 
+uint32_t event_group_get_bits(const event_group_t *group)
+{
+    uint32_t saved_primask;
+    uint32_t result;
+
+    if (group == 0U)
+    {
+        return 0U;
+    }
+    saved_primask = critical_enter();
+    result = group->bits;
+    critical_exit(saved_primask);
+    return result;
+}
+
 uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits)
 {
     if (kernel_in_isr() == 0)

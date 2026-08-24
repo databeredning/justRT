@@ -40,7 +40,7 @@ volatile uint32_t g_isr_soak_error TASK_UNPRIVILEGED_DATA;
 volatile uint32_t g_isr_soak_mutex_owner_loops TASK_UNPRIVILEGED_DATA;
 volatile uint32_t g_isr_soak_mutex_contender_loops TASK_UNPRIVILEGED_DATA;
 
-void kernel_tick_isr_hook(void)
+static void isr_sync_tick_hook(void)
 {
     uint32_t next_value;
     uint32_t period_ticks;
@@ -299,6 +299,7 @@ void isr_sync_paths_start(void)
     };
 
     isr_mode = ISR_MODE_SYNC;
+    kernel_set_tick_hook(isr_sync_tick_hook);
     semaphore_init(&isr_semaphore, 0U);
     queue_init(&isr_queue, isr_queue_storage, ISR_QUEUE_CAPACITY, sizeof(uint32_t));
     g_isr_sync_tick_count = 0U;
@@ -337,6 +338,7 @@ void isr_sync_queue_full_start(void)
     };
 
     isr_mode = ISR_MODE_QUEUE_FULL;
+    kernel_set_tick_hook(isr_sync_tick_hook);
     semaphore_init(&isr_semaphore, 0U);
     queue_init(&isr_queue, isr_queue_storage, ISR_QUEUE_CAPACITY, sizeof(uint32_t));
     g_isr_sync_tick_count = 0U;
@@ -376,6 +378,7 @@ void isr_sync_soak_start(void)
 
     board_init();
     isr_mode = ISR_MODE_SOAK;
+    kernel_set_tick_hook(isr_sync_tick_hook);
     semaphore_init(&isr_semaphore, 0U);
     queue_init(&isr_queue, isr_queue_storage, ISR_QUEUE_CAPACITY, sizeof(uint32_t));
     mutex_init(&soak_mutex);

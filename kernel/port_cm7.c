@@ -6,6 +6,16 @@
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
 
+static kernel_tick_hook_t tick_hook KERNEL_PRIVILEGED_DATA;
+
+void kernel_set_tick_hook(kernel_tick_hook_t hook)
+{
+    uint32_t saved_primask = critical_enter();
+
+    tick_hook = hook;
+    critical_exit(saved_primask);
+}
+
 #define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
 #define SYST_RVR (*(volatile uint32_t *)0xE000E014U)
 #define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
@@ -30,12 +40,6 @@ enum
     SVC_SERVICE_SLEEP = 1U,
     SVC_SERVICE_LED_TOGGLE = 2U
 };
-
-void kernel_tick_isr_hook(void) __attribute__((weak));
-
-void kernel_tick_isr_hook(void)
-{
-}
 
 void tick_init(void)
 {
@@ -116,8 +120,13 @@ uint32_t ms_to_ticks(uint32_t milliseconds)
 
 void SysTick_Handler(void)
 {
+    kernel_tick_hook_t hook = tick_hook;
+
     tick_tasks();
-    kernel_tick_isr_hook();
+    if (hook != 0)
+    {
+        hook();
+    }
     request_switch();
 }
 

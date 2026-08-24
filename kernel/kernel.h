@@ -95,6 +95,10 @@ int kernel_tick_reached(uint32_t deadline);
 void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks);
 uint32_t ms_to_ticks(uint32_t milliseconds);
 void tick_init(void) KERNEL_PRIVILEGED;
+
+typedef void (*kernel_tick_hook_t)(void);
+
+void kernel_set_tick_hook(kernel_tick_hook_t hook) KERNEL_PRIVILEGED;
 void request_switch(void) KERNEL_PRIVILEGED;
 int kernel_in_isr(void) KERNEL_PRIVILEGED;
 uint32_t critical_enter(void) KERNEL_PRIVILEGED;
@@ -112,6 +116,7 @@ int task_notify_from_isr(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
 int task_notify_take(uint32_t *value, uint32_t timeout_ticks) KERNEL_PRIVILEGED;
 void event_group_init(event_group_t *group) KERNEL_PRIVILEGED;
 uint32_t event_group_set_bits(event_group_t *group, uint32_t bits) KERNEL_PRIVILEGED;
+uint32_t event_group_get_bits(const event_group_t *group) KERNEL_PRIVILEGED;
 uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits) KERNEL_PRIVILEGED;
 uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
 							   int wait_all, int clear_on_exit,
