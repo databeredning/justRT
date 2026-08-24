@@ -55,7 +55,6 @@ static task_storage_t task_storage[KERNEL_MAX_TASKS] TASK_UNPRIVILEGED_DATA;
 static task_t tasks[KERNEL_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
-static uint32_t task_launch_control KERNEL_PRIVILEGED_DATA = 2U;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
 
 static kernel_status_t validate_task_id(uint32_t task_id)
@@ -379,7 +378,7 @@ static void idle_body(void *argument)
     while (1)
     {
         g_idle_kicks++;
-        __asm volatile ("wfi" : : : "memory");
+        arch_wait_for_interrupt();
     }
 }
 
@@ -841,29 +840,6 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     return current_task->sp;
 }
 
-static void launch_first_task(uint32_t *sp __attribute__((unused))) __attribute__((naked));
-
-static void launch_first_task(uint32_t *sp __attribute__((unused)))
-{
-    __asm volatile (
-        "ldmia   r0!, {r4-r11}          \n"
-        "ldr     lr,  [r0, #20]         \n"
-        "ldr     r2,  [r0, #24]         \n"
-        "orr     r2,  r2, #1            \n"
-        "adds    r0,  r0, #32           \n"
-        "msr     psp, r0                \n"
-        "cpsie   i                      \n"
-        "ldr     r1,  =task_launch_control\n"
-        "ldr     r0,  [r1]              \n"
-        "msr     control, r0            \n"
-        "isb                            \n"
-        "movs    r0,  #0                \n"
-        "movs    r1,  #0                \n"
-        "movs    r3,  #0                \n"
-        "bx      r2                     \n"
-    );
-}
-
 kernel_status_t kernel_init(const kernel_config_t *config)
 {
     uint32_t index;
@@ -937,7 +913,10 @@ void kernel_start(void)
         }
     }
     arch_tick_init();
-    task_launch_control = ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)
-        ? 3U : 2U;
-    launch_first_task(current_task->sp);
+    {
+        uint32_t control_value = ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)
+            ? ARCH_LAUNCH_UNPRIVILEGED : ARCH_LAUNCH_PRIVILEGED;
+
+        arch_start_first_task(current_task->sp, control_value);
+    }
 }

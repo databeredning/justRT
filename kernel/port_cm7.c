@@ -240,6 +240,34 @@ uint32_t ms_to_ticks(uint32_t milliseconds)
     return (half_milliseconds * 15U) + (odd_millisecond * 8U);
 }
 
+void arch_wait_for_interrupt(void)
+{
+    __asm volatile ("wfi" : : : "memory");
+}
+
+void arch_start_first_task(uint32_t *sp, uint32_t control_value)
+    __attribute__((naked));
+
+void arch_start_first_task(uint32_t *sp __attribute__((unused)),
+                           uint32_t control_value __attribute__((unused)))
+{
+    __asm volatile (
+        "ldmia   r0!, {r4-r11}          \n"
+        "ldr     lr,  [r0, #20]         \n"
+        "ldr     r2,  [r0, #24]         \n"
+        "orr     r2,  r2, #1            \n"
+        "adds    r0,  r0, #32           \n"
+        "msr     psp, r0                \n"
+        "cpsie   i                      \n"
+        "msr     control, r1            \n"
+        "isb                            \n"
+        "movs    r0,  #0                \n"
+        "movs    r1,  #0                \n"
+        "movs    r3,  #0                \n"
+        "bx      r2                     \n"
+    );
+}
+
 void SysTick_Handler(void)
 {
     kernel_tick_hook_t hook = tick_hook;

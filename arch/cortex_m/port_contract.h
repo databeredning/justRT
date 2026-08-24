@@ -22,6 +22,9 @@
  *   - arch_yield(): request an immediate reschedule via SVC.
  *   - arch_configure_mpu(): program the MPU (flash/SRAM/unprivileged data
  *     regions plus one guard region per task stack).
+ *   - arch_start_first_task(): drop to the first task's stack/privilege
+ *     level and never return.
+ *   - arch_wait_for_interrupt(): idle until the next interrupt (`wfi`).
  *
  * SysTick_Handler(), PendSV_Handler() and SVC_Handler() are exception
  * vectors and stay named by the vector table (Vector_Table.s); they are
@@ -36,6 +39,11 @@
 /* Number of MPU regions available for per-task stack guards on this port. */
 #define ARCH_MPU_GUARD_REGION_COUNT 8U
 
+/* CONTROL register value requesting privileged Thread-mode execution. */
+#define ARCH_LAUNCH_PRIVILEGED 2U
+/* CONTROL register value requesting unprivileged Thread-mode execution. */
+#define ARCH_LAUNCH_UNPRIVILEGED 3U
+
 void arch_request_switch(void);
 uint32_t arch_critical_enter(void);
 void arch_critical_exit(uint32_t saved_primask);
@@ -43,5 +51,7 @@ int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_yield(void);
 void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count);
+void arch_start_first_task(uint32_t *sp, uint32_t control_value);
+void arch_wait_for_interrupt(void);
 
 #endif
