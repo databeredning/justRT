@@ -4,44 +4,6 @@
 #include "timer.h"
 #include "cortex_m/port_contract.h"
 
-#define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
-#define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
-#define MPU_RBAR (*(volatile uint32_t *)0xE000ED9CU)
-#define MPU_RASR (*(volatile uint32_t *)0xE000EDA0U)
-#define SCB_SHCSR (*(volatile uint32_t *)0xE000ED24U)
-
-#define MPU_CTRL_ENABLE (1UL << 0)
-#define MPU_CTRL_PRIVDEFENA (1UL << 2)
-#define MPU_RASR_ENABLE (1UL << 0)
-#define MPU_RASR_XN (1UL << 28)
-#define MPU_RASR_SIZE_32_BYTES (4UL << 1)
-#define MPU_RASR_AP_FULL_ACCESS (3UL << 24)
-#define MPU_RASR_AP_PRIV_RO_UNPRIV_RO (6UL << 24)
-#define MPU_RASR_TEX_NORMAL (1UL << 19)
-#define MPU_RASR_CACHEABLE (1UL << 17)
-#define MPU_RASR_BUFFERABLE (1UL << 16)
-#define SCB_SHCSR_MEMFAULTENA (1UL << 16)
-
-#define MPU_FLASH_REGION 0U
-#define MPU_SRAM_REGION 1U
-#define MPU_UNPRIVILEGED_DATA_REGION 2U
-#define MPU_GUARD_REGION_FIRST 8U
-#define MPU_REGION_COUNT 16U
-#define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
-
-extern uint8_t __privileged_functions_start[];
-extern uint8_t __privileged_functions_end[];
-extern uint8_t __unprivileged_functions_start[];
-extern uint8_t __unprivileged_functions_end[];
-extern uint8_t __unprivileged_rodata_start[];
-extern uint8_t __unprivileged_rodata_end[];
-extern uint8_t __system_calls_flash_start[];
-extern uint8_t __system_calls_flash_end[];
-extern uint8_t __privileged_data_start[];
-extern uint8_t __privileged_data_end[];
-extern uint8_t __unprivileged_task_data_start[];
-extern uint8_t __unprivileged_task_data_end[];
-
 typedef struct
 {
     uint32_t *stack_bottom;
@@ -306,72 +268,6 @@ void task_restore_priority(uint32_t task_id)
         tasks[task_id].priority = effective_priority;
     }
     arch_critical_exit(saved_primask);
-}
-
-static void configure_region_range(uint32_t region, uintptr_t start,
-                                   uintptr_t end, uint32_t attributes)
-{
-    uintptr_t base;
-    uintptr_t size = 32U;
-    uint32_t size_encoding = 4U;
-
-    if (end <= start)
-    {
-        MPU_RNR = region;
-        MPU_RASR = 0U;
-        return;
-    }
-
-    while (size < (end - start))
-    {
-        size <<= 1U;
-        size_encoding++;
-    }
-    base = start & ~(size - 1U);
-    while ((base + size) < end)
-    {
-        size <<= 1U;
-        size_encoding++;
-        base = start & ~(size - 1U);
-    }
-
-    MPU_RNR = region;
-    MPU_RBAR = (uint32_t)base;
-    MPU_RASR = attributes | ((size_encoding) << 1U) | MPU_RASR_ENABLE;
-}
-
-static void configure_memory_regions(void)
-{
-    const uint32_t flash_attributes = MPU_RASR_AP_FULL_ACCESS
-        | MPU_RASR_CACHEABLE;
-    const uint32_t sram_attributes = MPU_RASR_AP_FULL_ACCESS
-        | MPU_RASR_XN | MPU_RASR_TEX_NORMAL | MPU_RASR_CACHEABLE
-        | MPU_RASR_BUFFERABLE;
-    configure_region_range(MPU_FLASH_REGION, 0x00400000U, 0x00600000U,
-                           flash_attributes);
-    configure_region_range(MPU_SRAM_REGION, 0x20400000U, 0x20420000U,
-                           sram_attributes);
-    configure_region_range(MPU_UNPRIVILEGED_DATA_REGION,
-                           (uintptr_t)__unprivileged_task_data_start,
-                           (uintptr_t)__unprivileged_task_data_end,
-                           sram_attributes);
-}
-
-static void configure_stack_guards(void)
-{
-    uint32_t index;
-
-    MPU_CTRL = 0U;
-    SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
-    configure_memory_regions();
-    for (index = 0U; index < task_count; index++)
-    {
-        MPU_RNR = index + MPU_GUARD_REGION_FIRST;
-        MPU_RBAR = (uint32_t)(uintptr_t)&task_storage[index].guard[0];
-        MPU_RASR = MPU_RASR_XN | MPU_RASR_SIZE_32_BYTES | MPU_RASR_ENABLE;
-    }
-    MPU_CTRL = MPU_CTRL_ENABLE | MPU_CTRL_PRIVDEFENA;
-    __asm volatile ("dsb\nisb" : : : "memory");
 }
 
 static void task_exit_trap(void)
@@ -980,7 +876,7 @@ kernel_status_t kernel_init(const kernel_config_t *config)
     {
         return KERNEL_ERR_TOO_MANY_TASKS;
     }
-    if ((config->task_count + 1U) > MPU_GUARD_REGION_COUNT)
+    if ((config->task_count + 1U) > ARCH_MPU_GUARD_REGION_COUNT)
     {
         return KERNEL_ERR_TOO_MANY_TASKS;
     }
@@ -1006,7 +902,16 @@ kernel_status_t kernel_init(const kernel_config_t *config)
         prepare_task(index, &config->tasks[index]);
     }
     prepare_idle_task();
-    configure_stack_guards();
+    {
+        void *guard_addresses[KERNEL_MAX_TASKS];
+        uint32_t guard_index;
+
+        for (guard_index = 0U; guard_index < task_count; guard_index++)
+        {
+            guard_addresses[guard_index] = &task_storage[guard_index].guard[0];
+        }
+        arch_configure_mpu(guard_addresses, task_count);
+    }
     current_task = &tasks[0];
     g_current_task_index = 0U;
     g_context_switches = 0U;

@@ -19,11 +19,16 @@
  *   - arch_in_isr(): true when called from exception/interrupt context.
  *   - arch_tick_init(): configure and start the periodic tick source.
  *   - arch_yield(): request an immediate reschedule via SVC.
+ *   - arch_configure_mpu(): program the MPU (flash/SRAM/unprivileged data
+ *     regions plus one guard region per task stack).
  *
  * SysTick_Handler(), PendSV_Handler() and SVC_Handler() are exception
  * vectors and stay named by the vector table (Vector_Table.s); they are
  * already fully owned by the port and are not renamed here.
  */
+
+/* Number of MPU regions available for per-task stack guards on this port. */
+#define ARCH_MPU_GUARD_REGION_COUNT 8U
 
 void arch_request_switch(void);
 uint32_t arch_critical_enter(void);
@@ -31,5 +36,6 @@ void arch_critical_exit(uint32_t saved_primask);
 int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_yield(void);
+void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count);
 
 #endif
