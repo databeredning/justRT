@@ -1,7 +1,7 @@
 # Run LED GPIO Setup
 
 This document describes the verified native GPIO path for the run LED on the
-S32K312. The implementation is in `board/board.c`; it does not depend on RTD
+S32K312. The implementation is in `platform/s32k312/board/board.c`; it does not depend on RTD
 drivers or dynamic allocation.
 
 ## Hardware Mapping
@@ -24,7 +24,7 @@ other blocks produce a precise bus fault on this target.
 
 ## Reset and System Startup
 
-The boot header in `startup_cm7.s` tells the device boot ROM/SBAF to start
+The boot header in `platform/s32k312/startup_cm7.s` tells the device boot ROM/SBAF to start
 CM7_0. `Reset_Handler` then executes with interrupts masked.
 
 Before it selects the vector table, reset code makes the MSCM peripheral

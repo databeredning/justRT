@@ -2,7 +2,7 @@
 
 #include "kernel.h"
 #include "event_group_regression.h"
-#include "../board/board.h"
+#include "board/board.h"
 
 /*
  * Each waiter owns a disjoint set of bits. Sharing bits between a wait-all

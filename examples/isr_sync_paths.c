@@ -2,7 +2,7 @@
 
 #include "kernel.h"
 #include "isr_sync_paths.h"
-#include "../board/board.h"
+#include "board/board.h"
 
 #define ISR_QUEUE_CAPACITY 8U
 #define ISR_HOOK_PERIOD_TICKS 4U

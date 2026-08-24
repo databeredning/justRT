@@ -2,7 +2,7 @@
 #include "../kernel/timer.h"
 #include "../kernel/mempool.h"
 #include "heartbeat.h"
-#include "../board/board.h"
+#include "board/board.h"
 
 #define RUN_LED_PERIOD_MS 100U
 

@@ -6,16 +6,16 @@ CC := arm-none-eabi-gcc
 OBJCOPY := arm-none-eabi-objcopy
 CPUFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 DEBUGFLAGS := -Og -g3
-CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch
+CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch -Iplatform/s32k312
 MAIN_PROFILE ?= 0
 CFLAGS += -DJUSTBOOT_MAIN_PROFILE=$(MAIN_PROFILE)
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
-LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T linker_flash_s32k312.ld
+LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T platform/s32k312/linker_flash_s32k312.ld
 OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o examples/heartbeat.o examples/sync_producer_consumer.o examples/semaphore_event.o examples/mutex_contention.o examples/mutex_priority_inheritance.o examples/mutex_edge_cases.o examples/waiter_priority_wake.o examples/waiter_timeout_wake.o examples/mutex_multi_restore.o examples/mutex_chain_inheritance.o examples/mutex_timeout_restore.o examples/isr_sync_paths.o examples/event_group_regression.o kernel/task.o kernel/port_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
-$(BINDIR)/$(PROJECT).elf: $(OBJS) linker_flash_s32k312.ld | $(BINDIR)
+$(BINDIR)/$(PROJECT).elf: $(OBJS) platform/s32k312/linker_flash_s32k312.ld | $(BINDIR)
 	$(CC) $(OBJS) $(LDFLAGS) -o $@
 
 $(BINDIR)/$(PROJECT).bin: $(BINDIR)/$(PROJECT).elf
@@ -24,13 +24,13 @@ $(BINDIR)/$(PROJECT).bin: $(BINDIR)/$(PROJECT).elf
 $(BINDIR)/$(PROJECT).hex: $(BINDIR)/$(PROJECT).elf
 	$(OBJCOPY) -O ihex $< $@
 
-$(OBJDIR)/startup_cm7.o: startup_cm7.s | $(OBJDIR)
+$(OBJDIR)/startup_cm7.o: platform/s32k312/startup_cm7.s | $(OBJDIR)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(OBJDIR)/Vector_Table.o: Vector_Table.s | $(OBJDIR)
+$(OBJDIR)/Vector_Table.o: platform/s32k312/Vector_Table.s | $(OBJDIR)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(OBJDIR)/system.o: system.c | $(OBJDIR)
+$(OBJDIR)/system.o: platform/s32k312/system.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/main.o: main.c | $(OBJDIR)
@@ -96,8 +96,8 @@ $(OBJDIR)/kernel/timer.o: kernel/timer.c kernel/timer.h kernel/kernel.h | $(OBJD
 $(OBJDIR)/kernel/mempool.o: kernel/mempool.c kernel/mempool.h kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
-$(OBJDIR)/board/board.o: board/board.c board/board.h | $(OBJDIR)/board
-	$(CC) $(CFLAGS) -Iboard -c $< -o $@
+$(OBJDIR)/board/board.o: platform/s32k312/board/board.c platform/s32k312/board/board.h | $(OBJDIR)/board
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/examples $(OBJDIR)/board $(BINDIR):
 	mkdir -p $@

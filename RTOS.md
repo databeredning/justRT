@@ -35,7 +35,7 @@ Thread mode on the selected task's PSP
 
 ### Vector table
 
-`Vector_Table.s` places the immutable vector table in `.intc_vector`. The
+`platform/s32k312/Vector_Table.s` places the immutable vector table in `.intc_vector`. The
 linker aligns it at `__ROM_INTERRUPT_START`, and startup writes that address
 to VTOR. The relevant entries are:
 
@@ -418,7 +418,7 @@ The heartbeat task calls `board_led_toggle()` and then sleeps for 750 RTOS
 ticks, approximately 100 ms at the current clock. This keeps board setup and
 application behavior outside the kernel.
 
-The implementation assumes the board LED is connected directly to PTB18, GPIO is the default SIUL2 signal, and the LED is active-high. If the LED is active-low, invert `led_state` before writing GPDO. If the board uses a different SIUL2 register map or pin mux configuration, only `board/board.c` should change.
+The implementation assumes the board LED is connected directly to PTB18, GPIO is the default SIUL2 signal, and the LED is active-high. If the LED is active-low, invert `led_state` before writing GPDO. If the board uses a different SIUL2 register map or pin mux configuration, only `platform/s32k312/board/board.c` should change.
 
 When NXP RTD is introduced, keep this interface and replace the register operations with the generated Port/Dio calls. The kernel should not include RTD headers.
 
@@ -724,13 +724,13 @@ The following handlers are implemented as naked wrappers that select MSP or PSP 
 
 ### Default handlers
 
-`system.c` still provides `undefined_handler()` and weak aliases for handlers that have not yet received specialized implementations, including NMI and DebugMonitor.
+`platform/s32k312/system.c` still provides `undefined_handler()` and weak aliases for handlers that have not yet received specialized implementations, including NMI and DebugMonitor.
 
 ## 14. Runtime Initialization
 
 ### `init_data_bss()`
 
-Defined in `system.c`. It consumes linker-generated initialization tables:
+Defined in `platform/s32k312/system.c`. It consumes linker-generated initialization tables:
 
 - `__INIT_TABLE`: flash-to-RAM copy ranges.
 - `__ZERO_TABLE`: RAM ranges to clear.

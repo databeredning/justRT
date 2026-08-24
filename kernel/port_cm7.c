@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #include "kernel.h"
-#include "../board/board.h"
+#include "board/board.h"
 #include "cortex_m/port_contract.h"
 
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
