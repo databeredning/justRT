@@ -444,6 +444,38 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
     task->high_water_words = (uint32_t)(task->stack_top - word);
 }
 
+/* Shared wait/wake transitions. Callers must hold a critical section. */
+static void task_wait_begin(task_t *task, void *object,
+                            task_wait_kind_t wait_kind, uint32_t timeout_ticks)
+{
+    task->wait_object = object;
+    task->wait_kind = wait_kind;
+    task->wait_ticks = timeout_ticks;
+    task->wait_result = 0U;
+    task->state = TASK_STATE_BLOCKED;
+}
+
+static void task_wait_end(task_t *task, uint32_t result)
+{
+    task->state = TASK_STATE_READY;
+    task->wait_result = result;
+    task->wait_object = 0U;
+    task->wait_kind = TASK_WAIT_NONE;
+    task->wait_ticks = 0U;
+}
+
+static void task_wait_reset(task_t *task)
+{
+    task->wait_object = 0U;
+    task->wait_kind = TASK_WAIT_NONE;
+    task->wait_ticks = 0U;
+    task->wait_result = 0U;
+    task->notification_value = 0U;
+    task->event_wait_bits = 0U;
+    task->event_wait_all = 0U;
+    task->event_clear_on_exit = 0U;
+}
+
 static void idle_body(void *argument)
 {
     (void)argument;
@@ -474,10 +506,7 @@ static void prepare_task(uint32_t index, const task_definition_t *definition)
     tasks[index].base_priority = definition->priority;
     tasks[index].name = definition->name;
     tasks[index].flags = definition->flags;
-    tasks[index].notification_value = 0U;
-    tasks[index].event_wait_bits = 0U;
-    tasks[index].event_wait_all = 0U;
-    tasks[index].event_clear_on_exit = 0U;
+    task_wait_reset(&tasks[index]);
 }
 
 static void prepare_idle_task(void)
@@ -499,10 +528,7 @@ static void prepare_idle_task(void)
     tasks[idle_index].base_priority = 0U;
     tasks[idle_index].name = "idle";
     tasks[idle_index].flags = 0U;
-    tasks[idle_index].notification_value = 0U;
-    tasks[idle_index].event_wait_bits = 0U;
-    tasks[idle_index].event_wait_all = 0U;
-    tasks[idle_index].event_clear_on_exit = 0U;
+    task_wait_reset(&tasks[idle_index]);
 }
 
 static int event_condition(uint32_t current, uint32_t requested, uint32_t wait_all)
@@ -543,10 +569,7 @@ static uint32_t event_group_set_bits_common(event_group_t *group,
             && event_condition(group->bits, tasks[index].event_wait_bits,
                                tasks[index].event_wait_all))
         {
-            tasks[index].state = TASK_STATE_READY;
-            tasks[index].wait_result = 1U;
-            tasks[index].wait_object = 0U;
-            tasks[index].wait_kind = TASK_WAIT_NONE;
+            task_wait_end(&tasks[index], 1U);
         }
     }
     critical_exit(saved_primask);
@@ -595,14 +618,10 @@ uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
         critical_exit(saved_primask);
         return 0U;
     }
-    current_task->wait_object = group;
-    current_task->wait_kind = TASK_WAIT_EVENT_GROUP;
     current_task->event_wait_bits = bits;
     current_task->event_wait_all = (wait_all != 0) ? 1U : 0U;
     current_task->event_clear_on_exit = (clear_on_exit != 0) ? 1U : 0U;
-    current_task->wait_ticks = timeout_ticks;
-    current_task->wait_result = 0U;
-    current_task->state = TASK_STATE_BLOCKED;
+    task_wait_begin(current_task, group, TASK_WAIT_EVENT_GROUP, timeout_ticks);
     critical_exit(saved_primask);
     yield();
 
@@ -635,11 +654,7 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
     if ((tasks[task_id].state == TASK_STATE_BLOCKED)
         && (tasks[task_id].wait_kind == TASK_WAIT_NOTIFICATION))
     {
-        tasks[task_id].state = TASK_STATE_READY;
-        tasks[task_id].wait_result = 1U;
-        tasks[task_id].wait_object = 0U;
-        tasks[task_id].wait_kind = TASK_WAIT_NONE;
-        tasks[task_id].wait_ticks = 0U;
+        task_wait_end(&tasks[task_id], 1U);
     }
     critical_exit(saved_primask);
     request_switch();
@@ -680,11 +695,8 @@ int task_notify_take(uint32_t *value, uint32_t timeout_ticks)
         critical_exit(saved_primask);
         return 0;
     }
-    current_task->wait_object = current_task;
-    current_task->wait_kind = TASK_WAIT_NOTIFICATION;
-    current_task->wait_ticks = timeout_ticks;
-    current_task->wait_result = 0U;
-    current_task->state = TASK_STATE_BLOCKED;
+    task_wait_begin(current_task, current_task, TASK_WAIT_NOTIFICATION,
+                    timeout_ticks);
     critical_exit(saved_primask);
     yield();
 
@@ -748,11 +760,7 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
     }
 
     saved_primask = critical_enter();
-    current_task->wait_object = object;
-    current_task->wait_kind = wait_kind;
-    current_task->wait_ticks = timeout_ticks;
-    current_task->wait_result = 0U;
-    current_task->state = TASK_STATE_BLOCKED;
+    task_wait_begin(current_task, object, wait_kind, timeout_ticks);
     critical_exit(saved_primask);
     yield();
     return (int)current_task->wait_result;
@@ -782,10 +790,7 @@ void task_wake(void *object, task_wait_kind_t wait_kind)
 
     if (selected_index != task_count)
     {
-        tasks[selected_index].state = TASK_STATE_READY;
-        tasks[selected_index].wait_result = 1U;
-        tasks[selected_index].wait_object = 0U;
-        tasks[selected_index].wait_kind = TASK_WAIT_NONE;
+        task_wait_end(&tasks[selected_index], 1U);
     }
 
     critical_exit(saved_primask);
@@ -829,10 +834,7 @@ void tick_tasks(void)
                     }
                 }
 
-                tasks[index].state = TASK_STATE_READY;
-                tasks[index].wait_result = 0U;
-                tasks[index].wait_object = 0U;
-                tasks[index].wait_kind = TASK_WAIT_NONE;
+                task_wait_end(&tasks[index], 0U);
 
                 if (wait_kind == TASK_WAIT_SEMAPHORE)
                 {
