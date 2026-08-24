@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "sync.h"
+#include "cortex_m/port_contract.h"
 
 volatile uint32_t g_sync_context_misuse KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_sync_misuse_semaphore_take KERNEL_PRIVILEGED_DATA;
@@ -89,7 +90,7 @@ void semaphore_give_from_isr(semaphore_t *semaphore)
     semaphore->available = 1U;
     task_wake(semaphore, TASK_WAIT_SEMAPHORE);
     critical_exit(saved_primask);
-    request_switch();
+    arch_request_switch();
 }
 
 void mutex_init(mutex_t *mutex)
@@ -304,7 +305,7 @@ int queue_send_from_isr(queue_t *queue, const void *item)
         }
         task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
         critical_exit(saved_primask);
-        request_switch();
+        arch_request_switch();
         return 1;
     }
 

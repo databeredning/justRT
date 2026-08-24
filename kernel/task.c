@@ -2,6 +2,7 @@
 
 #include "kernel.h"
 #include "timer.h"
+#include "cortex_m/port_contract.h"
 
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
 #define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
@@ -573,7 +574,7 @@ static uint32_t event_group_set_bits_common(event_group_t *group,
         }
     }
     critical_exit(saved_primask);
-    request_switch();
+    arch_request_switch();
     return result;
 }
 
@@ -672,7 +673,7 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
         task_wait_end(&tasks[task_id], 1U);
     }
     critical_exit(saved_primask);
-    request_switch();
+    arch_request_switch();
     return 1;
 }
 

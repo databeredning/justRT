@@ -2,6 +2,7 @@
 
 #include "kernel.h"
 #include "../board/board.h"
+#include "cortex_m/port_contract.h"
 
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
@@ -56,6 +57,11 @@ void tick_init(void)
 void request_switch(void)
 {
     SCB_ICSR = SCB_ICSR_PENDSVSET;
+}
+
+void arch_request_switch(void)
+{
+    request_switch();
 }
 
 int kernel_in_isr(void)

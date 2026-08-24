@@ -6,7 +6,7 @@ CC := arm-none-eabi-gcc
 OBJCOPY := arm-none-eabi-objcopy
 CPUFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 DEBUGFLAGS := -Og -g3
-CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra
+CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch
 MAIN_PROFILE ?= 0
 CFLAGS += -DJUSTBOOT_MAIN_PROFILE=$(MAIN_PROFILE)
 ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
