@@ -64,6 +64,11 @@ void arch_request_switch(void)
     request_switch();
 }
 
+void arch_tick_init(void)
+{
+    tick_init();
+}
+
 int kernel_in_isr(void)
 {
     uint32_t ipsr;

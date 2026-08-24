@@ -1031,7 +1031,7 @@ void kernel_start(void)
         {
         }
     }
-    tick_init();
+    arch_tick_init();
     task_launch_control = ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)
         ? 3U : 2U;
     launch_first_task(current_task->sp);
