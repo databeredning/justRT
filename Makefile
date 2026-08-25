@@ -4,6 +4,7 @@ BINDIR := bin
 
 CC := arm-none-eabi-gcc
 OBJCOPY := arm-none-eabi-objcopy
+PYTHON ?= py
 CPUFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
 DEBUGFLAGS := -Og -g3
 CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch -Iplatform/s32k312
@@ -90,4 +91,7 @@ $(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/examples $(OBJDIR)/tests $(OBJDIR)/board $(
 clean:
 	rm -f $(OBJS) $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex $(BINDIR)/$(PROJECT).map
 
-.PHONY: all clean
+auto-test:
+	$(PYTHON) tools/run_tests.py --quiet-build
+
+.PHONY: all clean auto-test

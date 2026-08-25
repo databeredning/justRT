@@ -344,6 +344,15 @@ Use `-s -S` to pause at reset and attach GDB (`target remote :1234`) the same
 way the existing S32K312 `gdb-server` workflow does, substituting the QEMU
 gdbstub for the physical debug probe.
 
+For the S32K312 hardware test suite, run:
+
+```sh
+make auto-test
+```
+
+This invokes `tools/run_tests.py` with quiet nested builds. Use
+`py tools/run_tests.py --verbose` for detailed J-Link and GDB output.
+
 ### 7.7 Validation checklist for any new port
 
 Once the new arch/platform builds:

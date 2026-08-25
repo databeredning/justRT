@@ -129,13 +129,21 @@ make -B TEST=simple
 make -B TEST=boot
 make -B TEST=sync
 make -B TEST=mutex
+make auto-test
 ```
 
-Profiles:
+`make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
+the boot, synchronization, and mutex tests through J-Link/GDB. It suppresses
+nested build output while preserving test status and diagnostics. The runner
+also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
+`--test <name>` options.
 
-- `0`: baseline privileged scheduler and heartbeat.
-- `6`: unprivileged task, MPU, SVC LED gateway, and privilege switching.
-- `13`: event-group and multi-task MPU regression.
+Tests:
+
+- `simple`: continuous board-independent task switching example.
+- `boot`: unprivileged startup, MPU, SVC LED gateway, and privilege switching.
+- `sync`: ISR semaphore, queue, event-group, and notification paths.
+- `mutex`: recursive ownership, priority inheritance, and chained waiters.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
