@@ -5,11 +5,21 @@
     .global SVC_Handler
     .type SVC_Handler, %function
 
+    .equ SVC_SERVICE_START_FIRST_TASK, 0
+
 SVC_Handler:
     tst     lr, #4
     ite     eq
     mrseq   r0, msp
     mrsne   r0, psp
+    ldr     r2, [r0, #24]
+    ldrb    r2, [r2, #-2]
+    cmp     r2, #SVC_SERVICE_START_FIRST_TASK
+    bne     .Ldispatch_svc
+    tst     lr, #4
+    beq     .Lstart_first_task
+
+.Ldispatch_svc:
     push    {r3, lr}
     mov     r1, lr
     bl      svc_dispatch
@@ -18,17 +28,17 @@ SVC_Handler:
 
     .size SVC_Handler, .-SVC_Handler
 
-    .section .unprivileged_svc, "ax", %progbits
-    .align 2
-    .global arch_enter_task
-    .type arch_enter_task, %function
-
-arch_enter_task:
+.Lstart_first_task:
+    push    {r3, lr}
+    bl      task_current_sp
+    mov     r4, r0
+    bl      task_current_control
+    mov     r1, r0
+    mov     r0, r4
+    ldmia   r0!, {r4-r11}
+    msr     psp, r0
     msr     control, r1
     isb
-    movs    r0, #0
-    movs    r1, #0
-    movs    r3, #0
-    bx      r2
-
-    .size arch_enter_task, .-arch_enter_task
+    pop     {r3, lr}
+    orr     lr, lr, #4
+    bx      lr

@@ -133,6 +133,11 @@ uint32_t task_current_priority(void)
     return current_task->priority;
 }
 
+uint32_t *task_current_sp(void)
+{
+    return current_task->sp;
+}
+
 uint32_t task_current_control(void)
 {
     return ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)

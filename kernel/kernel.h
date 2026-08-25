@@ -109,6 +109,7 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
 void task_wake(void *object, task_wait_kind_t wait_kind) KERNEL_PRIVILEGED;
 uint32_t task_current_index(void) KERNEL_PRIVILEGED;
 uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
+uint32_t *task_current_sp(void) KERNEL_PRIVILEGED;
 uint32_t task_current_control(void) KERNEL_PRIVILEGED;
 void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
 void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;

@@ -30,6 +30,11 @@
 
 ## Next features
 
+### Nitpicks
+
+- Keep the first-task startup SVC first in the service enum so its bootstrap
+      role remains obvious.
+
 1. Task lifecycle
    - Suspend and resume
    - Periodic runtime statistics

@@ -37,9 +37,10 @@ void kernel_set_tick_hook(kernel_tick_hook_t hook)
 
 enum
 {
-    SVC_SERVICE_YIELD = 0U,
-    SVC_SERVICE_SLEEP = 1U,
-    SVC_SERVICE_LED_TOGGLE = 2U
+    SVC_SERVICE_START_FIRST_TASK = 0U,
+    SVC_SERVICE_YIELD = 1U,
+    SVC_SERVICE_SLEEP = 2U,
+    SVC_SERVICE_LED_TOGGLE = 3U
 };
 
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
@@ -269,21 +270,13 @@ void arch_wait_for_interrupt(void)
 }
 
 void arch_start_first_task(uint32_t *sp, uint32_t control_value)
-    __attribute__((naked));
+    __attribute__((naked, noreturn));
 
 void arch_start_first_task(uint32_t *sp __attribute__((unused)),
                            uint32_t control_value __attribute__((unused)))
 {
-    __asm volatile (
-        "ldmia   r0!, {r4-r11}          \n"
-        "ldr     lr,  [r0, #20]         \n"
-        "ldr     r2,  [r0, #24]         \n"
-        "orr     r2,  r2, #1            \n"
-        "adds    r0,  r0, #32           \n"
-        "msr     psp, r0                \n"
-        "cpsie   i                      \n"
-        "bl      arch_enter_task        \n"
-    );
+    /* Enable interrupts before SVC; PRIMASK is still set from reset startup. */
+    __asm volatile ("cpsie i\n" "svc 0\n" "b .\n" : : : "memory");
 }
 
 void SysTick_Handler(void)
@@ -302,7 +295,8 @@ void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return)
 {
     uint8_t svc_number = ((const uint8_t *)stacked_frame[6])[-2];
 
-    if ((exc_return & (1UL << 3)) == 0U)
+    if ((exc_return & (1UL << 3)) == 0U
+        || (exc_return & (1UL << 2)) == 0U)
     {
         g_svc_invalid_context++;
         return;
