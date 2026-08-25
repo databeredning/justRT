@@ -1,51 +1,18 @@
-#include <stdint.h>
-#include "examples/heartbeat.h"
-#include "examples/isr_sync_paths.h"
-#include "examples/event_group_regression.h"
-
-#define MAIN_PROFILE_BRINGUP 0U
-#define MAIN_PROFILE_REGRESSION_ISR_SYNC 1U
-#define MAIN_PROFILE_REGRESSION_ISR_QFULL 2U
-#define MAIN_PROFILE_SOAK 3U
-#define MAIN_PROFILE_UNPRIVILEGED_LED 6U
-#define MAIN_PROFILE_PERIODIC_DELAY 7U
-#define MAIN_PROFILE_TIMER 8U
-#define MAIN_PROFILE_TIMER_CALLBACK 9U
-#define MAIN_PROFILE_NOTIFICATION 10U
-#define MAIN_PROFILE_EVENT_GROUP 11U
-#define MAIN_PROFILE_MEMPOOL 12U
-#define MAIN_PROFILE_EVENT_GROUP_REGRESSION 13U
-
-#ifndef JUSTRT_MAIN_PROFILE
-#define JUSTRT_MAIN_PROFILE MAIN_PROFILE_BRINGUP
-#endif
+#include "examples/simple.h"
+#include "tests/test_boot_and_privilege.h"
+#include "tests/test_mutex.h"
+#include "tests/test_synchronization.h"
 
 int main(void)
 {
-#if JUSTRT_MAIN_PROFILE == MAIN_PROFILE_REGRESSION_ISR_SYNC
-    isr_sync_paths_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_REGRESSION_ISR_QFULL
-    isr_sync_queue_full_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_SOAK
-    isr_sync_soak_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_UNPRIVILEGED_LED
-    heartbeat_unprivileged_led_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_PERIODIC_DELAY
-    heartbeat_periodic_delay_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_TIMER
-    heartbeat_timer_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_TIMER_CALLBACK
-    heartbeat_timer_callback_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_NOTIFICATION
-    heartbeat_notification_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_EVENT_GROUP
-    heartbeat_event_group_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_MEMPOOL
-    heartbeat_mempool_start();
-#elif JUSTRT_MAIN_PROFILE == MAIN_PROFILE_EVENT_GROUP_REGRESSION
-    event_group_regression_start();
+#if defined(JUSTRT_TEST_BOOT)
+    test_boot_and_privilege_start();
+#elif defined(JUSTRT_TEST_SYNC)
+    test_synchronization_start();
+#elif defined(JUSTRT_TEST_MUTEX)
+    test_mutex_start();
 #else
-    heartbeat_example_start();
+    simple_example_start();
 #endif
 
     return 0;

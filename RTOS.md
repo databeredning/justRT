@@ -125,9 +125,10 @@ the LED SVC gateway.
 ## Build and Validation
 
 ```sh
-make -B MAIN_PROFILE=0
-make -B MAIN_PROFILE=6
-make -B MAIN_PROFILE=13
+make -B TEST=simple
+make -B TEST=boot
+make -B TEST=sync
+make -B TEST=mutex
 ```
 
 Profiles:

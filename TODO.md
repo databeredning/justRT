@@ -8,14 +8,9 @@
 - [x] MPU stack guards and privileged/unprivileged task execution
 - [x] SVC yield and sleep services
 - [x] Privileged LED gateway for unprivileged tasks
-- [x] Validate the time-foundation checkpoint on hardware (profile 7)
-- [x] Validate timer expiry bookkeeping on hardware (profile 8)
-- [x] Validate deferred timer callbacks on hardware (profile 9)
-- [x] Validate task notifications on hardware (profile 10)
-- [x] Validate event groups on hardware (profile 11)
-- [x] Validate deterministic memory pools on hardware (profile 12)
+- [x] Retire legacy board-dependent examples and numeric profiles
 - [x] Shared wait/wake helpers (`task_wait_begin`/`task_wait_end`/`task_wait_reset`)
-- [x] Event-group timeout/ISR regression (profile 13)
+- [x] Named boot, synchronization, and mutex regression tests
 - [x] Full architecture extraction: portable kernel (`kernel/task.c`,
       `sync.c`, `timer.c`, `mempool.c`) contains zero Cortex-M register
       access; `arch/cortex_m/port_contract.h` documents the seam
@@ -26,7 +21,7 @@
       table, system init, linker script, board)
 - [x] Documentation reorganized: `RTOS.md` (kernel/API), `examples/README.md`
       (application examples), `PORT.md` (new-port guide), all validated
-      against hardware profiles 0-13
+      against named hardware tests
 
 ## Next features
 
@@ -53,17 +48,18 @@ Each roadmap item should be an isolated, buildable commit:
 2. State one local behavior hypothesis and one cheap check that can falsify it.
 3. Make the smallest focused edit.
 4. Run the narrowest available build or regression check immediately.
-5. Build the exact hardware profile with `make -B MAIN_PROFILE=<number>`.
+5. Build the exact named test with `make -B TEST=<name>`.
 6. Flash and inspect debugger-visible pass counters and fault state.
 7. Commit only after hardware behavior is confirmed.
-8. Keep the default profile stable unless the item explicitly changes it.
+8. Keep the default `TEST=simple` example stable unless the item explicitly
+      changes it.
 9. Add or update documentation for user-visible behavior and diagnostics.
 10. Tag only validated milestones, using a meaningful annotated tag.
 
 Useful checks:
 
 ```bash
-make -B MAIN_PROFILE=0
+make -B TEST=simple
 git diff --check
 arm-none-eabi-readelf -SW bin/justrt.elf
 arm-none-eabi-nm -n bin/justrt.elf

@@ -336,7 +336,7 @@ OBJS += $(OBJDIR)/startup.o $(OBJDIR)/Vector_Table.o $(OBJDIR)/board/board.o
 ### 7.6 Running under QEMU
 
 ```sh
-make -B MAIN_PROFILE=0
+make -B TEST=simple
 qemu-system-arm -M mps2-an385 -nographic -kernel bin/justrt.elf
 ```
 
@@ -348,16 +348,14 @@ gdbstub for the physical debug probe.
 
 Once the new arch/platform builds:
 
-1. Profile 0 — confirms `arch_tick_init()`, `arch_start_first_task()`
-   (privileged path), `arch_request_switch()`, and the scheduler run at all.
-2. Profile 6 (`heartbeat_unprivileged_led_start()`) — confirms the
-   unprivileged `arch_start_first_task()` path and the SVC gateway
-   (`board_led_toggle()` called through `SVC_SERVICE_LED_TOGGLE`), *only if*
-   your target supports privilege levels/MPU; skip if not applicable.
-3. Profile 1, 2, or 3 — confirms `arch_in_isr()` and ISR-context give/send
-   APIs work from a real interrupt (SysTick tick hook on this port).
-4. Profile 13 — confirms `arch_configure_mpu()` guard-region placement for
-   more than two tasks, if MPU is implemented.
+1. `TEST=simple` — confirms first-task SVC startup, task scheduling, sleep,
+  yield, and the idle fallback without board dependencies.
+2. `TEST=boot` — confirms unprivileged startup, task arguments, MPU execution
+  permissions, and the SVC LED gateway.
+3. `TEST=sync` — confirms ISR-context semaphore, queue, event-group, and
+  notification paths.
+4. `TEST=mutex` — confirms recursive ownership, priority inheritance, and
+  chained waiter behavior.
 5. `g_stack_fault` stays `0` and `g_context_switches` increases steadily
    across all of the above — this is the same acceptance bar used throughout
    the original architecture extraction (see the commit history for
