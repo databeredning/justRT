@@ -4,6 +4,8 @@
     .align 2
     .global SVC_Handler
     .type SVC_Handler, %function
+    .global arch_restore_task_context
+    .type arch_restore_task_context, %function
 
     .equ SVC_SERVICE_START_FIRST_TASK, 0
 
@@ -35,10 +37,16 @@ SVC_Handler:
     bl      task_current_control
     mov     r1, r0
     mov     r0, r4
-    ldmia   r0!, {r4-r11}
-    msr     psp, r0
+    bl      arch_restore_task_context
     msr     control, r1
     isb
     pop     {r3, lr}
     orr     lr, lr, #4
     bx      lr
+
+arch_restore_task_context:
+    ldmia   r0!, {r4-r11}
+    msr     psp, r0
+    bx      lr
+
+    .size arch_restore_task_context, .-arch_restore_task_context
