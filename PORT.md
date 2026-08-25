@@ -46,16 +46,16 @@ The kernel calls exactly these functions from `kernel/task.c`, `sync.c`,
 | `void arch_tick_init(void)` | `task.c` `kernel_start()` | Configure and start the periodic tick interrupt at the tick rate in `kernel.h` (`KERNEL_TICK_RATE_HZ`), and set exception priorities so the tick and switch exceptions are the two lowest-priority exceptions in the system. |
 | `void arch_yield(void)` | `task.c` every blocking wait | Force an immediate reschedule and return only after the calling task is scheduled again. On Cortex-M this is an `SVC` instruction handled by `svc_dispatch()`. |
 | `void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)` | `task.c` `kernel_init()` | Program a not-a-must memory-protection scheme: flash/SRAM base regions plus one no-access guard region per task stack (`guard_addresses[i]`, each `KERNEL_TASK_GUARD_WORDS * 4` bytes). If the target has no MPU, this can be a no-op — stack guards then rely on `update_stack_usage()`'s software bounds check alone (see `RTOS.md` chapter 8). |
-| `void arch_start_first_task(uint32_t *sp, uint32_t control_value)` | `task.c` `kernel_start()`, once | Never returns. Restore the first task's saved register frame from `sp` (the layout is defined by `build_initial_stack()` in `task.c` — 8 hardware-stacked words followed by 8 software-stacked words r4-r11) and drop to the requested privilege/stack mode. `control_value` is either `ARCH_LAUNCH_PRIVILEGED` or `ARCH_LAUNCH_UNPRIVILEGED` from the contract header. |
+| `void arch_start_first_task(void)` | `task.c` `kernel_start()`, once | Never returns. Enter the startup SVC; the handler loads the current task's saved frame and privilege level before returning to its PSP. |
 | `void arch_wait_for_interrupt(void)` | `task.c` idle task | Put the CPU in its lowest-overhead wait state until the next interrupt (Cortex-M `wfi`; a busy-loop is also legal but wastes power). |
 
 ### Constants the contract also defines
 
 - `ARCH_MPU_GUARD_REGION_COUNT` — maximum number of tasks `arch_configure_mpu()`
   can guard. `kernel_init()` rejects configurations that would exceed it.
-- `ARCH_LAUNCH_PRIVILEGED` / `ARCH_LAUNCH_UNPRIVILEGED` — values passed to
-  `arch_start_first_task()`. Their meaning is arch-defined; on Cortex-M they
-  are CONTROL register values (2 and 3).
+- `ARCH_LAUNCH_PRIVILEGED` / `ARCH_LAUNCH_UNPRIVILEGED` — architecture-defined
+  CONTROL register values used by first-task and context-switch paths; on
+  Cortex-M they are 2 and 3.
 
 ### Exception vectors that are *not* part of the contract
 

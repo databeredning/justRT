@@ -51,7 +51,7 @@ int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_yield(void);
 void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count);
-void arch_start_first_task(uint32_t *sp, uint32_t control_value);
+void arch_start_first_task(void);
 void arch_wait_for_interrupt(void);
 
 #endif

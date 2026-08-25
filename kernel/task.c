@@ -924,10 +924,5 @@ void kernel_start(void)
         }
     }
     arch_tick_init();
-    {
-        uint32_t control_value = ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)
-            ? ARCH_LAUNCH_UNPRIVILEGED : ARCH_LAUNCH_PRIVILEGED;
-
-        arch_start_first_task(current_task->sp, control_value);
-    }
+    arch_start_first_task();
 }

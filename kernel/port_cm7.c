@@ -269,11 +269,9 @@ void arch_wait_for_interrupt(void)
     __asm volatile ("wfi" : : : "memory");
 }
 
-void arch_start_first_task(uint32_t *sp, uint32_t control_value)
-    __attribute__((naked, noreturn));
+void arch_start_first_task(void) __attribute__((naked, noreturn));
 
-void arch_start_first_task(uint32_t *sp __attribute__((unused)),
-                           uint32_t control_value __attribute__((unused)))
+void arch_start_first_task(void)
 {
     /* Enable interrupts before SVC; PRIMASK is still set from reset startup. */
     __asm volatile ("cpsie i\n" "svc 0\n" "b .\n" : : : "memory");
