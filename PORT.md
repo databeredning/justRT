@@ -69,13 +69,14 @@ On Cortex-M:
 - `SysTick_Handler()` calls `tick_tasks()` (portable), then the registered
   tick hook (`kernel_set_tick_hook()`), then `arch_request_switch()`.
 - `PendSV_Handler()` is a naked handler that saves r4-r11, calls
-  `pendsv_switch(sp)` (portable — returns the next task's saved sp), restores
-  r4-r11, and returns.
+  `pendsv_switch(sp)` (portable — returns the next task's saved sp), uses the
+  shared context-restore helper, updates CONTROL for the selected task, and
+  returns.
 - `SVC_Handler` (in `arch/cortex_m/svc_cm7.s`) picks MSP or PSP based on
   `EXC_RETURN` bit 2, then calls `svc_dispatch(stacked_frame, exc_return)`
-  (arch-owned, in `port_cm7.c`), which validates the caller returned to
-  Thread mode and dispatches `SVC_SERVICE_YIELD` / `SVC_SERVICE_SLEEP` /
-  `SVC_SERVICE_LED_TOGGLE`.
+  (arch-owned, in `port_cm7.c`) for normal task services. Startup SVC zero
+  restores the first task frame and returns through PSP; normal SVC calls
+  require PSP and dispatch yield, sleep, or LED services.
 - The four fault handlers capture the exception frame and fault status
   registers into `g_fault_record` (see `kernel/fault.c`) and spin forever;
   they have no portable-kernel call sites at all.
@@ -121,12 +122,10 @@ named sections:
 The SVC exception handler itself must remain privileged and must not share
 `.unprivileged_svc` with the wrappers.
 
-**Ordering matters**: on this port, `.privileged_functions` is placed at a
-*higher* MPU region number than the general flash region so its (currently
-identical) permissions don't get shadowed; if you introduce
-read-only/execute-only splits, keep narrow/more-specific regions at higher
-region numbers. See `RTOS.md` chapter 16 and the note in the linker script
-about section ordering.
+**Ordering matters**: on this port, unprivileged code/data regions and stack
+guards have higher MPU region numbers than the privileged base regions, so the
+specific permitted ranges and no-access guards override the base policy. The
+linker aligns the section boundaries for the MPU's power-of-two regions.
 
 Symbols the arch/platform startup code is expected to define (see
 `platform/s32k312/linker_flash_s32k312.ld` for the full worked example):
@@ -149,9 +148,9 @@ void board_init(void);       /* one-time GPIO/UART/etc. setup */
 void board_led_toggle(void); /* toggle whatever the examples use as "the LED" */
 ```
 
-Both are marked `BOARD_PRIVILEGED` (same section as `KERNEL_PRIVILEGED`) so
-they remain callable from the SVC gateway (`SVC_SERVICE_LED_TOGGLE` in
-`svc_dispatch()`) even when the calling task is unprivileged.
+Both are marked `BOARD_PRIVILEGED` (same section as `KERNEL_PRIVILEGED`). The
+LED is called by the SVC gateway (`SVC_SERVICE_LED_TOGGLE` in
+`svc_dispatch()`), so an unprivileged task never accesses the GPIO register.
 
 ## 6. Build system integration
 
