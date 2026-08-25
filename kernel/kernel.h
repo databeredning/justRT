@@ -93,7 +93,7 @@ void led_toggle(void);
 uint32_t kernel_ticks_now(void);
 int kernel_tick_reached(uint32_t deadline);
 void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks);
-uint32_t ms_to_ticks(uint32_t milliseconds);
+uint32_t ms_to_ticks(uint32_t milliseconds) TASK_UNPRIVILEGED;
 void tick_init(void) KERNEL_PRIVILEGED;
 
 typedef void (*kernel_tick_hook_t)(void);
@@ -109,6 +109,7 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
 void task_wake(void *object, task_wait_kind_t wait_kind) KERNEL_PRIVILEGED;
 uint32_t task_current_index(void) KERNEL_PRIVILEGED;
 uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
+uint32_t task_current_control(void) KERNEL_PRIVILEGED;
 void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
 void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;
 int task_notify(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
@@ -122,6 +123,7 @@ uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
 							   int wait_all, int clear_on_exit,
 							   uint32_t timeout_ticks) KERNEL_PRIVILEGED;
 uint32_t *pendsv_switch(uint32_t *current_sp) KERNEL_PRIVILEGED;
+void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return) KERNEL_PRIVILEGED;
 
 extern volatile uint32_t g_current_task_index;
 extern volatile uint32_t g_idle_kicks;

@@ -53,17 +53,30 @@ enum
 #define MPU_RASR_ENABLE (1UL << 0)
 #define MPU_RASR_XN (1UL << 28)
 #define MPU_RASR_SIZE_32_BYTES (4UL << 1)
-#define MPU_RASR_AP_FULL_ACCESS (3UL << 24)
+#define MPU_RASR_AP_PRIV_RW_UNPRIV_NONE (1UL << 24)
+#define MPU_RASR_AP_PRIV_RO_UNPRIV_NONE (5UL << 24)
+#define MPU_RASR_AP_READ_WRITE_BOTH (3UL << 24)
+#define MPU_RASR_AP_READ_ONLY_BOTH (6UL << 24)
 #define MPU_RASR_TEX_NORMAL (1UL << 19)
 #define MPU_RASR_CACHEABLE (1UL << 17)
 #define MPU_RASR_BUFFERABLE (1UL << 16)
 #define SCB_SHCSR_MEMFAULTENA (1UL << 16)
+#define MPU_REGION_COUNT 16U
 
 #define MPU_FLASH_REGION 0U
 #define MPU_SRAM_REGION 1U
-#define MPU_UNPRIVILEGED_DATA_REGION 2U
+#define MPU_UNPRIVILEGED_FUNCTIONS_REGION 2U
+#define MPU_UNPRIVILEGED_SVC_REGION 3U
+#define MPU_UNPRIVILEGED_RODATA_REGION 4U
+#define MPU_UNPRIVILEGED_DATA_REGION 5U
 #define MPU_GUARD_REGION_FIRST 8U
 
+extern uint8_t __unprivileged_functions_start[];
+extern uint8_t __unprivileged_functions_end[];
+extern uint8_t __unprivileged_svc_start[];
+extern uint8_t __unprivileged_svc_end[];
+extern uint8_t __unprivileged_rodata_start[];
+extern uint8_t __unprivileged_rodata_end[];
 extern uint8_t __unprivileged_task_data_start[];
 extern uint8_t __unprivileged_task_data_end[];
 
@@ -101,19 +114,39 @@ static void configure_region_range(uint32_t region, uintptr_t start,
 
 static void configure_memory_regions(void)
 {
-    const uint32_t flash_attributes = MPU_RASR_AP_FULL_ACCESS
-        | MPU_RASR_CACHEABLE;
-    const uint32_t sram_attributes = MPU_RASR_AP_FULL_ACCESS
+    const uint32_t privileged_flash_attributes =
+        MPU_RASR_AP_PRIV_RO_UNPRIV_NONE | MPU_RASR_CACHEABLE;
+    const uint32_t privileged_sram_attributes =
+        MPU_RASR_AP_PRIV_RW_UNPRIV_NONE
+        | MPU_RASR_XN | MPU_RASR_TEX_NORMAL | MPU_RASR_CACHEABLE
+        | MPU_RASR_BUFFERABLE;
+    const uint32_t unprivileged_code_attributes =
+        MPU_RASR_AP_READ_ONLY_BOTH | MPU_RASR_CACHEABLE;
+    const uint32_t unprivileged_data_attributes =
+        MPU_RASR_AP_READ_WRITE_BOTH
         | MPU_RASR_XN | MPU_RASR_TEX_NORMAL | MPU_RASR_CACHEABLE
         | MPU_RASR_BUFFERABLE;
     configure_region_range(MPU_FLASH_REGION, 0x00400000U, 0x00600000U,
-                           flash_attributes);
+                           privileged_flash_attributes);
     configure_region_range(MPU_SRAM_REGION, 0x20400000U, 0x20420000U,
-                           sram_attributes);
+                           privileged_sram_attributes);
+    configure_region_range(MPU_UNPRIVILEGED_FUNCTIONS_REGION,
+                           (uintptr_t)__unprivileged_functions_start,
+                           (uintptr_t)__unprivileged_functions_end,
+                           unprivileged_code_attributes);
+    configure_region_range(MPU_UNPRIVILEGED_SVC_REGION,
+                           (uintptr_t)__unprivileged_svc_start,
+                           (uintptr_t)__unprivileged_svc_end,
+                           unprivileged_code_attributes);
+    configure_region_range(MPU_UNPRIVILEGED_RODATA_REGION,
+                           (uintptr_t)__unprivileged_rodata_start,
+                           (uintptr_t)__unprivileged_rodata_end,
+                           MPU_RASR_AP_READ_ONLY_BOTH | MPU_RASR_XN
+                               | MPU_RASR_CACHEABLE);
     configure_region_range(MPU_UNPRIVILEGED_DATA_REGION,
                            (uintptr_t)__unprivileged_task_data_start,
                            (uintptr_t)__unprivileged_task_data_end,
-                           sram_attributes);
+                           unprivileged_data_attributes);
 }
 
 void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
@@ -121,7 +154,13 @@ void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
     uint32_t index;
 
     MPU_CTRL = 0U;
+    __asm volatile ("dsb" : : : "memory");
     SCB_SHCSR |= SCB_SHCSR_MEMFAULTENA;
+    for (index = 0U; index < MPU_REGION_COUNT; index++)
+    {
+        MPU_RNR = index;
+        MPU_RASR = 0U;
+    }
     configure_memory_regions();
     for (index = 0U; index < guard_count; index++)
     {
@@ -211,28 +250,12 @@ void arch_critical_exit(uint32_t saved_primask)
     critical_exit(saved_primask);
 }
 
-void yield(void)
-{
-    __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_YIELD) : "memory");
-}
-
 void arch_yield(void)
 {
     yield();
 }
 
-void sleep_ticks(uint32_t ticks)
-{
-    register uint32_t argument asm("r0") = ticks;
-    __asm volatile ("svc %c1" : "+r" (argument) : "I" (SVC_SERVICE_SLEEP) : "memory");
-}
-
-void led_toggle(void)
-{
-    __asm volatile ("svc %c0" : : "I" (SVC_SERVICE_LED_TOGGLE) : "memory");
-}
-
-uint32_t ms_to_ticks(uint32_t milliseconds)
+TASK_UNPRIVILEGED uint32_t ms_to_ticks(uint32_t milliseconds)
 {
     uint32_t half_milliseconds = milliseconds >> 1U;
     uint32_t odd_millisecond = milliseconds & 1U;
@@ -259,12 +282,7 @@ void arch_start_first_task(uint32_t *sp __attribute__((unused)),
         "adds    r0,  r0, #32           \n"
         "msr     psp, r0                \n"
         "cpsie   i                      \n"
-        "msr     control, r1            \n"
-        "isb                            \n"
-        "movs    r0,  #0                \n"
-        "movs    r1,  #0                \n"
-        "movs    r3,  #0                \n"
-        "bx      r2                     \n"
+        "bl      arch_enter_task        \n"
     );
 }
 
@@ -316,8 +334,14 @@ void PendSV_Handler(void)
         "push {r3, lr}\n"
         "stmdb r0!, {r4-r11}\n"
         "bl pendsv_switch\n"
+        "mov r4, r0\n"
+        "bl task_current_control\n"
+        "mov r1, r0\n"
+        "mov r0, r4\n"
         "ldmia r0!, {r4-r11}\n"
         "msr psp, r0\n"
+        "msr control, r1\n"
+        "isb\n"
         "pop {r3, lr}\n"
         "bx lr\n"
     );

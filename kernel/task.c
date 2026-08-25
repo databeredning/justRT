@@ -133,6 +133,12 @@ uint32_t task_current_priority(void)
     return current_task->priority;
 }
 
+uint32_t task_current_control(void)
+{
+    return ((current_task->flags & TASK_FLAG_UNPRIVILEGED) != 0U)
+        ? ARCH_LAUNCH_UNPRIVILEGED : ARCH_LAUNCH_PRIVILEGED;
+}
+
 void task_inherit_priority(uint32_t task_id, uint32_t priority)
 {
     uint32_t saved_primask = arch_critical_enter();

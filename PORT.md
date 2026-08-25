@@ -116,7 +116,10 @@ named sections:
 | `TASK_UNPRIVILEGED` | `.unprivileged_functions` | Application task code allowed to run unprivileged. |
 | `TASK_UNPRIVILEGED_RODATA` | `.unprivileged_rodata` | Read-only task tables read from unprivileged code. |
 | `TASK_UNPRIVILEGED_DATA` | `.unprivileged_task_data` | Task-owned RAM, covered by the MPU unprivileged-data region. |
-| (SVC trampoline macro in `port_contract.h`/arch) | `.system_calls` | The `svc` instruction wrapper only, so it stays reachable from unprivileged code. |
+| SVC instruction wrappers | `.unprivileged_svc` | The `svc` instruction wrappers only, so they stay reachable from unprivileged code. |
+
+The SVC exception handler itself must remain privileged and must not share
+`.unprivileged_svc` with the wrappers.
 
 **Ordering matters**: on this port, `.privileged_functions` is placed at a
 *higher* MPU region number than the general flash region so its (currently
@@ -267,7 +270,7 @@ SECTIONS
     .privileged_functions : { *(.privileged_functions .privileged_functions.*) } > flash
     .unprivileged_functions : { *(.unprivileged_functions .unprivileged_functions.*) } > flash
     .unprivileged_rodata : { *(.unprivileged_rodata .unprivileged_rodata.*) } > flash
-    .system_calls : { *(.system_calls .system_calls.*) } > flash
+    .unprivileged_svc : { *(.unprivileged_svc .unprivileged_svc.*) } > flash
     .text : { *(.text .text.*) *(.rodata .rodata.*) } > flash
     __data_load_start = LOADADDR(.data);
     .privileged_data : { *(.privileged_data .privileged_data.*) } > sram AT> flash

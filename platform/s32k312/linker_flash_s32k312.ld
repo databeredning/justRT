@@ -49,22 +49,38 @@ SECTIONS
         __privileged_functions_end = .;
     } > int_flash
 
+    .privileged_exceptions :
+    {
+        . = ALIGN(4);
+        *(.privileged_exceptions .privileged_exceptions.*)
+        . = ALIGN(4);
+    } > int_flash
+
     /* Example task code is the future unprivileged executable range. */
     .unprivileged_functions :
     {
-        . = ALIGN(4);
+        . = ALIGN(4096);
         __unprivileged_functions_start = .;
         *(.unprivileged_functions .unprivileged_functions.*)
-        . = ALIGN(4);
+        . = ALIGN(4096);
         __unprivileged_functions_end = .;
+    } > int_flash
+
+    .unprivileged_svc :
+    {
+        . = ALIGN(4096);
+        __unprivileged_svc_start = .;
+        *(.unprivileged_svc .unprivileged_svc.*)
+        . = ALIGN(4096);
+        __unprivileged_svc_end = .;
     } > int_flash
 
     .unprivileged_rodata :
     {
-        . = ALIGN(4);
+        . = ALIGN(4096);
         __unprivileged_rodata_start = .;
         *(.unprivileged_rodata .unprivileged_rodata.*)
-        . = ALIGN(4);
+        . = ALIGN(4096);
         __unprivileged_rodata_end = .;
     } > int_flash
 
@@ -106,10 +122,10 @@ SECTIONS
 
     .unprivileged_task_data (NOLOAD) :
     {
-        . = ALIGN(32);
+        . = ALIGN(8192);
         __unprivileged_task_data_start = .;
         *(.unprivileged_task_data .unprivileged_task_data.*)
-        . = ALIGN(32);
+        . = ALIGN(8192);
         __unprivileged_task_data_end = .;
     } > int_sram
 
