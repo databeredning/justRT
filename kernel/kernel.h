@@ -5,57 +5,57 @@
 
 #include "sync.h"
 
-#define KERNEL_CORE_CLOCK_HZ 120000000UL
-#define KERNEL_TICK_RATE_HZ 7500UL
-#define KERNEL_SYSTICK_RELOAD ((KERNEL_CORE_CLOCK_HZ / KERNEL_TICK_RATE_HZ) - 1UL)
-#define KERNEL_MAX_TASKS 8U
-#define KERNEL_TASK_STACK_WORDS 128U
-#define KERNEL_TASK_GUARD_WORDS 8U
-#define KERNEL_TASK_STACK_FILL 0xA5A5A5A5UL
-#define KERNEL_INITIAL_STACK_USED_WORDS 16U
-#define TASK_FLAG_UNPRIVILEGED (1UL << 0)
+#define JRT_CORE_CLOCK_HZ 120000000UL
+#define JRT_TICK_RATE_HZ 7500UL
+#define JRT_SYSTICK_RELOAD ((JRT_CORE_CLOCK_HZ / JRT_TICK_RATE_HZ) - 1UL)
+#define JRT_MAX_TASKS 8U
+#define JRT_TASK_STACK_WORDS 128U
+#define JRT_TASK_GUARD_WORDS 8U
+#define JRT_TASK_STACK_FILL 0xA5A5A5A5UL
+#define JRT_INITIAL_STACK_USED_WORDS 16U
+#define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))
 #define KERNEL_PRIVILEGED_DATA __attribute__((section(".privileged_data")))
-#define TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
-#define TASK_UNPRIVILEGED_DATA __attribute__((section(".unprivileged_task_data")))
-#define TASK_UNPRIVILEGED_RODATA __attribute__((section(".unprivileged_rodata")))
+#define JRT_TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
+#define JRT_TASK_UNPRIVILEGED_DATA __attribute__((section(".unprivileged_task_data")))
+#define JRT_TASK_UNPRIVILEGED_RODATA __attribute__((section(".unprivileged_rodata")))
 
-typedef void (*task_entry_t)(void *argument);
+typedef void (*JRT_TaskEntry_t)(void *argument);
 
 typedef struct
 {
-	task_entry_t entry;
+	JRT_TaskEntry_t entry;
 	void *argument;
 	uint32_t stack_words;
 	uint32_t priority;
 	const char *name;
 	uint32_t flags;
-} task_definition_t;
+} JRT_TaskDefinition_t;
 
 typedef struct
 {
-	const task_definition_t *tasks;
+	const JRT_TaskDefinition_t *tasks;
 	uint32_t task_count;
-} kernel_config_t;
+} JRT_KernelConfig_t;
 
 typedef enum
 {
-	KERNEL_OK = 0,
-	KERNEL_ERR_INVALID_CONFIG,
-	KERNEL_ERR_TOO_MANY_TASKS,
-	KERNEL_ERR_INVALID_ENTRY,
-	KERNEL_ERR_INVALID_STACK,
-	KERNEL_ERR_NOT_INITIALIZED,
-	KERNEL_ERR_INVALID_TASK
-} kernel_status_t;
+	JRT_STATUS_OK = 0,
+	JRT_STATUS_INVALID_CONFIG,
+	JRT_STATUS_TOO_MANY_TASKS,
+	JRT_STATUS_INVALID_ENTRY,
+	JRT_STATUS_INVALID_STACK,
+	JRT_STATUS_NOT_INITIALIZED,
+	JRT_STATUS_INVALID_TASK
+} JRT_Status_t;
 
 typedef enum
 {
-	TASK_STATE_READY = 0U,
-	TASK_STATE_RUNNING,
-	TASK_STATE_SLEEPING,
-	TASK_STATE_BLOCKED
-} task_state_t;
+	JRT_TASK_STATE_READY = 0U,
+	JRT_TASK_STATE_RUNNING,
+	JRT_TASK_STATE_SLEEPING,
+	JRT_TASK_STATE_BLOCKED
+} JRT_TaskState_t;
 
 typedef struct
 {
@@ -63,7 +63,7 @@ typedef struct
 	uint32_t used_words;
 	uint32_t minimum_sp;
 	uint32_t current_sp;
-} task_stack_info_t;
+} JRT_TaskStackInfo_t;
 
 typedef enum
 {
@@ -79,26 +79,26 @@ typedef enum
 typedef struct
 {
 	volatile uint32_t bits;
-} event_group_t;
+} JRT_EventGroup_t;
 
-kernel_status_t kernel_init(const kernel_config_t *config) KERNEL_PRIVILEGED;
-void kernel_start(void) KERNEL_PRIVILEGED;
-kernel_status_t task_get_state(uint32_t task_id, task_state_t *state) KERNEL_PRIVILEGED;
-kernel_status_t task_get_stack_info(uint32_t task_id, task_stack_info_t *info) KERNEL_PRIVILEGED;
-kernel_status_t task_get_name(uint32_t task_id, const char **name) KERNEL_PRIVILEGED;
-kernel_status_t task_get_priority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
-void yield(void);
-void sleep_ticks(uint32_t ticks);
-void led_toggle(void);
-uint32_t kernel_ticks_now(void);
-int kernel_tick_reached(uint32_t deadline);
-void task_delay_until(uint32_t *previous_wake, uint32_t period_ticks);
-uint32_t ms_to_ticks(uint32_t milliseconds) TASK_UNPRIVILEGED;
+JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config) KERNEL_PRIVILEGED;
+void JRT_KernelStart(void) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_TaskGetStackInfo(uint32_t task_id, JRT_TaskStackInfo_t *info) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_TaskGetName(uint32_t task_id, const char **name) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
+void JRT_TaskYield(void);
+void JRT_TaskDelay(uint32_t ticks);
+void JRT_BoardLedToggle(void);
+uint32_t JRT_KernelGetTickCount(void);
+int JRT_KernelTickReached(uint32_t deadline);
+void JRT_TaskDelayUntil(uint32_t *previous_wake, uint32_t period_ticks);
+uint32_t JRT_MillisecondsToTicks(uint32_t milliseconds) JRT_TASK_UNPRIVILEGED;
 void tick_init(void) KERNEL_PRIVILEGED;
 
-typedef void (*kernel_tick_hook_t)(void);
+typedef void (*JRT_KernelTickHook_t)(void);
 
-void kernel_set_tick_hook(kernel_tick_hook_t hook) KERNEL_PRIVILEGED;
+void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook) KERNEL_PRIVILEGED;
 void request_switch(void) KERNEL_PRIVILEGED;
 int kernel_in_isr(void) KERNEL_PRIVILEGED;
 uint32_t critical_enter(void) KERNEL_PRIVILEGED;
@@ -113,14 +113,14 @@ uint32_t *task_current_sp(void) KERNEL_PRIVILEGED;
 uint32_t task_current_control(void) KERNEL_PRIVILEGED;
 void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
 void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;
-int task_notify(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
-int task_notify_from_isr(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
-int task_notify_take(uint32_t *value, uint32_t timeout_ticks) KERNEL_PRIVILEGED;
-void event_group_init(event_group_t *group) KERNEL_PRIVILEGED;
-uint32_t event_group_set_bits(event_group_t *group, uint32_t bits) KERNEL_PRIVILEGED;
-uint32_t event_group_get_bits(const event_group_t *group) KERNEL_PRIVILEGED;
-uint32_t event_group_set_bits_from_isr(event_group_t *group, uint32_t bits) KERNEL_PRIVILEGED;
-uint32_t event_group_wait_bits(event_group_t *group, uint32_t bits,
+int JRT_TaskNotify(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
+int JRT_TaskNotifyFromISR(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;
+int JRT_TaskNotifyTake(uint32_t *value, uint32_t timeout_ticks) KERNEL_PRIVILEGED;
+void JRT_EventGroupCreateStatic(JRT_EventGroup_t *group) KERNEL_PRIVILEGED;
+uint32_t JRT_EventGroupSetBits(JRT_EventGroup_t *group, uint32_t bits) KERNEL_PRIVILEGED;
+uint32_t JRT_EventGroupGetBits(const JRT_EventGroup_t *group) KERNEL_PRIVILEGED;
+uint32_t JRT_EventGroupSetBitsFromISR(JRT_EventGroup_t *group, uint32_t bits) KERNEL_PRIVILEGED;
+uint32_t JRT_EventGroupWaitBits(JRT_EventGroup_t *group, uint32_t bits,
 							   int wait_all, int clear_on_exit,
 							   uint32_t timeout_ticks) KERNEL_PRIVILEGED;
 uint32_t *pendsv_switch(uint32_t *current_sp) KERNEL_PRIVILEGED;

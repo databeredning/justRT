@@ -7,8 +7,9 @@ static uint32_t bitmap_words(uint32_t block_count)
     return (block_count + 31U) / 32U;
 }
 
-void memory_pool_init(memory_pool_t *pool, void *storage, uint32_t block_size,
-                      uint32_t block_count, uint32_t *used_bitmap)
+void JRT_MemoryPoolCreateStatic(JRT_MemoryPool_t *pool, void *storage,
+                                uint32_t block_size, uint32_t block_count,
+                                uint32_t *used_bitmap)
 {
     uint32_t index;
 
@@ -28,7 +29,7 @@ void memory_pool_init(memory_pool_t *pool, void *storage, uint32_t block_size,
     }
 }
 
-void *memory_pool_alloc(memory_pool_t *pool)
+void *JRT_MemoryPoolAllocate(JRT_MemoryPool_t *pool)
 {
     uint32_t saved_primask;
     uint32_t index;
@@ -55,7 +56,7 @@ void *memory_pool_alloc(memory_pool_t *pool)
     return 0U;
 }
 
-int memory_pool_free(memory_pool_t *pool, void *block)
+int JRT_MemoryPoolFree(JRT_MemoryPool_t *pool, void *block)
 {
     uintptr_t address;
     uintptr_t start;

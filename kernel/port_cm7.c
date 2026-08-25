@@ -7,9 +7,9 @@
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
 
-static kernel_tick_hook_t tick_hook KERNEL_PRIVILEGED_DATA;
+static JRT_KernelTickHook_t tick_hook KERNEL_PRIVILEGED_DATA;
 
-void kernel_set_tick_hook(kernel_tick_hook_t hook)
+void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 {
     uint32_t saved_primask = critical_enter();
 
@@ -180,7 +180,7 @@ void tick_init(void)
               << SCB_SHPR3_PENDSV_SHIFT)
           | (CORTEXM_PRIORITY_VALUE(SYSTICK_LOGICAL_PRIORITY)
               << SCB_SHPR3_SYSTICK_SHIFT);
-    SYST_RVR = KERNEL_SYSTICK_RELOAD;
+    SYST_RVR = JRT_SYSTICK_RELOAD;
     SYST_CVR = 0UL;
     SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
 }
@@ -253,10 +253,10 @@ void arch_critical_exit(uint32_t saved_primask)
 
 void arch_yield(void)
 {
-    yield();
+    JRT_TaskYield();
 }
 
-TASK_UNPRIVILEGED uint32_t ms_to_ticks(uint32_t milliseconds)
+JRT_TASK_UNPRIVILEGED uint32_t JRT_MillisecondsToTicks(uint32_t milliseconds)
 {
     uint32_t half_milliseconds = milliseconds >> 1U;
     uint32_t odd_millisecond = milliseconds & 1U;
@@ -279,7 +279,7 @@ void arch_start_first_task(void)
 
 void SysTick_Handler(void)
 {
-    kernel_tick_hook_t hook = tick_hook;
+    JRT_KernelTickHook_t hook = tick_hook;
 
     tick_tasks();
     if (hook != 0)

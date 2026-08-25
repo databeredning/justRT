@@ -5,11 +5,11 @@
 #define TIMER_ACTIVE 1U
 #define TIMER_INACTIVE 0U
 
-static kernel_timer_t *timer_list KERNEL_PRIVILEGED_DATA;
+static JRT_Timer_t *timer_list KERNEL_PRIVILEGED_DATA;
 
-static void timer_link(kernel_timer_t *timer)
+static void timer_link(JRT_Timer_t *timer)
 {
-    kernel_timer_t *current = timer_list;
+    JRT_Timer_t *current = timer_list;
 
     while (current != 0U)
     {
@@ -24,7 +24,7 @@ static void timer_link(kernel_timer_t *timer)
     timer_list = timer;
 }
 
-void kernel_timer_init(kernel_timer_t *timer)
+void JRT_TimerCreateStatic(JRT_Timer_t *timer)
 {
     if (timer == 0U)
     {
@@ -43,9 +43,8 @@ void kernel_timer_init(kernel_timer_t *timer)
     timer_link(timer);
 }
 
-void kernel_timer_set_callback(kernel_timer_t *timer,
-                               kernel_timer_callback_t callback,
-                               void *argument)
+void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
+                          void *argument)
 {
     if (timer != 0U)
     {
@@ -54,7 +53,7 @@ void kernel_timer_set_callback(kernel_timer_t *timer,
     }
 }
 
-void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks)
+void JRT_TimerStart(JRT_Timer_t *timer, uint32_t delay_ticks)
 {
     if (timer == 0U)
     {
@@ -62,14 +61,14 @@ void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks)
     }
 
     timer_link(timer);
-    timer->deadline = kernel_ticks_now() + delay_ticks;
+    timer->deadline = JRT_KernelGetTickCount() + delay_ticks;
     timer->period = 0U;
     timer->reload_ticks = delay_ticks;
     timer->periodic = 0U;
     timer->active = TIMER_ACTIVE;
 }
 
-void kernel_timer_start_periodic(kernel_timer_t *timer, uint32_t period_ticks)
+void JRT_TimerStartPeriodic(JRT_Timer_t *timer, uint32_t period_ticks)
 {
     if (timer == 0U || period_ticks == 0U)
     {
@@ -77,25 +76,25 @@ void kernel_timer_start_periodic(kernel_timer_t *timer, uint32_t period_ticks)
     }
 
     timer_link(timer);
-    timer->deadline = kernel_ticks_now() + period_ticks;
+    timer->deadline = JRT_KernelGetTickCount() + period_ticks;
     timer->period = period_ticks;
     timer->reload_ticks = period_ticks;
     timer->periodic = 1U;
     timer->active = TIMER_ACTIVE;
 }
 
-void kernel_timer_restart(kernel_timer_t *timer)
+void JRT_TimerRestart(JRT_Timer_t *timer)
 {
     if (timer == 0U || timer->reload_ticks == 0U)
     {
         return;
     }
 
-    timer->deadline = kernel_ticks_now() + timer->reload_ticks;
+    timer->deadline = JRT_KernelGetTickCount() + timer->reload_ticks;
     timer->active = TIMER_ACTIVE;
 }
 
-void kernel_timer_stop(kernel_timer_t *timer)
+void JRT_TimerStop(JRT_Timer_t *timer)
 {
     if (timer != 0U)
     {
@@ -103,7 +102,7 @@ void kernel_timer_stop(kernel_timer_t *timer)
     }
 }
 
-uint32_t kernel_timer_take_expirations(kernel_timer_t *timer)
+uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer)
 {
     uint32_t saved_primask;
     uint32_t expirations;
@@ -120,7 +119,7 @@ uint32_t kernel_timer_take_expirations(kernel_timer_t *timer)
     return expirations;
 }
 
-void kernel_timer_dispatch(kernel_timer_t *timer)
+void JRT_TimerDispatch(JRT_Timer_t *timer)
 {
     uint32_t expirations;
 
@@ -129,7 +128,7 @@ void kernel_timer_dispatch(kernel_timer_t *timer)
         return;
     }
 
-    expirations = kernel_timer_take_expirations(timer);
+    expirations = JRT_TimerTakeExpirations(timer);
     while (expirations > 0U)
     {
         timer->callback(timer->argument);
@@ -139,7 +138,7 @@ void kernel_timer_dispatch(kernel_timer_t *timer)
 
 void kernel_timer_tick(void)
 {
-    kernel_timer_t *timer = timer_list;
+    JRT_Timer_t *timer = timer_list;
     uint32_t now = g_kernel_ticks;
 
     while (timer != 0U)

@@ -4,12 +4,12 @@
 
 #define TEST_BOOT_ARGUMENT_MAGIC 0xB007A11DU
 #define TEST_BOOT_RUN_TARGET 3U
-#define TEST_BOOT_PERIOD_TICKS ms_to_ticks(100U)
+#define TEST_BOOT_PERIOD_TICKS JRT_MillisecondsToTicks(100U)
 
-test_result_t g_test_boot_and_privilege TASK_UNPRIVILEGED_DATA;
-volatile uint32_t g_test_boot_argument TASK_UNPRIVILEGED_DATA;
+test_result_t g_test_boot_and_privilege JRT_TASK_UNPRIVILEGED_DATA;
+volatile uint32_t g_test_boot_argument JRT_TASK_UNPRIVILEGED_DATA;
 
-static TASK_UNPRIVILEGED void test_boot_task(void *argument)
+static JRT_TASK_UNPRIVILEGED void test_boot_task(void *argument)
 {
     uint32_t argument_value = *(const uint32_t *)argument;
 
@@ -21,9 +21,9 @@ static TASK_UNPRIVILEGED void test_boot_task(void *argument)
 
     while (g_test_boot_and_privilege.runs < TEST_BOOT_RUN_TARGET)
     {
-        led_toggle();
+        JRT_BoardLedToggle();
         g_test_boot_and_privilege.runs++;
-        sleep_ticks(TEST_BOOT_PERIOD_TICKS);
+        JRT_TaskDelay(TEST_BOOT_PERIOD_TICKS);
     }
 
     if (g_test_boot_and_privilege.fail == 0U)
@@ -35,18 +35,18 @@ static TASK_UNPRIVILEGED void test_boot_task(void *argument)
 
     while (1)
     {
-        sleep_ticks(1U);
+        JRT_TaskDelay(1U);
     }
 }
 
-static const task_definition_t test_tasks[] TASK_UNPRIVILEGED_RODATA = {
-    { test_boot_task, (void *)&g_test_boot_argument, KERNEL_TASK_STACK_WORDS,
-        1U, "test-boot", TASK_FLAG_UNPRIVILEGED }
+static const JRT_TaskDefinition_t test_tasks[] JRT_TASK_UNPRIVILEGED_RODATA = {
+    { test_boot_task, (void *)&g_test_boot_argument, JRT_TASK_STACK_WORDS,
+        1U, "test-boot", JRT_TASK_FLAG_UNPRIVILEGED }
 };
 
 void test_boot_and_privilege_start(void)
 {
-    const kernel_config_t config = {
+    const JRT_KernelConfig_t config = {
         test_tasks,
         sizeof(test_tasks) / sizeof(test_tasks[0])
     };
@@ -59,10 +59,10 @@ void test_boot_and_privilege_start(void)
     g_test_boot_argument = TEST_BOOT_ARGUMENT_MAGIC;
 
     board_init();
-    if (kernel_init(&config) != KERNEL_OK)
+    if (JRT_KernelInit(&config) != JRT_STATUS_OK)
     {
         g_test_boot_and_privilege.fail = 1U;
         return;
     }
-    kernel_start();
+    JRT_KernelStart();
 }

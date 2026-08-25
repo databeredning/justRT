@@ -22,7 +22,8 @@ static void count_context_misuse(volatile uint32_t *counter)
     g_sync_context_misuse++;
 }
 
-void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
+void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore,
+                                     uint32_t initially_available)
 {
     uint32_t saved_primask = arch_critical_enter();
 
@@ -30,7 +31,7 @@ void semaphore_init(semaphore_t *semaphore, uint32_t initially_available)
     arch_critical_exit(saved_primask);
 }
 
-int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
+int JRT_SemaphoreTake(JRT_Semaphore_t *semaphore, uint32_t timeout_ticks)
 {
     if (arch_in_isr() != 0)
     {
@@ -62,7 +63,7 @@ int semaphore_take(semaphore_t *semaphore, uint32_t timeout_ticks)
     }
 }
 
-void semaphore_give(semaphore_t *semaphore)
+void JRT_SemaphoreGive(JRT_Semaphore_t *semaphore)
 {
     if (arch_in_isr() != 0)
     {
@@ -77,7 +78,7 @@ void semaphore_give(semaphore_t *semaphore)
     arch_critical_exit(saved_primask);
 }
 
-void semaphore_give_from_isr(semaphore_t *semaphore)
+void JRT_SemaphoreGiveFromISR(JRT_Semaphore_t *semaphore)
 {
     if (arch_in_isr() == 0)
     {
@@ -93,7 +94,7 @@ void semaphore_give_from_isr(semaphore_t *semaphore)
     arch_request_switch();
 }
 
-void mutex_init(mutex_t *mutex)
+void JRT_MutexCreateRecursiveStatic(JRT_Mutex_t *mutex)
 {
     uint32_t saved_primask = arch_critical_enter();
 
@@ -103,7 +104,7 @@ void mutex_init(mutex_t *mutex)
     arch_critical_exit(saved_primask);
 }
 
-int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
+int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)
 {
     uint32_t current_index = task_current_index();
 
@@ -145,7 +146,7 @@ int mutex_lock(mutex_t *mutex, uint32_t timeout_ticks)
     }
 }
 
-int mutex_unlock(mutex_t *mutex)
+int JRT_MutexUnlock(JRT_Mutex_t *mutex)
 {
     if (arch_in_isr() != 0)
     {
@@ -177,7 +178,8 @@ int mutex_unlock(mutex_t *mutex)
     return 1;
 }
 
-void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_size)
+void JRT_QueueCreateStatic(JRT_Queue_t *queue, void *storage,
+                           uint32_t capacity, uint32_t item_size)
 {
     uint32_t saved_primask = arch_critical_enter();
 
@@ -190,7 +192,7 @@ void queue_init(queue_t *queue, void *storage, uint32_t capacity, uint32_t item_
     arch_critical_exit(saved_primask);
 }
 
-int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
+int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
 {
     if (arch_in_isr() != 0)
     {
@@ -232,7 +234,7 @@ int queue_send(queue_t *queue, const void *item, uint32_t timeout_ticks)
     }
 }
 
-int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
+int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
 {
     if (arch_in_isr() != 0)
     {
@@ -273,7 +275,7 @@ int queue_receive(queue_t *queue, void *item, uint32_t timeout_ticks)
     }
 }
 
-int queue_send_from_isr(queue_t *queue, const void *item)
+int JRT_QueueSendFromISR(JRT_Queue_t *queue, const void *item)
 {
     if (arch_in_isr() == 0)
     {

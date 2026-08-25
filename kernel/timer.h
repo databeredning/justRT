@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-typedef void (*kernel_timer_callback_t)(void *argument);
+typedef void (*JRT_TimerCallback_t)(void *argument);
 
-typedef struct kernel_timer
+typedef struct JRT_Timer
 {
     uint32_t deadline;
     uint32_t period;
@@ -13,21 +13,21 @@ typedef struct kernel_timer
     uint32_t expirations;
     uint8_t active;
     uint8_t periodic;
-    kernel_timer_callback_t callback;
+    JRT_TimerCallback_t callback;
     void *argument;
-    struct kernel_timer *next;
-} kernel_timer_t;
+    struct JRT_Timer *next;
+} JRT_Timer_t;
 
-void kernel_timer_init(kernel_timer_t *timer);
-void kernel_timer_start(kernel_timer_t *timer, uint32_t delay_ticks);
-void kernel_timer_start_periodic(kernel_timer_t *timer, uint32_t period_ticks);
-void kernel_timer_restart(kernel_timer_t *timer);
-void kernel_timer_set_callback(kernel_timer_t *timer,
-                               kernel_timer_callback_t callback,
-                               void *argument);
-void kernel_timer_stop(kernel_timer_t *timer);
-uint32_t kernel_timer_take_expirations(kernel_timer_t *timer);
-void kernel_timer_dispatch(kernel_timer_t *timer);
+void JRT_TimerCreateStatic(JRT_Timer_t *timer);
+void JRT_TimerStart(JRT_Timer_t *timer, uint32_t delay_ticks);
+void JRT_TimerStartPeriodic(JRT_Timer_t *timer, uint32_t period_ticks);
+void JRT_TimerRestart(JRT_Timer_t *timer);
+void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
+                          void *argument);
+void JRT_TimerStop(JRT_Timer_t *timer);
+uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer);
+void JRT_TimerDispatch(JRT_Timer_t *timer);
+/* Kernel-internal tick processing. */
 void kernel_timer_tick(void);
 
 #endif

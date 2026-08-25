@@ -9,11 +9,12 @@ typedef struct
     uint32_t *used_bitmap;
     uint32_t block_size;
     uint32_t block_count;
-} memory_pool_t;
+} JRT_MemoryPool_t;
 
-void memory_pool_init(memory_pool_t *pool, void *storage, uint32_t block_size,
-                      uint32_t block_count, uint32_t *used_bitmap);
-void *memory_pool_alloc(memory_pool_t *pool);
-int memory_pool_free(memory_pool_t *pool, void *block);
+void JRT_MemoryPoolCreateStatic(JRT_MemoryPool_t *pool, void *storage,
+                                uint32_t block_size, uint32_t block_count,
+                                uint32_t *used_bitmap);
+void *JRT_MemoryPoolAllocate(JRT_MemoryPool_t *pool);
+int JRT_MemoryPoolFree(JRT_MemoryPool_t *pool, void *block);
 
 #endif

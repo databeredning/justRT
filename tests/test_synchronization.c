@@ -13,10 +13,10 @@ typedef struct
     volatile uint32_t next_value;
 } synchronization_test_isr_state_t;
 
-static semaphore_t test_semaphore;
-static queue_t test_queue;
+static JRT_Semaphore_t test_semaphore;
+static JRT_Queue_t test_queue;
 static uint32_t test_queue_storage[TEST_SYNC_QUEUE_CAPACITY];
-static event_group_t test_event_group;
+static JRT_EventGroup_t test_event_group;
 static synchronization_test_isr_state_t test_isr_state;
 
 synchronization_test_state_t g_test_synchronization;
@@ -33,17 +33,17 @@ static void test_synchronization_tick_hook(void)
     }
 
     value = ++test_isr_state.next_value;
-    semaphore_give_from_isr(&test_semaphore);
-    if (queue_send_from_isr(&test_queue, &value) == 0)
+    JRT_SemaphoreGiveFromISR(&test_semaphore);
+    if (JRT_QueueSendFromISR(&test_queue, &value) == 0)
     {
         g_test_synchronization.error_code = 1U;
     }
-    if (event_group_set_bits_from_isr(&test_event_group,
-                                      TEST_SYNC_EVENT_BIT) == 0U)
+    if (JRT_EventGroupSetBitsFromISR(&test_event_group,
+                                     TEST_SYNC_EVENT_BIT) == 0U)
     {
         g_test_synchronization.error_code = 2U;
     }
-    if (task_notify_from_isr(1U, 1U) == 0)
+    if (JRT_TaskNotifyFromISR(1U, 1U) == 0)
     {
         g_test_synchronization.error_code = 3U;
     }
@@ -57,14 +57,14 @@ static void test_sync_consumer_task(void *argument)
     (void)argument;
     while (g_test_synchronization.queue_received < TEST_SYNC_TARGET)
     {
-        if (semaphore_take(&test_semaphore, SEMAPHORE_WAIT_FOREVER) == 0)
+        if (JRT_SemaphoreTake(&test_semaphore, JRT_WAIT_FOREVER) == 0)
         {
             g_test_synchronization.error_code = 4U;
             continue;
         }
         g_test_synchronization.semaphore_received++;
 
-        if (queue_receive(&test_queue, &value, SEMAPHORE_WAIT_FOREVER) == 0)
+        if (JRT_QueueReceive(&test_queue, &value, JRT_WAIT_FOREVER) == 0)
         {
             g_test_synchronization.error_code = 5U;
             continue;
@@ -79,7 +79,7 @@ static void test_sync_consumer_task(void *argument)
 
     while (1)
     {
-        sleep_ticks(1U);
+        JRT_TaskDelay(1U);
     }
 }
 
@@ -92,9 +92,9 @@ static void test_sync_observer_task(void *argument)
     while (g_test_synchronization.event_received < TEST_SYNC_TARGET
            || g_test_synchronization.notification_received < TEST_SYNC_TARGET)
     {
-        event_value = event_group_wait_bits(&test_event_group,
-                                            TEST_SYNC_EVENT_BIT, 0, 1,
-                                            SEMAPHORE_WAIT_FOREVER);
+        event_value = JRT_EventGroupWaitBits(&test_event_group,
+                                             TEST_SYNC_EVENT_BIT, 0, 1,
+                                             JRT_WAIT_FOREVER);
         if ((event_value & TEST_SYNC_EVENT_BIT) == 0U)
         {
             g_test_synchronization.error_code = 7U;
@@ -104,7 +104,7 @@ static void test_sync_observer_task(void *argument)
             g_test_synchronization.event_received++;
         }
 
-        if (task_notify_take(&notification_value, SEMAPHORE_WAIT_FOREVER) == 0)
+        if (JRT_TaskNotifyTake(&notification_value, JRT_WAIT_FOREVER) == 0)
         {
             g_test_synchronization.error_code = 8U;
         }
@@ -116,7 +116,7 @@ static void test_sync_observer_task(void *argument)
 
     while (g_test_synchronization.queue_received < TEST_SYNC_TARGET)
     {
-        yield();
+        JRT_TaskYield();
     }
     if (g_test_synchronization.error_code == 0U
         && g_test_synchronization.semaphore_received >= TEST_SYNC_TARGET
@@ -134,20 +134,20 @@ static void test_sync_observer_task(void *argument)
 
     while (1)
     {
-        sleep_ticks(1U);
+        JRT_TaskDelay(1U);
     }
 }
 
-static const task_definition_t test_synchronization_tasks[] = {
-    { test_sync_consumer_task, 0U, KERNEL_TASK_STACK_WORDS, 2U,
+static const JRT_TaskDefinition_t test_synchronization_tasks[] = {
+    { test_sync_consumer_task, 0U, JRT_TASK_STACK_WORDS, 2U,
         "test-sync-consumer", 0U },
-    { test_sync_observer_task, 0U, KERNEL_TASK_STACK_WORDS, 1U,
+    { test_sync_observer_task, 0U, JRT_TASK_STACK_WORDS, 1U,
         "test-sync-observer", 0U }
 };
 
 void test_synchronization_start(void)
 {
-    const kernel_config_t config = {
+    const JRT_KernelConfig_t config = {
         test_synchronization_tasks,
         sizeof(test_synchronization_tasks) / sizeof(test_synchronization_tasks[0])
     };
@@ -165,16 +165,17 @@ void test_synchronization_start(void)
     test_isr_state.tick_count = 0U;
     test_isr_state.next_value = 0U;
 
-    semaphore_init(&test_semaphore, 0U);
-    queue_init(&test_queue, test_queue_storage, TEST_SYNC_QUEUE_CAPACITY,
-               sizeof(test_queue_storage[0]));
-    event_group_init(&test_event_group);
-    kernel_set_tick_hook(test_synchronization_tick_hook);
+    JRT_SemaphoreCreateBinaryStatic(&test_semaphore, 0U);
+    JRT_QueueCreateStatic(&test_queue, test_queue_storage,
+                          TEST_SYNC_QUEUE_CAPACITY,
+                          sizeof(test_queue_storage[0]));
+    JRT_EventGroupCreateStatic(&test_event_group);
+    JRT_KernelSetTickHook(test_synchronization_tick_hook);
 
-    if (kernel_init(&config) != KERNEL_OK)
+    if (JRT_KernelInit(&config) != JRT_STATUS_OK)
     {
         g_test_synchronization.result.fail = 1U;
         return;
     }
-    kernel_start();
+    JRT_KernelStart();
 }

@@ -19,10 +19,10 @@ context switching.
 
 ## Task Model
 
-Tasks are supplied statically through `kernel_config_t`:
+Tasks are supplied statically through `JRT_KernelConfig_t`:
 
 ```c
-static const task_definition_t tasks[] = {
+static const JRT_TaskDefinition_t tasks[] = {
     { entry, argument, stack_words, priority, "name", flags }
 };
 ```
@@ -44,7 +44,7 @@ The task argument is restored in `r0`. A returning task enters
 
 ## Startup and Context Switching
 
-`kernel_start()` enables SysTick and executes startup SVC 0. The SVC handler:
+`JRT_KernelStart()` enables SysTick and executes startup SVC 0. The SVC handler:
 
 1. Loads the current task's saved stack pointer.
 2. Restores `r4-r11` with `arch_restore_task_context()`.

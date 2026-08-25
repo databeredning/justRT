@@ -2,7 +2,7 @@
 
 `simple.c` is the single board-independent application example. It starts two
 unprivileged tasks and continuously exercises first-task SVC startup, task scheduling,
-`yield()`, `sleep_ticks()`, and the privileged idle task.
+`JRT_TaskYield()`, `JRT_TaskDelay()`, and the privileged idle task.
 
 Build it with:
 
