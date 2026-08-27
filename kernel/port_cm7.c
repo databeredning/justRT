@@ -22,6 +22,10 @@ void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 #define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
 #define SCB_ICSR (*(volatile uint32_t *)0xE000ED04U)
 #define SCB_SHPR3 (*(volatile uint32_t *)0xE000ED20U)
+#if JRT_ARCH_FPU_CONTEXT
+#define SCB_CPACR (*(volatile uint32_t *)0xE000ED88U)
+#define FPU_FPCCR (*(volatile uint32_t *)0xE000EF34U)
+#endif
 
 #define SYST_CSR_ENABLE (1UL << 0)
 #define SYST_CSR_TICKINT (1UL << 1)
@@ -29,6 +33,11 @@ void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 #define SCB_ICSR_PENDSVSET (1UL << 28)
 #define SCB_SHPR3_PENDSV_SHIFT 16U
 #define SCB_SHPR3_SYSTICK_SHIFT 24U
+#if JRT_ARCH_FPU_CONTEXT
+#define SCB_CPACR_CP10_CP11_FULL_ACCESS (0xFUL << 20U)
+#define FPU_FPCCR_LSPEN (1UL << 30U)
+#define FPU_FPCCR_ASPEN (1UL << 31U)
+#endif
 #define CORTEXM_PRIORITY_BITS 4U
 #define PENDSV_LOGICAL_PRIORITY 0x0FU
 #define SYSTICK_LOGICAL_PRIORITY 0x0EU
@@ -197,6 +206,11 @@ void arch_request_switch(void)
 
 void arch_tick_init(void)
 {
+#if JRT_ARCH_FPU_CONTEXT
+    SCB_CPACR |= SCB_CPACR_CP10_CP11_FULL_ACCESS;
+    __asm volatile ("dsb\n" "isb\n" : : : "memory");
+    FPU_FPCCR |= FPU_FPCCR_ASPEN | FPU_FPCCR_LSPEN;
+#endif
     tick_init();
 }
 
@@ -273,8 +287,20 @@ void arch_start_first_task(void) __attribute__((naked, noreturn));
 
 void arch_start_first_task(void)
 {
-    /* Enable interrupts before SVC; PRIMASK is still set from reset startup. */
-    __asm volatile ("cpsie i\n" "svc 0\n" "b .\n" : : : "memory");
+    /*
+     * CCM may have used PSP and floating point before starting justRT.  The
+     * bootstrap SVC ABI requires a privileged, basic frame on MSP; task PSP
+     * and FPCA state are installed by SVC_Handler from the saved task frame.
+     */
+    __asm volatile (
+        "mrs r0, control\n"
+        "bic r0, r0, #7\n"
+        "msr control, r0\n"
+        "isb\n"
+        "cpsie i\n"
+        "svc 0\n"
+        "b .\n"
+        : : : "memory");
 }
 
 void SysTick_Handler(void)
@@ -324,16 +350,28 @@ void PendSV_Handler(void)
     __asm volatile (
         "mrs r0, psp\n"
         "push {r3, lr}\n"
+#if JRT_ARCH_FPU_CONTEXT
+        "tst lr, #0x10\n"
+        "it eq\n"
+        "vstmdbeq r0!, {s16-s31}\n"
+#endif
         "stmdb r0!, {r4-r11}\n"
+        "str lr, [r0, #-4]!\n"
         "bl pendsv_switch\n"
         "mov r4, r0\n"
         "bl task_current_control\n"
         "mov r1, r0\n"
         "mov r0, r4\n"
         "bl arch_restore_task_context\n"
+#if JRT_ARCH_FPU_CONTEXT
+        "tst r2, #0x10\n"
+        "it eq\n"
+        "orreq r1, r1, #4\n"
+#endif
         "msr control, r1\n"
         "isb\n"
         "pop {r3, lr}\n"
+        "mov lr, r2\n"
         "bx lr\n"
     );
 }

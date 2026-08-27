@@ -79,7 +79,8 @@ On Cortex-M:
   require PSP and dispatch yield, sleep, or LED services.
 - The four fault handlers capture the exception frame and fault status
   registers into `g_fault_record` (see `kernel/fault.c`) and spin forever;
-  they have no portable-kernel call sites at all.
+  MSP/PSP addresses the core-register portion for both basic and extended
+  floating-point frames. They have no portable-kernel call sites at all.
 
 ## 3. MPU / memory-protection contract (if implemented)
 
@@ -365,7 +366,9 @@ Once the new arch/platform builds:
   notification paths.
 4. `TEST=mutex` — confirms recursive ownership, priority inheritance, and
   chained waiter behavior.
-5. `g_stack_fault` stays `0` and `g_context_switches` increases steadily
+5. `TEST=fpu` — confirms `s16-s31`, extended frames, and mixed FP/non-FP task
+   switching across SVC and SysTick preemption.
+6. `g_stack_fault` stays `0` and `g_context_switches` increases steadily
    across all of the above — this is the same acceptance bar used throughout
    the original architecture extraction (see the commit history for
    `arch: extract ...` and the paired `validate: confirm ...` commits).

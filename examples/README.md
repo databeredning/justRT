@@ -20,4 +20,4 @@ g_simple_worker_runs > 0
 
 The example performs no board or peripheral access. Kernel regression tests
 are kept under `tests/` and are selected with `TEST=boot`, `TEST=sync`, or
-`TEST=mutex`.
+`TEST=mutex`; floating-point context switching is covered by `TEST=fpu`.

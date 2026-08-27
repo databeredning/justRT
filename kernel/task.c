@@ -310,6 +310,9 @@ static uint32_t *build_initial_stack(uint32_t *stack_top, JRT_TaskEntry_t entry,
     *--stack = 0U;
     *--stack = 0U;
 
+    /* Software-saved context: EXC_RETURN followed by r4-r11. */
+    *--stack = ARCH_INITIAL_EXC_RETURN;
+
     return stack;
 }
 
@@ -327,8 +330,13 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
 {
     uint32_t *word;
 
+    /*
+     * current_sp addresses the software context, including the single-word
+     * saved EXC_RETURN.  It is therefore 4-byte aligned even though the PSP
+     * recovered after restoring that context is 8-byte aligned.
+     */
     if ((current_sp < task->stack_bottom) || (current_sp > task->stack_top)
-        || (((uintptr_t)current_sp & 0x7U) != 0U))
+        || (((uintptr_t)current_sp & 0x3U) != 0U))
     {
         g_stack_fault = 1U;
         g_stack_fault_task = g_current_task_index;
@@ -875,7 +883,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         {
             return JRT_STATUS_INVALID_ENTRY;
         }
-        if ((definition->stack_words == 0U)
+        if ((definition->stack_words < JRT_MINIMUM_TASK_STACK_WORDS)
             || (definition->stack_words > JRT_TASK_STACK_WORDS)
             || ((definition->stack_words & 1U) != 0U))
         {

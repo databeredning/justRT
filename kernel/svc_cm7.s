@@ -38,14 +38,25 @@ SVC_Handler:
     mov     r1, r0
     mov     r0, r4
     bl      arch_restore_task_context
+#if JRT_ARCH_FPU_CONTEXT
+    tst     r2, #0x10
+    it      eq
+    orreq   r1, r1, #4
+#endif
     msr     control, r1
     isb
     pop     {r3, lr}
-    orr     lr, lr, #4
+    mov     lr, r2
     bx      lr
 
 arch_restore_task_context:
+    ldr     r2, [r0], #4
     ldmia   r0!, {r4-r11}
+#if JRT_ARCH_FPU_CONTEXT
+    tst     r2, #0x10
+    it      eq
+    vldmiaeq r0!, {s16-s31}
+#endif
     msr     psp, r0
     bx      lr
 

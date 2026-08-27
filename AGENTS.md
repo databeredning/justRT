@@ -29,11 +29,12 @@ make -B TEST=simple
 make -B TEST=boot
 make -B TEST=sync
 make -B TEST=mutex
+make -B TEST=fpu
 make auto-test
 ```
 
 `make auto-test` runs `tools/run_tests.py --quiet-build`, which builds,
-flashes, and verifies `boot`, `sync`, and `mutex` through J-Link/GDB. For
+flashes, and verifies `boot`, `sync`, `mutex`, and `fpu` through J-Link/GDB. For
 verbose runner output:
 
 ```sh

@@ -44,6 +44,9 @@
 /* CONTROL register value requesting unprivileged Thread-mode execution. */
 #define ARCH_LAUNCH_UNPRIVILEGED 3U
 
+/* Return to Thread mode using PSP with a basic (non-FP) hardware frame. */
+#define ARCH_INITIAL_EXC_RETURN 0xFFFFFFFDU
+
 void arch_request_switch(void);
 uint32_t arch_critical_enter(void);
 void arch_critical_exit(uint32_t saved_primask);

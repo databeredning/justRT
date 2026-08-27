@@ -80,6 +80,16 @@ TESTS = (
             "g_test_mutex.error_code",
         ),
     ),
+    TestCase(
+        "fpu",
+        "g_test_fpu.result",
+        (
+            "g_test_fpu.task_a_checks",
+            "g_test_fpu.task_b_checks",
+            "g_test_fpu.non_fp_runs",
+            "g_test_fpu.error_code",
+        ),
+    ),
 )
 
 RESULT_RE = re.compile(

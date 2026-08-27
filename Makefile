@@ -5,9 +5,10 @@ BINDIR := bin
 CC := arm-none-eabi-gcc
 OBJCOPY := arm-none-eabi-objcopy
 PYTHON ?= py
-CPUFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard
+CPUFLAGS := -mcpu=cortex-m7 -mthumb -mfpu=fpv5-sp-d16 -mfloat-abi=hard
+ARCHFLAGS := -DJRT_ARCH_FPU_CONTEXT=1
 DEBUGFLAGS := -Og -g3
-CFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch -Iplatform/s32k312
+CFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch -Iplatform/s32k312
 TEST ?= simple
 ifeq ($(TEST),simple)
 else ifeq ($(TEST),boot)
@@ -16,12 +17,14 @@ else ifeq ($(TEST),sync)
 CFLAGS += -DJUSTRT_TEST_SYNC=1
 else ifeq ($(TEST),mutex)
 CFLAGS += -DJUSTRT_TEST_MUTEX=1
+else ifeq ($(TEST),fpu)
+CFLAGS += -DJUSTRT_TEST_FPU=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, or TEST=mutex)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, or TEST=fpu)
 endif
-ASFLAGS := $(CPUFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
+ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T platform/s32k312/linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_fpu.o tests/test_fpu_registers.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -54,6 +57,12 @@ $(OBJDIR)/tests/test_synchronization.o: tests/test_synchronization.c tests/test_
 
 $(OBJDIR)/tests/test_mutex.o: tests/test_mutex.c tests/test_mutex.h tests/test_common.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_fpu.o: tests/test_fpu.c tests/test_fpu.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_fpu_registers.o: tests/test_fpu_registers.s | $(OBJDIR)/tests
+	$(CC) $(ASFLAGS) -c $< -o $@
 
 $(OBJDIR)/examples/simple.o: examples/simple.c examples/simple.h kernel/kernel.h | $(OBJDIR)/examples
 	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@

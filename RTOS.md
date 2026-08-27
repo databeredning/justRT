@@ -32,12 +32,21 @@ are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric priorities
 run first; equal priorities are selected round-robin.
 
 Stacks are 128 words by default. Each stack has an aligned 32-byte MPU guard.
-The initial frame contains eight software-saved registers followed by the
-standard eight-word Cortex-M hardware frame:
+The initial frame contains a saved `EXC_RETURN`, eight software-saved
+registers, and the standard eight-word Cortex-M hardware frame:
 
 ```text
-r4-r11 | r0 r1 r2 r3 r12 LR PC xPSR
+EXC_RETURN | r4-r11 | r0 r1 r2 r3 r12 LR PC xPSR
 ```
+
+The saved task-context pointer is 4-byte aligned because `EXC_RETURN` adds one
+word ahead of `r4-r11`. After the software context is restored, the resulting
+hardware PSP is again 8-byte aligned as required by the exception-return ABI.
+
+With `JRT_ARCH_FPU_CONTEXT` enabled, the architectural minimum is 51 words:
+17 for the basic context, 16 for `s16-s31`, and 18 for the hardware FP frame.
+Normal C call depth, local variables, and interrupt headroom require additional
+space beyond this minimum.
 
 The task argument is restored in `r0`. A returning task enters
 `task_exit_trap()`.
@@ -46,15 +55,30 @@ The task argument is restored in `r0`. A returning task enters
 
 `JRT_KernelStart()` enables SysTick and executes startup SVC 0. The SVC handler:
 
+Before issuing SVC 0, the port normalizes `CONTROL` to privileged Thread mode
+using MSP with FPCA clear. This prevents PSP or floating-point state used by
+pre-scheduler application code from changing the bootstrap exception frame.
+
 1. Loads the current task's saved stack pointer.
-2. Restores `r4-r11` with `arch_restore_task_context()`.
+2. Restores the task's saved `EXC_RETURN` and `r4-r11` with
+   `arch_restore_task_context()`.
 3. Sets PSP and the task's CONTROL value.
 4. Returns with PSP `EXC_RETURN`.
 
 The processor restores the hardware frame and enters the task. Later PendSV
-saves the outgoing `r4-r11`, calls `pendsv_switch()`, restores the selected
-task through the same helper, updates CONTROL, and returns through the saved
-exception return value.
+saves the outgoing `EXC_RETURN` and `r4-r11`, calls `pendsv_switch()`, restores
+the selected task through the same helper, updates CONTROL, and returns through
+its saved exception return value.
+
+When `JRT_ARCH_FPU_CONTEXT` is enabled, PendSV also saves and restores
+`s16-s31` when `EXC_RETURN` bit 4 indicates that the task owns an extended
+floating-point exception frame. Tasks that have not used floating point keep
+the basic frame and do not incur this additional context cost.
+
+Before the scheduler starts, the Cortex-M port enables CP10/CP11 and automatic
+lazy floating-point stacking (`FPCCR.ASPEN` and `FPCCR.LSPEN`). During task
+restore, `CONTROL.FPCA` is set only when the selected task's saved
+`EXC_RETURN` identifies an extended floating-point frame.
 
 The stack split is:
 
@@ -77,7 +101,9 @@ privileged.
 
 Normal task SVC calls require Thread mode using PSP. The SVC handler reads the
 number from the instruction before the stacked PC and rejects invalid context
-or service numbers.
+or service numbers. MSP/PSP points at the core-register frame for both basic
+and extended floating-point exception frames; the additional hardware FP
+registers occupy the higher-address portion of an extended frame.
 
 ## MPU
 
@@ -129,11 +155,12 @@ make -B TEST=simple
 make -B TEST=boot
 make -B TEST=sync
 make -B TEST=mutex
+make -B TEST=fpu
 make auto-test
 ```
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
-the boot, synchronization, and mutex tests through J-Link/GDB. It suppresses
+the boot, synchronization, mutex, and FPU tests through J-Link/GDB. It suppresses
 nested build output while preserving test status and diagnostics. The runner
 also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
 `--test <name>` options.
@@ -144,6 +171,7 @@ Tests:
 - `boot`: unprivileged startup, MPU, SVC LED gateway, and privilege switching.
 - `sync`: ISR semaphore, queue, event-group, and notification paths.
 - `mutex`: recursive ownership, priority inheritance, and chained waiters.
+- `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
