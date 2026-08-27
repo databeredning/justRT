@@ -22,8 +22,10 @@ context switching.
 Tasks are supplied statically through `JRT_KernelConfig_t`:
 
 ```c
+JRT_DECLARE_STATIC_TASK_STACK(worker_stack, 256U);
+
 static const JRT_TaskDefinition_t tasks[] = {
-    { entry, argument, stack_words, priority, "name", flags }
+    JRT_TASK_DEFINITION(entry, argument, worker_stack, priority, "name", flags)
 };
 ```
 
@@ -31,7 +33,18 @@ The kernel supports up to seven application tasks plus one idle task. States
 are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric priorities
 run first; equal priorities are selected round-robin.
 
-Stacks are 128 words by default. Each stack has an aligned 32-byte MPU guard.
+Each task supplies a statically allocated stack whose size is selected by the
+application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that
+do not need a custom size. `JRT_DECLARE_STATIC_TASK_STACK()` places an aligned
+32-byte MPU guard immediately below the stack and
+`JRT_TASK_DEFINITION()` registers both with the kernel. The kernel owns the
+idle-task stack and still performs no heap allocation.
+
+Kernel initialization rejects null, undersized, oddly sized, misaligned,
+non-adjacent, overflowing, or overlapping stack/guard ranges. Stack sizes are
+specified in 32-bit words and must be even so the initial exception frame has
+the required 8-byte alignment.
+
 The initial frame contains a saved `EXC_RETURN`, eight software-saved
 registers, and the standard eight-word Cortex-M hardware frame:
 

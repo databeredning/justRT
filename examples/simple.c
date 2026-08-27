@@ -30,11 +30,12 @@ static JRT_TASK_UNPRIVILEGED void simple_observer_task(void *argument)
     }
 }
 
+JRT_DECLARE_STATIC_TASK_STACK(simple_worker_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(simple_observer_stack, JRT_TASK_STACK_WORDS);
+
 static const JRT_TaskDefinition_t simple_tasks[] JRT_TASK_UNPRIVILEGED_RODATA = {
-    { simple_worker_task, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "simple-worker", JRT_TASK_FLAG_UNPRIVILEGED },
-    { simple_observer_task, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "simple-observer", JRT_TASK_FLAG_UNPRIVILEGED }
+    JRT_TASK_DEFINITION(simple_worker_task, 0U, simple_worker_stack, 1U, "simple-worker", JRT_TASK_FLAG_UNPRIVILEGED),
+    JRT_TASK_DEFINITION(simple_observer_task, 0U, simple_observer_stack, 1U, "simple-observer", JRT_TASK_FLAG_UNPRIVILEGED)
 };
 
 void simple_example_start(void)

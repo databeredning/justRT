@@ -165,15 +165,16 @@ static void test_mutex_non_owner_task(void *argument)
     }
 }
 
+JRT_DECLARE_STATIC_TASK_STACK(test_mutex_owner_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_mutex_bridge_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_mutex_high_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_mutex_non_owner_stack, JRT_TASK_STACK_WORDS);
+
 static const JRT_TaskDefinition_t test_mutex_tasks[] = {
-    { test_mutex_owner_task, 0U, JRT_TASK_STACK_WORDS, OWNER_PRIORITY,
-        "test-mutex-owner", 0U },
-    { test_mutex_bridge_task, 0U, JRT_TASK_STACK_WORDS, BRIDGE_PRIORITY,
-        "test-mutex-bridge", 0U },
-    { test_mutex_high_task, 0U, JRT_TASK_STACK_WORDS, HIGH_PRIORITY,
-        "test-mutex-high", 0U },
-    { test_mutex_non_owner_task, 0U, JRT_TASK_STACK_WORDS,
-        NON_OWNER_PRIORITY, "test-mutex-non-owner", 0U }
+    JRT_TASK_DEFINITION(test_mutex_owner_task, 0U, test_mutex_owner_stack, OWNER_PRIORITY, "test-mutex-owner", 0U),
+    JRT_TASK_DEFINITION(test_mutex_bridge_task, 0U, test_mutex_bridge_stack, BRIDGE_PRIORITY, "test-mutex-bridge", 0U),
+    JRT_TASK_DEFINITION(test_mutex_high_task, 0U, test_mutex_high_stack, HIGH_PRIORITY, "test-mutex-high", 0U),
+    JRT_TASK_DEFINITION(test_mutex_non_owner_task, 0U, test_mutex_non_owner_stack, NON_OWNER_PRIORITY, "test-mutex-non-owner", 0U)
 };
 
 void test_mutex_start(void)

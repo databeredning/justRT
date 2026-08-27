@@ -33,8 +33,8 @@ typedef struct
 typedef struct __attribute__((aligned(32)))
 {
     uint32_t guard[JRT_TASK_GUARD_WORDS];
-    uint32_t stack[JRT_TASK_STACK_WORDS];
-} task_storage_t;
+    uint32_t stack[JRT_IDLE_STACK_WORDS];
+} idle_task_storage_t;
 
 volatile uint32_t g_current_task_index KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_idle_kicks KERNEL_PRIVILEGED_DATA = 0U;
@@ -51,7 +51,7 @@ volatile uint32_t g_stack_fault KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_task KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_sp KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_ticks KERNEL_PRIVILEGED_DATA = 0U;
-static task_storage_t task_storage[JRT_MAX_TASKS] JRT_TASK_UNPRIVILEGED_DATA;
+static idle_task_storage_t idle_task_storage JRT_TASK_UNPRIVILEGED_DATA;
 static task_t tasks[JRT_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
@@ -403,9 +403,8 @@ static void idle_body(void *argument)
 
 static void prepare_task(uint32_t index, const JRT_TaskDefinition_t *definition)
 {
-    task_storage_t *storage = &task_storage[index];
-    uint32_t *stack_bottom = &storage->stack[0];
-    uint32_t *stack_top = &storage->stack[definition->stack_words];
+    uint32_t *stack_bottom = definition->stack_buffer;
+    uint32_t *stack_top = &stack_bottom[definition->stack_words];
 
     fill_stack(stack_bottom, stack_top);
     tasks[index].stack_bottom = stack_bottom;
@@ -428,10 +427,11 @@ static void prepare_idle_task(void)
 {
     uint32_t idle_index = task_count - 1U;
 
-    fill_stack(&task_storage[idle_index].stack[0],
-               &task_storage[idle_index].stack[JRT_TASK_STACK_WORDS]);
-    tasks[idle_index].stack_bottom = &task_storage[idle_index].stack[0];
-    tasks[idle_index].stack_top = &task_storage[idle_index].stack[JRT_TASK_STACK_WORDS];
+    fill_stack(&idle_task_storage.stack[0],
+               &idle_task_storage.stack[JRT_IDLE_STACK_WORDS]);
+    tasks[idle_index].stack_bottom = &idle_task_storage.stack[0];
+    tasks[idle_index].stack_top =
+        &idle_task_storage.stack[JRT_IDLE_STACK_WORDS];
     tasks[idle_index].sp = build_initial_stack(
         tasks[idle_index].stack_top, idle_body, 0U);
     tasks[idle_index].state = JRT_TASK_STATE_READY;
@@ -859,6 +859,49 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     return current_task->sp;
 }
 
+static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config,
+                                        uint32_t index)
+{
+    const JRT_TaskDefinition_t *definition = &config->tasks[index];
+    uintptr_t guard = (uintptr_t)definition->stack_guard;
+    uintptr_t stack = (uintptr_t)definition->stack_buffer;
+    uintptr_t stack_bytes;
+    uintptr_t end;
+    uint32_t previous;
+
+    if ((definition->stack_buffer == 0U) || (definition->stack_guard == 0U)
+        || (definition->stack_words < JRT_MINIMUM_TASK_STACK_WORDS)
+        || ((definition->stack_words & 1U) != 0U)
+        || ((stack & 0x7U) != 0U) || ((guard & 0x1FU) != 0U)
+        || ((guard + (JRT_TASK_GUARD_WORDS * sizeof(uint32_t))) != stack)
+        || (definition->stack_words > (UINTPTR_MAX / sizeof(uint32_t))))
+    {
+        return JRT_STATUS_INVALID_STACK;
+    }
+
+    stack_bytes = (uintptr_t)definition->stack_words * sizeof(uint32_t);
+    end = stack + stack_bytes;
+    if (end < stack)
+    {
+        return JRT_STATUS_INVALID_STACK;
+    }
+
+    for (previous = 0U; previous < index; previous++)
+    {
+        const JRT_TaskDefinition_t *other = &config->tasks[previous];
+        uintptr_t other_start = (uintptr_t)other->stack_guard;
+        uintptr_t other_end = (uintptr_t)other->stack_buffer
+            + ((uintptr_t)other->stack_words * sizeof(uint32_t));
+
+        if ((guard < other_end) && (other_start < end))
+        {
+            return JRT_STATUS_INVALID_STACK;
+        }
+    }
+
+    return JRT_STATUS_OK;
+}
+
 JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 {
     uint32_t index;
@@ -883,9 +926,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         {
             return JRT_STATUS_INVALID_ENTRY;
         }
-        if ((definition->stack_words < JRT_MINIMUM_TASK_STACK_WORDS)
-            || (definition->stack_words > JRT_TASK_STACK_WORDS)
-            || ((definition->stack_words & 1U) != 0U))
+        if (validate_task_stack(config, index) != JRT_STATUS_OK)
         {
             return JRT_STATUS_INVALID_STACK;
         }
@@ -903,7 +944,10 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 
         for (guard_index = 0U; guard_index < task_count; guard_index++)
         {
-            guard_addresses[guard_index] = &task_storage[guard_index].guard[0];
+            guard_addresses[guard_index] =
+                (guard_index < config->task_count)
+                    ? config->tasks[guard_index].stack_guard
+                    : (void *)&idle_task_storage.guard[0];
         }
         arch_configure_mpu(guard_addresses, task_count);
     }

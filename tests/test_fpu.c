@@ -96,13 +96,14 @@ static JRT_TASK_UNPRIVILEGED void test_fpu_non_fp_task(void *argument)
     }
 }
 
+JRT_DECLARE_STATIC_TASK_STACK(test_fpu_a_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_fpu_b_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_non_fp_stack, JRT_TASK_STACK_WORDS);
+
 static const JRT_TaskDefinition_t test_fpu_tasks[] JRT_TASK_UNPRIVILEGED_RODATA = {
-    { test_fpu_task_a, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "test-fpu-a", JRT_TASK_FLAG_UNPRIVILEGED },
-    { test_fpu_task_b, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "test-fpu-b", JRT_TASK_FLAG_UNPRIVILEGED },
-    { test_fpu_non_fp_task, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "test-non-fp", JRT_TASK_FLAG_UNPRIVILEGED }
+    JRT_TASK_DEFINITION(test_fpu_task_a, 0U, test_fpu_a_stack, 1U, "test-fpu-a", JRT_TASK_FLAG_UNPRIVILEGED),
+    JRT_TASK_DEFINITION(test_fpu_task_b, 0U, test_fpu_b_stack, 1U, "test-fpu-b", JRT_TASK_FLAG_UNPRIVILEGED),
+    JRT_TASK_DEFINITION(test_fpu_non_fp_task, 0U, test_non_fp_stack, 1U, "test-non-fp", JRT_TASK_FLAG_UNPRIVILEGED)
 };
 
 void test_fpu_start(void)

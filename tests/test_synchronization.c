@@ -138,11 +138,12 @@ static void test_sync_observer_task(void *argument)
     }
 }
 
+JRT_DECLARE_STATIC_TASK_STACK(test_sync_consumer_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_sync_observer_stack, JRT_TASK_STACK_WORDS);
+
 static const JRT_TaskDefinition_t test_synchronization_tasks[] = {
-    { test_sync_consumer_task, 0U, JRT_TASK_STACK_WORDS, 2U,
-        "test-sync-consumer", 0U },
-    { test_sync_observer_task, 0U, JRT_TASK_STACK_WORDS, 1U,
-        "test-sync-observer", 0U }
+    JRT_TASK_DEFINITION(test_sync_consumer_task, 0U, test_sync_consumer_stack, 2U, "test-sync-consumer", 0U),
+    JRT_TASK_DEFINITION(test_sync_observer_task, 0U, test_sync_observer_stack, 1U, "test-sync-observer", 0U)
 };
 
 void test_synchronization_start(void)

@@ -9,7 +9,9 @@
 #define JRT_TICK_RATE_HZ 7500UL
 #define JRT_SYSTICK_RELOAD ((JRT_CORE_CLOCK_HZ / JRT_TICK_RATE_HZ) - 1UL)
 #define JRT_MAX_TASKS 8U
-#define JRT_TASK_STACK_WORDS 128U
+#define JRT_DEFAULT_TASK_STACK_WORDS 128U
+#define JRT_TASK_STACK_WORDS JRT_DEFAULT_TASK_STACK_WORDS
+#define JRT_IDLE_STACK_WORDS JRT_TASK_STACK_WORDS
 #define JRT_TASK_GUARD_WORDS 8U
 #define JRT_TASK_STACK_FILL 0xA5A5A5A5UL
 #define JRT_INITIAL_STACK_USED_WORDS 17U
@@ -31,11 +33,37 @@
 
 typedef void (*JRT_TaskEntry_t)(void *argument);
 
+#define JRT_DECLARE_STATIC_TASK_STACK(name, word_count)                    \
+	static struct __attribute__((aligned(32)))                              \
+	{                                                                       \
+		uint32_t guard[JRT_TASK_GUARD_WORDS];                                \
+		uint32_t words[(word_count)];                                        \
+	} name JRT_TASK_UNPRIVILEGED_DATA
+
+#define JRT_TASK_STACK_BUFFER(name) ((name).words)
+#define JRT_TASK_STACK_WORD_COUNT(name) \
+	((uint32_t)(sizeof((name).words) / sizeof((name).words[0])))
+#define JRT_TASK_STACK_GUARD(name) ((void *)&(name).guard[0])
+#define JRT_TASK_DEFINITION(entry_function, task_argument, stack_name,       \
+		task_priority, task_name, task_flags)                                  \
+	{                                                                        \
+		.entry = (entry_function),                                             \
+		.argument = (task_argument),                                           \
+		.stack_buffer = JRT_TASK_STACK_BUFFER(stack_name),                     \
+		.stack_words = JRT_TASK_STACK_WORD_COUNT(stack_name),                  \
+		.stack_guard = JRT_TASK_STACK_GUARD(stack_name),                       \
+		.priority = (task_priority),                                           \
+		.name = (task_name),                                                   \
+		.flags = (task_flags)                                                  \
+	}
+
 typedef struct
 {
 	JRT_TaskEntry_t entry;
 	void *argument;
+	uint32_t *stack_buffer;
 	uint32_t stack_words;
+	void *stack_guard;
 	uint32_t priority;
 	const char *name;
 	uint32_t flags;

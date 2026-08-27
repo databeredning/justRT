@@ -39,9 +39,10 @@ static JRT_TASK_UNPRIVILEGED void test_boot_task(void *argument)
     }
 }
 
+JRT_DECLARE_STATIC_TASK_STACK(test_boot_stack, JRT_TASK_STACK_WORDS);
+
 static const JRT_TaskDefinition_t test_tasks[] JRT_TASK_UNPRIVILEGED_RODATA = {
-    { test_boot_task, (void *)&g_test_boot_argument, JRT_TASK_STACK_WORDS,
-        1U, "test-boot", JRT_TASK_FLAG_UNPRIVILEGED }
+    JRT_TASK_DEFINITION(test_boot_task, (void *)&g_test_boot_argument, test_boot_stack, 1U, "test-boot", JRT_TASK_FLAG_UNPRIVILEGED)
 };
 
 void test_boot_and_privilege_start(void)
