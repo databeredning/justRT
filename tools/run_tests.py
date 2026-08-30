@@ -5,6 +5,7 @@ Builds each TEST variant, starts JLinkGDBServerCL, flashes bin/justrt.elf,
 runs the target, and stops on a hardware watchpoint when test_result.done changes.
 
 Configuration can be overridden with environment variables:
+  JUSTRT_MAKE            path/name of make or mingw32-make
   JUSTRT_GDB             path/name of arm-none-eabi-gdb
   JUSTRT_JLINK_SERVER    path/name of JLinkGDBServerCL.exe
   JUSTRT_TEST_TIMEOUT    per-test runtime timeout in seconds (default: 5)
@@ -33,6 +34,9 @@ ELF = ROOT / "bin" / "justrt.elf"
 DEFAULT_GDB = "C:/devtools/gcc/gcc-10.2-arm32-eabi/bin/arm-none-eabi-gdb.exe"
 DEFAULT_JLINK = "C:/Program Files/SEGGER/JLink/JLinkGDBServerCL.exe"
 
+MAKE = os.environ.get("JUSTRT_MAKE")
+if not MAKE:
+    MAKE = shutil.which("make") or shutil.which("mingw32-make") or "make"
 GDB = os.environ.get("JUSTRT_GDB", DEFAULT_GDB)
 JLINK = os.environ.get("JUSTRT_JLINK_SERVER", DEFAULT_JLINK)
 GDB_PORT = int(os.environ.get("JUSTRT_GDB_PORT", "2331"))
@@ -127,7 +131,7 @@ def stream_process(proc, prefix: str, verbose: bool, lines: list[str]) -> thread
 
 
 def run_build(test: TestCase, verbose: bool, quiet_build: bool) -> None:
-    cmd = ["make", "-B"]
+    cmd = [MAKE, "-B"]
     if quiet_build:
         cmd.append("-s")
     cmd.append(f"TEST={test.build_name}")
@@ -369,6 +373,10 @@ def parse_args():
 
 def main() -> int:
     args = parse_args()
+    if not executable_exists(MAKE):
+        print(f"ERROR: Make not found: {MAKE}", file=sys.stderr)
+        print("Set JUSTRT_MAKE to make.exe or mingw32-make.exe.", file=sys.stderr)
+        return 2
     if not executable_exists(GDB):
         print(f"ERROR: GDB not found: {GDB}", file=sys.stderr)
         print("Set JUSTRT_GDB to the correct arm-none-eabi-gdb executable.", file=sys.stderr)
@@ -383,6 +391,7 @@ def main() -> int:
     if args.verbose:
         print("[VERBOSE] enabled", flush=True)
         print(f"[ROOT]  {quote_for_display(ROOT.as_posix())}", flush=True)
+        print(f"[MAKE]  {quote_for_display(MAKE)}", flush=True)
 
     selected = [t for t in TESTS if not args.test or t.build_name in args.test]
     results: list[tuple[str, bool, str, float]] = []
