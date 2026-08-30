@@ -2,7 +2,7 @@
 #include "sync.h"
 #include "test_race.h"
 
-#define TEST_RACE_ITERATIONS 512U
+#define TEST_RACE_ITERATIONS 4096U
 #define TEST_RACE_TIMEOUT_TICKS 3U
 
 static JRT_Semaphore_t test_race_semaphore;

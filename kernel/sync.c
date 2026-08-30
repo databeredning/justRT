@@ -33,34 +33,30 @@ void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore,
 
 int JRT_SemaphoreTake(JRT_Semaphore_t *semaphore, uint32_t timeout_ticks)
 {
+    uint32_t saved_primask;
+
     if (arch_in_isr() != 0)
     {
         count_context_misuse(&g_sync_misuse_semaphore_take);
         return 0;
     }
 
-    while (1)
+    saved_primask = arch_critical_enter();
+    if (semaphore->available != 0U)
     {
-        uint32_t saved_primask = arch_critical_enter();
-
-        if (semaphore->available != 0U)
-        {
-            semaphore->available = 0U;
-            arch_critical_exit(saved_primask);
-            return 1;
-        }
+        semaphore->available = 0U;
         arch_critical_exit(saved_primask);
-
-        if (timeout_ticks == 0U)
-        {
-            return 0;
-        }
-
-        if (task_block(semaphore, TASK_WAIT_SEMAPHORE, timeout_ticks) == 0)
-        {
-            return 0;
-        }
+        return 1;
     }
+
+    if (timeout_ticks == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return 0;
+    }
+
+    return task_block_locked(semaphore, TASK_WAIT_SEMAPHORE, timeout_ticks,
+                             saved_primask);
 }
 
 void JRT_SemaphoreGive(JRT_Semaphore_t *semaphore)
@@ -73,8 +69,10 @@ void JRT_SemaphoreGive(JRT_Semaphore_t *semaphore)
 
     uint32_t saved_primask = arch_critical_enter();
 
-    semaphore->available = 1U;
-    task_wake(semaphore, TASK_WAIT_SEMAPHORE);
+    if (task_wake(semaphore, TASK_WAIT_SEMAPHORE) == 0)
+    {
+        semaphore->available = 1U;
+    }
     arch_critical_exit(saved_primask);
 }
 
@@ -88,8 +86,10 @@ void JRT_SemaphoreGiveFromISR(JRT_Semaphore_t *semaphore)
 
     uint32_t saved_primask = arch_critical_enter();
 
-    semaphore->available = 1U;
-    task_wake(semaphore, TASK_WAIT_SEMAPHORE);
+    if (task_wake(semaphore, TASK_WAIT_SEMAPHORE) == 0)
+    {
+        semaphore->available = 1U;
+    }
     arch_critical_exit(saved_primask);
     arch_request_switch();
 }

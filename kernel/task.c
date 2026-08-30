@@ -696,7 +696,17 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
     return (int)current_task->wait_result;
 }
 
-void task_wake(void *object, task_wait_kind_t wait_kind)
+int task_block_locked(void *object, task_wait_kind_t wait_kind,
+                      uint32_t timeout_ticks, uint32_t saved_critical)
+{
+    task_wait_begin(current_task, object, wait_kind, timeout_ticks);
+    arch_critical_exit(saved_critical);
+    arch_yield();
+
+    return (int)current_task->wait_result;
+}
+
+int task_wake(void *object, task_wait_kind_t wait_kind)
 {
     uint32_t saved_primask = arch_critical_enter();
     uint32_t index;
@@ -724,6 +734,7 @@ void task_wake(void *object, task_wait_kind_t wait_kind)
     }
 
     arch_critical_exit(saved_primask);
+    return (selected_index != task_count) ? 1 : 0;
 }
 
 void tick_tasks(void)
