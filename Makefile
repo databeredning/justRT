@@ -19,12 +19,14 @@ else ifeq ($(TEST),mutex)
 CFLAGS += -DJUSTRT_TEST_MUTEX=1
 else ifeq ($(TEST),fpu)
 CFLAGS += -DJUSTRT_TEST_FPU=1
+else ifeq ($(TEST),race)
+CFLAGS += -DJUSTRT_TEST_RACE=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, or TEST=fpu)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, TEST=fpu, or TEST=race)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T platform/s32k312/linker_flash_s32k312.ld
-OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_fpu.o tests/test_fpu_registers.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o)
+OBJS := $(addprefix $(OBJDIR)/,startup_cm7.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_fpu.o tests/test_fpu_registers.o tests/test_race.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o)
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -63,6 +65,9 @@ $(OBJDIR)/tests/test_fpu.o: tests/test_fpu.c tests/test_fpu.h tests/test_common.
 
 $(OBJDIR)/tests/test_fpu_registers.o: tests/test_fpu_registers.s | $(OBJDIR)/tests
 	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(OBJDIR)/tests/test_race.o: tests/test_race.c tests/test_race.h tests/test_common.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/examples/simple.o: examples/simple.c examples/simple.h kernel/kernel.h | $(OBJDIR)/examples
 	$(CC) $(CFLAGS) -Ikernel -Iexamples -c $< -o $@

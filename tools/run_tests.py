@@ -94,6 +94,17 @@ TESTS = (
             "g_test_fpu.error_code",
         ),
     ),
+    TestCase(
+        "race",
+        "g_test_race.result",
+        (
+            "g_test_race.signals",
+            "g_test_race.takes",
+            "g_test_race.timeouts",
+            "g_test_race.lost_wakeups",
+            "g_test_race.error_code",
+        ),
+    ),
 )
 
 RESULT_RE = re.compile(
