@@ -205,8 +205,10 @@ QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
 To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
 press `X`.
 
-QEMU test automation is not implemented yet. `TEST=fpu` is intentionally
-unavailable for its Cortex-M3 CPU.
+`make qemu-test` runs the terminating `boot`, `sync`, `mutex`, and `race`
+profiles under QEMU/GDB and checks their results plus fault, invariant, stack,
+scheduler, and tick diagnostics. `TEST=fpu` is intentionally unavailable for
+the Cortex-M3 CPU.
 
 Tests:
 
@@ -233,4 +235,4 @@ auxiliary value, and tick before stopping with interrupts masked.
 - MPU regions are static and use power-of-two ranges.
 - Fault handling records state and stops; it does not recover or reset.
 - Timer callbacks require explicit task-side dispatch.
-- QEMU regressions currently require manual launch and debugger inspection.
+- QEMU cannot exercise MPU isolation or floating-point context switching.

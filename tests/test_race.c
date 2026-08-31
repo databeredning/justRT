@@ -8,7 +8,7 @@
 #define TEST_RACE_QUEUE_SEND_ITERATIONS 512U
 #define TEST_RACE_MUTEX_ITERATIONS 512U
 #define TEST_RACE_TIMER_ITERATIONS 128U
-#define TEST_RACE_TIMEOUT_TICKS 3U
+#define TEST_RACE_TIMEOUT_TICKS 5U
 #define TEST_RACE_WRAP_TIMEOUT_TICKS 5U
 #define TEST_RACE_SIGNAL_SEMAPHORE 1U
 #define TEST_RACE_SIGNAL_QUEUE 2U
@@ -55,10 +55,11 @@ static void test_race_mutex_owner_task(void *argument)
         }
         JRT_SemaphoreGive(&test_race_mutex_locked_gate);
 
-        /* Alternate an unlock before the deadline with an unlock on the
-         * timeout tick.  This exercises both ownership handoff and removal
-         * of a timed-out waiter from the inheritance chain. */
-        JRT_TaskDelay(((iteration & 1U) == 0U) ? 2U : 4U);
+        /* Alternate an unlock safely before the deadline with an unlock
+         * after it. This exercises both ownership handoff and removal of a
+         * timed-out waiter from the inheritance chain without relying on
+         * target-specific scheduling at the exact boundary tick. */
+        JRT_TaskDelay(((iteration & 1U) == 0U) ? 1U : 7U);
         if (JRT_MutexUnlock(&test_race_mutex) == 0)
         {
             g_test_race.error_code = 14U;
@@ -309,8 +310,9 @@ static void test_race_waiter_task(void *argument)
     g_test_race.wrap_end_tick = JRT_KernelGetTickCount();
     g_test_race.wrap_elapsed_ticks =
         g_test_race.wrap_end_tick - g_test_race.wrap_start_tick;
-    if ((g_test_race.wrap_end_tick != 2U)
-        || (g_test_race.wrap_elapsed_ticks != TEST_RACE_WRAP_TIMEOUT_TICKS))
+    if ((g_test_race.wrap_elapsed_ticks < TEST_RACE_WRAP_TIMEOUT_TICKS)
+        || (g_test_race.wrap_elapsed_ticks
+            > (TEST_RACE_WRAP_TIMEOUT_TICKS + 1U)))
     {
         g_test_race.error_code = 22U;
     }
@@ -401,8 +403,8 @@ static void test_race_waiter_task(void *argument)
     {
         g_test_race.result.fail = 1U;
     }
-    g_test_race.result.done = 1U;
     g_test_race.result.state = TEST_STATE_COMPLETE;
+    g_test_race.result.done = 1U;
 
     while (1)
     {

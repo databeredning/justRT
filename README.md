@@ -66,9 +66,16 @@ The runner also reports fault, invariant, scheduler, synchronization, timer,
 and race diagnostics. The continuous `simple` example is intentionally not
 part of the terminating test suite.
 
-QEMU currently supports manual build, launch, and GDB inspection. Automating
-the terminating kernel profiles under QEMU is the current milestone; see
-[TODO.md](TODO.md).
+The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
+`mutex`, and `race` profiles, including result, fault, invariant, stack,
+scheduler, and tick diagnostics:
+
+```sh
+make qemu-test
+```
+
+The Cortex-M3 target does not support `TEST=fpu`. See [TODO.md](TODO.md) for
+the remaining cross-target validation work.
 
 ## Repository layout
 

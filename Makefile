@@ -136,4 +136,7 @@ clean:
 auto-test:
 	$(PYTHON) tools/run_tests.py --quiet-build
 
-.PHONY: all clean auto-test
+qemu-test:
+	$(PYTHON) tools/run_qemu_tests.py --quiet-build
+
+.PHONY: all clean auto-test qemu-test

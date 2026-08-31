@@ -149,8 +149,9 @@ Manual bring-up has confirmed increasing
 ticks and context switches, execution of both `simple` tasks, and no recorded
 fault or invariant failure.
 
-Automated QEMU execution of the terminating profiles is current milestone
-work. `TEST=fpu` is rejected for this target because Cortex-M3 has no FPU.
+`make qemu-test` automatically builds and verifies the terminating `boot`,
+`sync`, `mutex`, and `race` profiles through QEMU/GDB. `TEST=fpu` is rejected
+for this target because Cortex-M3 has no FPU.
 
 ## Validation Checklist
 

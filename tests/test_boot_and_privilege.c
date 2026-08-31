@@ -30,8 +30,8 @@ static JRT_TASK_UNPRIVILEGED void test_boot_task(void *argument)
     {
         g_test_boot_and_privilege.pass = 1U;
     }
-    g_test_boot_and_privilege.done = 1U;
     g_test_boot_and_privilege.state = TEST_STATE_COMPLETE;
+    g_test_boot_and_privilege.done = 1U;
 
     while (1)
     {

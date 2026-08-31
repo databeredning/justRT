@@ -13,15 +13,15 @@ testing while retaining S32K312 hardware tests as the final acceptance gate.
      invariant failures.
 
 2. Automated regression
-   - [ ] Add an automated QEMU/GDB test runner.
-   - [ ] Run `boot`, `sync`, `mutex`, and `race` under QEMU.
-   - [ ] Report the same result, fault, and invariant diagnostics as the
+   - [x] Add an automated QEMU/GDB test runner.
+   - [x] Run `boot`, `sync`, `mutex`, and `race` under QEMU.
+   - [x] Report the same result, fault, and invariant diagnostics as the
      J-Link hardware runner.
-   - [ ] Add a convenient `make qemu-test` entry point.
+   - [x] Add a convenient `make qemu-test` entry point.
 
 3. Cross-target validation
    - [ ] Run the complete S32K312 hardware suite after shared Cortex-M changes.
-   - [ ] Document supported QEMU tests and explicitly exclude the Cortex-M3
+   - [x] Document supported QEMU tests and explicitly exclude the Cortex-M3
      `fpu` profile.
 
 ## Completed milestone: concurrency hardening

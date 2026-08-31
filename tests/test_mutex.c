@@ -96,8 +96,8 @@ static void test_mutex_owner_task(void *argument)
     {
         g_test_mutex.result.fail = 1U;
     }
-    g_test_mutex.result.done = 1U;
     g_test_mutex.result.state = TEST_STATE_COMPLETE;
+    g_test_mutex.result.done = 1U;
 
     while (1)
     {
