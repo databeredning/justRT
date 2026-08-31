@@ -1,0 +1,26 @@
+#ifndef JUSTRT_CONFIG_H
+#define JUSTRT_CONFIG_H
+
+/* Target clock and kernel tick frequency. */
+#ifndef JRT_CORE_CLOCK_HZ
+#define JRT_CORE_CLOCK_HZ 120000000UL
+#endif
+
+#ifndef JRT_TICK_RATE_HZ
+#define JRT_TICK_RATE_HZ 7500UL
+#endif
+
+/* Application-visible task capacity and default static stack sizes. */
+#ifndef JRT_MAX_APPLICATION_TASKS
+#define JRT_MAX_APPLICATION_TASKS 7U
+#endif
+
+#ifndef JRT_DEFAULT_TASK_STACK_WORDS
+#define JRT_DEFAULT_TASK_STACK_WORDS 128U
+#endif
+
+#ifndef JRT_IDLE_STACK_WORDS
+#define JRT_IDLE_STACK_WORDS JRT_DEFAULT_TASK_STACK_WORDS
+#endif
+
+#endif

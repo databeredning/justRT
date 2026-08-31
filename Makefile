@@ -33,7 +33,7 @@ else
 $(error Unsupported TARGET=$(TARGET); use TARGET=s32k312 or TARGET=qemu-mps2-an385)
 endif
 DEBUGFLAGS := -Og -g3
-CFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -Iarch -I$(PLATFORM_DIR)
+CFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -ffreestanding -fdata-sections -ffunction-sections -Wall -Wextra -I. -Iarch -I$(PLATFORM_DIR)
 TEST ?= simple
 ifeq ($(TEST),simple)
 else ifeq ($(TEST),boot)
@@ -55,6 +55,8 @@ endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
 OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+
+$(OBJS): JRTConfig.h
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 

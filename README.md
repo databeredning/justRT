@@ -52,6 +52,13 @@ press `X`.
 Build artifacts are kept separately under `bin/` and `obj/` so switching
 targets cannot reuse objects compiled for another CPU.
 
+## Configuration
+
+Application and target-specific settings are collected in `JRTConfig.h`.
+This header configures the core clock, kernel tick rate, maximum number of
+application tasks, and default application and idle stack sizes. Kernel-owned
+task capacity and architecture-derived limits remain private to the kernel.
+
 ## Hardware regression tests
 
 The automated S32K312 runner builds, flashes, and verifies the named tests

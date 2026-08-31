@@ -3,22 +3,26 @@
 
 #include <stdint.h>
 
+#include "JRTConfig.h"
 #include "sync.h"
 
-#ifndef JRT_CORE_CLOCK_HZ
-#define JRT_CORE_CLOCK_HZ 120000000UL
+#if JRT_CORE_CLOCK_HZ == 0UL
+#error "JRT_CORE_CLOCK_HZ must be greater than zero"
 #endif
-#ifndef JRT_TICK_RATE_HZ
-#define JRT_TICK_RATE_HZ 7500UL
+#if JRT_TICK_RATE_HZ == 0UL
+#error "JRT_TICK_RATE_HZ must be greater than zero"
+#endif
+#if JRT_TICK_RATE_HZ > JRT_CORE_CLOCK_HZ
+#error "JRT_TICK_RATE_HZ must not exceed JRT_CORE_CLOCK_HZ"
+#endif
+#if ((JRT_CORE_CLOCK_HZ / JRT_TICK_RATE_HZ) - 1UL) > 0x00FFFFFFUL
+#error "Configured SysTick reload exceeds the 24-bit hardware limit"
+#endif
+#if JRT_MAX_APPLICATION_TASKS == 0U
+#error "JRT_MAX_APPLICATION_TASKS must be greater than zero"
 #endif
 #define JRT_SYSTICK_RELOAD ((JRT_CORE_CLOCK_HZ / JRT_TICK_RATE_HZ) - 1UL)
-#define JRT_MAX_APPLICATION_TASKS 7U
-#define JRT_MAX_KERNEL_TASKS 3U
-#define JRT_MAX_SCHEDULER_TASKS \
-	(JRT_MAX_APPLICATION_TASKS + JRT_MAX_KERNEL_TASKS)
-#define JRT_DEFAULT_TASK_STACK_WORDS 128U
 #define JRT_TASK_STACK_WORDS JRT_DEFAULT_TASK_STACK_WORDS
-#define JRT_IDLE_STACK_WORDS JRT_TASK_STACK_WORDS
 #define JRT_TASK_GUARD_WORDS 8U
 #define JRT_TASK_STACK_FILL 0xA5A5A5A5UL
 #define JRT_INITIAL_STACK_USED_WORDS 17U
@@ -30,6 +34,12 @@
 	 + JRT_FP_HARDWARE_CONTEXT_WORDS)
 #else
 #define JRT_MINIMUM_TASK_STACK_WORDS JRT_INITIAL_STACK_USED_WORDS
+#endif
+#if JRT_DEFAULT_TASK_STACK_WORDS < JRT_MINIMUM_TASK_STACK_WORDS
+#error "JRT_DEFAULT_TASK_STACK_WORDS is below the architecture minimum"
+#endif
+#if JRT_IDLE_STACK_WORDS < JRT_MINIMUM_TASK_STACK_WORDS
+#error "JRT_IDLE_STACK_WORDS is below the architecture minimum"
 #endif
 #define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))

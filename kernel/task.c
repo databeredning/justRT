@@ -5,6 +5,9 @@
 #include "cortex_m/port_contract.h"
 
 #define JRT_IDLE_TASK_COUNT 1U
+#define JRT_MAX_KERNEL_TASKS 3U
+#define JRT_MAX_SCHEDULER_TASKS \
+    (JRT_MAX_APPLICATION_TASKS + JRT_MAX_KERNEL_TASKS)
 
 _Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_IDLE_TASK_COUNT)
                <= JRT_MAX_SCHEDULER_TASKS,

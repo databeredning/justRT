@@ -34,10 +34,10 @@ static const JRT_TaskDefinition_t tasks[] = {
 ```
 
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
-application tasks. Scheduler storage is sized separately for up to
-`JRT_MAX_KERNEL_TASKS` kernel-owned tasks in addition to those applications;
-currently only the idle task is created internally. The S32K312 MPU assigns
-regions 6-15 to ten stack guards, matching the total scheduler capacity.
+application tasks. Scheduler storage privately reserves three additional
+slots for kernel-owned tasks; currently only the idle task is created
+internally. The S32K312 MPU assigns regions 6-15 to ten stack guards, matching
+the total scheduler capacity.
 States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
 priorities run first; equal priorities are selected round-robin.
 
@@ -47,6 +47,11 @@ do not need a custom size. `JRT_DECLARE_STATIC_TASK_STACK()` places an aligned
 32-byte MPU guard immediately below the stack and
 `JRT_TASK_DEFINITION()` registers both with the kernel. The kernel owns the
 idle-task stack and still performs no heap allocation.
+
+Application and target-specific build settings live in `JRTConfig.h`. They
+select the core clock, tick rate, application-task limit, default application
+stack size, and idle-task stack size. Kernel-owned task capacity and derived
+architecture limits remain private implementation details.
 
 Kernel initialization rejects null, undersized, oddly sized, misaligned,
 non-adjacent, overflowing, or overlapping stack/guard ranges. Stack sizes are

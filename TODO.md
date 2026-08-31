@@ -7,6 +7,8 @@ applications no longer need to poll expirations or call
 `JRT_TimerDispatch()` manually.
 
 1. Service-task ownership and scheduling
+   - [x] Centralize application-selectable kernel settings in `JRTConfig.h`
+     while keeping kernel-owned task capacity private.
    - [x] Separate the public application-task limit from internal scheduler
      task-table capacity.
    - [ ] Add a statically allocated kernel timer-service task and stack.
