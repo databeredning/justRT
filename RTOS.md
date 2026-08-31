@@ -70,7 +70,10 @@ The task argument is restored in `r0`. A returning task enters
 
 ## Startup and Context Switching
 
-`JRT_KernelStart()` enables SysTick and executes startup SVC 0. The SVC handler:
+`JRT_KernelStart()` configures SysTick and executes startup SVC 0. The SVC
+handler starts the tick while SVC still masks the lower-priority SysTick and
+PendSV exceptions, then restores the first task. This prevents a context
+switch before PSP has been initialized. The SVC handler:
 
 Before issuing SVC 0, the port normalizes `CONTROL` to privileged Thread mode
 using MSP with FPCA clear. This prevents PSP or floating-point state used by

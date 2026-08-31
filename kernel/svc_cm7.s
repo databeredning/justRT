@@ -32,6 +32,7 @@ SVC_Handler:
 
 .Lstart_first_task:
     push    {r3, lr}
+    bl      arch_tick_start
     bl      task_current_sp
     mov     r4, r0
     bl      task_current_control

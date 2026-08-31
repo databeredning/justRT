@@ -204,6 +204,7 @@ def make_gdb_script(test: TestCase, port: int) -> str:
         "continue",
         f"if {result}.done == 0",
         '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
+        '  printf "JUSTRT_FAULT_RECORD type=%u pc=%p lr=%p xpsr=%p exc_return=%p cfsr=%p hfsr=%p dfsr=%p mmfar=%p bfar=%p\\n", g_fault_record.fault_type, g_fault_record.pc, g_fault_record.lr, g_fault_record.xpsr, g_fault_record.exc_return, g_fault_record.cfsr, g_fault_record.hfsr, g_fault_record.dfsr, g_fault_record.mmfar, g_fault_record.bfar',
         "  x/i $pc",
         "  info registers pc lr sp xpsr",
         "  bt",
@@ -216,6 +217,42 @@ def make_gdb_script(test: TestCase, port: int) -> str:
         )
     lines.extend(("end", "disconnect", "quit"))
     return "\n".join(lines) + "\n"
+
+
+def collect_timeout_diagnostics(test: TestCase, port: int) -> str:
+    result = test.result_expr
+    commands = [
+        "set pagination off",
+        "set confirm off",
+        "set remotetimeout 5",
+        f'file "{ELF.as_posix()}"',
+        f"target remote 127.0.0.1:{port}",
+        f'printf "JUSTRT_TIMEOUT_RESULT state=%u runs=%u pass=%u fail=%u done=%u\\n", {result}.state, {result}.runs, {result}.pass, {result}.fail, {result}.done',
+        'printf "JUSTRT_TIMEOUT_KERNEL tick=%u current=%u switches=%u invariant=%u fault=%u stack=%u\\n", g_kernel_ticks, g_current_task_index, g_context_switches, g_kernel_invariant_active, g_fault_active, g_stack_fault',
+        'printf "JUSTRT_TIMEOUT_TASK0 state=%u priority=%u wait_kind=%u wait_object=%p\\n", tasks[0].state, tasks[0].priority, tasks[0].wait_kind, tasks[0].wait_object',
+        'printf "JUSTRT_TIMEOUT_TASK1 state=%u priority=%u wait_kind=%u wait_object=%p\\n", tasks[1].state, tasks[1].priority, tasks[1].wait_kind, tasks[1].wait_object',
+        'printf "JUSTRT_TIMEOUT_TASK2 state=%u priority=%u wait_kind=%u wait_object=%p\\n", tasks[2].state, tasks[2].priority, tasks[2].wait_kind, tasks[2].wait_object',
+        'printf "JUSTRT_TIMEOUT_TASK3 state=%u priority=%u wait_kind=%u wait_object=%p\\n", tasks[3].state, tasks[3].priority, tasks[3].wait_kind, tasks[3].wait_object',
+        'printf "JUSTRT_TIMEOUT_PC pc=%p lr=%p sp=%p\\n", $pc, $lr, $sp',
+        "disconnect",
+        "quit",
+    ]
+    command = [GDB, "--batch", "-q"]
+    for line in commands:
+        command.extend(("-ex", line))
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=5.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"timeout diagnostic connection failed: {error}"
+    return completed.stdout.strip()
 
 
 def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str, float]:
@@ -303,10 +340,13 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             terminate_process(gdb)
             if gdb_thread:
                 gdb_thread.join(timeout=1.0)
+            snapshot = collect_timeout_diagnostics(test, port)
             tail = "".join(gdb_lines[-30:]).strip()
             details = f"timeout after {elapsed:.2f}s"
             if tail:
                 details += "\nGDB output:\n" + tail
+            if snapshot:
+                details += "\nTimeout snapshot:\n" + snapshot
             return False, details, elapsed
 
         if gdb_thread:

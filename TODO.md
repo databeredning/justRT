@@ -1,6 +1,6 @@
 # RTOS Roadmap
 
-## Current milestone: QEMU regression target
+## Completed milestone: QEMU regression target
 
 Add a fast Cortex-M target for repeatable scheduler and kernel regression
 testing while retaining S32K312 hardware tests as the final acceptance gate.
@@ -20,7 +20,7 @@ testing while retaining S32K312 hardware tests as the final acceptance gate.
    - [x] Add a convenient `make qemu-test` entry point.
 
 3. Cross-target validation
-   - [ ] Run the complete S32K312 hardware suite after shared Cortex-M changes.
+   - [x] Run the complete S32K312 hardware suite after shared Cortex-M changes.
    - [x] Document supported QEMU tests and explicitly exclude the Cortex-M3
      `fpu` profile.
 

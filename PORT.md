@@ -30,7 +30,8 @@ The portable kernel uses these functions from
 | `arch_critical_enter()` | Mask interrupts and return the previous mask state. |
 | `arch_critical_exit()` | Restore the exact state returned by critical entry. |
 | `arch_in_isr()` | Report whether execution is in exception context. |
-| `arch_tick_init()` | Configure SysTick and exception priorities. |
+| `arch_tick_init()` | Configure SysTick and exception priorities without starting interrupts. |
+| `arch_tick_start()` | Start the configured tick from protected first-task startup. |
 | `arch_yield()` | Enter the privileged yield path and reschedule. |
 | `arch_configure_mpu()` | Install target protection regions, or safely do nothing when MPU support is disabled. |
 | `arch_start_first_task()` | Enter startup SVC and restore the first task context. |

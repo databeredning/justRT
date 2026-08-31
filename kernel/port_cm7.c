@@ -198,7 +198,7 @@ void tick_init(void)
               << SCB_SHPR3_SYSTICK_SHIFT);
     SYST_RVR = JRT_SYSTICK_RELOAD;
     SYST_CVR = 0UL;
-    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
+    SYST_CSR = SYST_CSR_CLKSOURCE;
 }
 
 void request_switch(void)
@@ -219,6 +219,12 @@ void arch_tick_init(void)
     FPU_FPCCR |= FPU_FPCCR_ASPEN | FPU_FPCCR_LSPEN;
 #endif
     tick_init();
+}
+
+void arch_tick_start(void)
+{
+    SYST_CVR = 0UL;
+    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
 }
 
 int kernel_in_isr(void)

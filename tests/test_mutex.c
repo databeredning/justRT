@@ -14,6 +14,9 @@
 
 static JRT_Mutex_t first_mutex;
 static JRT_Mutex_t second_mutex;
+static JRT_Semaphore_t bridge_start_gate;
+static JRT_Semaphore_t high_start_gate;
+static JRT_Semaphore_t non_owner_start_gate;
 
 mutex_test_state_t g_test_mutex;
 
@@ -38,18 +41,33 @@ static void test_mutex_owner_task(void *argument)
         g_test_mutex.error_code = 1U;
     }
 
+    JRT_SemaphoreGive(&bridge_start_gate);
+    JRT_SemaphoreGive(&non_owner_start_gate);
     while (1)
     {
-        if (JRT_TaskGetState(BRIDGE_TASK_ID, &bridge_state) != JRT_STATUS_OK
-            || JRT_TaskGetState(HIGH_TASK_ID, &high_state) != JRT_STATUS_OK)
+        if (JRT_TaskGetState(BRIDGE_TASK_ID, &bridge_state) != JRT_STATUS_OK)
         {
             g_test_mutex.error_code = 2U;
             break;
         }
-        if (bridge_state == JRT_TASK_STATE_BLOCKED
-            && high_state == JRT_TASK_STATE_BLOCKED)
+        if (bridge_state == JRT_TASK_STATE_BLOCKED)
         {
             g_test_mutex.bridge_blocked = 1U;
+            break;
+        }
+        JRT_TaskDelay(1U);
+    }
+
+    JRT_SemaphoreGive(&high_start_gate);
+    while (1)
+    {
+        if (JRT_TaskGetState(HIGH_TASK_ID, &high_state) != JRT_STATUS_OK)
+        {
+            g_test_mutex.error_code = 2U;
+            break;
+        }
+        if (high_state == JRT_TASK_STATE_BLOCKED)
+        {
             g_test_mutex.high_blocked = 1U;
             break;
         }
@@ -108,7 +126,7 @@ static void test_mutex_owner_task(void *argument)
 static void test_mutex_bridge_task(void *argument)
 {
     (void)argument;
-    JRT_TaskDelay(1U);
+    JRT_SemaphoreTake(&bridge_start_gate, JRT_WAIT_FOREVER);
 
     if (JRT_MutexLock(&second_mutex, JRT_WAIT_FOREVER) == 0
         || JRT_MutexLock(&first_mutex, JRT_WAIT_FOREVER) == 0)
@@ -131,7 +149,7 @@ static void test_mutex_bridge_task(void *argument)
 static void test_mutex_high_task(void *argument)
 {
     (void)argument;
-    JRT_TaskDelay(3U);
+    JRT_SemaphoreTake(&high_start_gate, JRT_WAIT_FOREVER);
 
     if (JRT_MutexLock(&second_mutex, JRT_WAIT_FOREVER) == 0)
     {
@@ -152,7 +170,7 @@ static void test_mutex_high_task(void *argument)
 static void test_mutex_non_owner_task(void *argument)
 {
     (void)argument;
-    JRT_TaskDelay(2U);
+    JRT_SemaphoreTake(&non_owner_start_gate, JRT_WAIT_FOREVER);
     g_test_mutex.non_owner_unlock = (uint32_t)JRT_MutexUnlock(&first_mutex);
     if (g_test_mutex.non_owner_unlock != 0U)
     {
@@ -203,6 +221,9 @@ void test_mutex_start(void)
 
     JRT_MutexCreateRecursiveStatic(&first_mutex);
     JRT_MutexCreateRecursiveStatic(&second_mutex);
+    JRT_SemaphoreCreateBinaryStatic(&bridge_start_gate, 0U);
+    JRT_SemaphoreCreateBinaryStatic(&high_start_gate, 0U);
+    JRT_SemaphoreCreateBinaryStatic(&non_owner_start_gate, 0U);
     if (JRT_KernelInit(&config) != JRT_STATUS_OK)
     {
         g_test_mutex.result.fail = 1U;

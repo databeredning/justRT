@@ -52,6 +52,7 @@ uint32_t arch_critical_enter(void);
 void arch_critical_exit(uint32_t saved_primask);
 int arch_in_isr(void);
 void arch_tick_init(void);
+void arch_tick_start(void);
 void arch_yield(void);
 void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count);
 void arch_start_first_task(void);
