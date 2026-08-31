@@ -4,6 +4,7 @@
 #include "tests/test_mutex.h"
 #include "tests/test_race.h"
 #include "tests/test_synchronization.h"
+#include "tests/test_timer_service.h"
 
 int main(void)
 {
@@ -17,6 +18,8 @@ int main(void)
     test_fpu_start();
 #elif defined(JUSTRT_TEST_RACE)
     test_race_start();
+#elif defined(JUSTRT_TEST_TIMER_SERVICE)
+    test_timer_service_start();
 #else
     simple_example_start();
 #endif

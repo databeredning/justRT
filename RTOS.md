@@ -250,4 +250,7 @@ auxiliary value, and tick before stopping with interrupts masked.
 - Fault handling records state and stops; it does not recover or reset.
 - Timer callbacks run serially in the priority-1 kernel timer-service task and
   must not block, delay, or wait for synchronization.
+- `JRT_TimerTakeExpirations()` remains available for callback-less polling
+  timers. `JRT_TimerDispatch()` remains as a compatibility API; calling it
+  explicitly executes claimed callbacks synchronously in the calling context.
 - QEMU cannot exercise MPU isolation or floating-point context switching.

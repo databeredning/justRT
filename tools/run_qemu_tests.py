@@ -102,6 +102,24 @@ TESTS = (
             "g_test_race.error_code",
         ),
     ),
+    TestCase(
+        "timer_service",
+        "g_test_timer_service.result",
+        (
+            "g_test_timer_service.one_shot_callbacks",
+            "g_test_timer_service.periodic_callbacks",
+            "g_test_timer_service.accumulated_first_callbacks",
+            "g_test_timer_service.accumulated_second_callbacks",
+            "g_test_timer_service.restart_callbacks",
+            "g_test_timer_service.starter_callbacks",
+            "g_test_timer_service.target_callbacks",
+            "g_test_timer_service.polling_expirations",
+            "g_test_timer_service.compatibility_callbacks",
+            "g_test_timer_service.context_checks",
+            "g_test_timer_service.callback_task_index",
+            "g_test_timer_service.error_code",
+        ),
+    ),
 )
 
 KERNEL_DIAGNOSTICS = (

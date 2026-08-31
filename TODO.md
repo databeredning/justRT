@@ -1,6 +1,6 @@
 # RTOS Roadmap
 
-## Current milestone: kernel timer service task
+## Completed milestone: kernel timer service task
 
 Dispatch software-timer callbacks automatically from a kernel-owned task so
 applications no longer need to poll expirations or call
@@ -27,7 +27,7 @@ applications no longer need to poll expirations or call
      their own timer or another timer.
 
 3. API transition
-   - [ ] Keep expiration polling available for timers without callbacks.
+   - [x] Keep expiration polling available for timers without callbacks.
    - [x] Decide whether `JRT_TimerDispatch()` remains as a compatibility API
      or becomes kernel-internal.
    - [x] Document callback execution context, ordering, and blocking rules.
@@ -64,17 +64,17 @@ applications no longer need to poll expirations or call
   rely on automatic service-task dispatch for timers with callbacks.
 
 4. Regression coverage
-   - [ ] Add a terminating timer-service regression profile.
-   - [ ] Cover one-shot and periodic callbacks, multiple pending expirations,
+   - [x] Add a terminating timer-service regression profile.
+   - [x] Cover one-shot and periodic callbacks, multiple pending expirations,
      callback reconfiguration, and concurrent stop/restart operations.
-   - [ ] Verify callback execution is task context and does not occur while a
+   - [x] Verify callback execution is task context and does not occur while a
      kernel critical section is held.
-   - [ ] Add the profile to QEMU and S32K312 automated runners.
+   - [x] Add the profile to QEMU and S32K312 automated runners.
 
 5. Cross-target validation
-   - [ ] Run `make qemu-test` with the timer-service profile enabled.
-   - [ ] Run the complete S32K312 `make auto-test` hardware suite.
-   - [ ] Confirm no fault, invariant, stack, or lost-expiration diagnostics.
+   - [x] Run `make qemu-test` with the timer-service profile enabled.
+   - [x] Run the complete S32K312 `make auto-test` hardware suite.
+   - [x] Confirm no fault, invariant, stack, or lost-expiration diagnostics.
 
 ## Completed milestone: QEMU regression target
 

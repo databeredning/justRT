@@ -127,6 +127,24 @@ TESTS = (
             "g_test_race.error_code",
         ),
     ),
+    TestCase(
+        "timer_service",
+        "g_test_timer_service.result",
+        (
+            "g_test_timer_service.one_shot_callbacks",
+            "g_test_timer_service.periodic_callbacks",
+            "g_test_timer_service.accumulated_first_callbacks",
+            "g_test_timer_service.accumulated_second_callbacks",
+            "g_test_timer_service.restart_callbacks",
+            "g_test_timer_service.starter_callbacks",
+            "g_test_timer_service.target_callbacks",
+            "g_test_timer_service.polling_expirations",
+            "g_test_timer_service.compatibility_callbacks",
+            "g_test_timer_service.context_checks",
+            "g_test_timer_service.callback_task_index",
+            "g_test_timer_service.error_code",
+        ),
+    ),
 )
 
 RESULT_RE = re.compile(
@@ -142,6 +160,11 @@ KERNEL_DIAGNOSTICS = (
     "g_kernel_invariant_aux",
     "g_kernel_invariant_tick",
     "g_fault_active",
+    "g_stack_fault",
+    "g_stack_fault_task",
+    "g_stack_fault_sp",
+    "g_context_switches",
+    "g_kernel_ticks",
 )
 
 
@@ -390,7 +413,8 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
 
         ok = (done != 0 and state == 2 and failed == 0
               and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
-              and diagnostic_values.get("g_fault_active", 0) == 0)
+              and diagnostic_values.get("g_fault_active", 0) == 0
+              and diagnostic_values.get("g_stack_fault", 0) == 0)
         summary = f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
 
         useful = ", ".join(f"{name}={value}" for name, value in diagnostics if value != 0)

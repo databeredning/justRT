@@ -34,6 +34,7 @@ make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
 make -B TEST=race
+make -B TEST=timer_service
 ```
 
 Build the QEMU Cortex-M3 target with:
@@ -74,8 +75,8 @@ and race diagnostics. The continuous `simple` example is intentionally not
 part of the terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
-`mutex`, and `race` profiles, including result, fault, invariant, stack,
-scheduler, and tick diagnostics:
+`mutex`, `race`, and `timer_service` profiles, including result, fault,
+invariant, stack, scheduler, and tick diagnostics:
 
 ```sh
 make qemu-test

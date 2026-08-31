@@ -26,6 +26,7 @@ void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
                           void *argument);
 void JRT_TimerStop(JRT_Timer_t *timer);
 uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer);
+/* Compatibility API: executes claimed callbacks in the calling context. */
 void JRT_TimerDispatch(JRT_Timer_t *timer);
 /* Kernel-internal tick processing. */
 void kernel_timer_tick(void);
