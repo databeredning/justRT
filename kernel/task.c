@@ -53,6 +53,12 @@ volatile uint32_t g_stack_fault KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_task KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_sp KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_ticks KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_active KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_code KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_task KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_object KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_aux KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_kernel_invariant_tick KERNEL_PRIVILEGED_DATA = 0U;
 static idle_task_storage_t idle_task_storage JRT_TASK_UNPRIVILEGED_DATA;
 static task_t tasks[JRT_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
@@ -798,6 +804,76 @@ int task_wake(void *object, task_wait_kind_t wait_kind)
     return (task_wake_get_id(object, wait_kind) != UINT32_MAX) ? 1 : 0;
 }
 
+static void kernel_invariant_fail(uint32_t code, uint32_t task_id,
+                                  uintptr_t object, uint32_t aux)
+{
+    g_kernel_invariant_code = code;
+    g_kernel_invariant_task = task_id;
+    g_kernel_invariant_object = (uint32_t)object;
+    g_kernel_invariant_aux = aux;
+    g_kernel_invariant_tick = g_kernel_ticks;
+    g_kernel_invariant_active = 1U;
+    while (1)
+    {
+    }
+}
+
+/* Caller holds the kernel critical section. */
+static void kernel_check_invariants_locked(void)
+{
+    uint32_t index;
+    uint32_t code;
+    uintptr_t object = 0U;
+
+    for (index = 0U; index < task_count; index++)
+    {
+        task_t *task = &tasks[index];
+
+        if (task->state > JRT_TASK_STATE_BLOCKED)
+        {
+            kernel_invariant_fail(JRT_INVARIANT_TASK_STATE, index,
+                                  (uintptr_t)task, task->state);
+        }
+        if (task->state == JRT_TASK_STATE_BLOCKED)
+        {
+            if (task->wait_object == 0U)
+            {
+                kernel_invariant_fail(JRT_INVARIANT_BLOCKED_WAIT_OBJECT,
+                                      index, (uintptr_t)task,
+                                      (uint32_t)task->wait_kind);
+            }
+            if ((task->wait_kind == TASK_WAIT_NONE)
+                || (task->wait_kind > TASK_WAIT_EVENT_GROUP))
+            {
+                kernel_invariant_fail(JRT_INVARIANT_BLOCKED_WAIT_KIND,
+                                      index, (uintptr_t)task,
+                                      (uint32_t)task->wait_kind);
+            }
+        }
+        else if ((task->wait_object != 0U)
+                 || (task->wait_kind != TASK_WAIT_NONE)
+                 || (task->wait_start != 0U)
+                 || (task->wait_deadline != 0U)
+                 || (task->wait_forever != 0U))
+        {
+            kernel_invariant_fail(JRT_INVARIANT_NONBLOCKED_WAIT_METADATA,
+                                  index, (uintptr_t)task,
+                                  (uint32_t)task->wait_kind);
+        }
+    }
+
+    code = sync_invariant_check(task_count, &object);
+    if (code != JRT_INVARIANT_NONE)
+    {
+        kernel_invariant_fail(code, UINT32_MAX, object, 0U);
+    }
+    code = timer_invariant_check(&object);
+    if (code != JRT_INVARIANT_NONE)
+    {
+        kernel_invariant_fail(code, UINT32_MAX, object, 0U);
+    }
+}
+
 void tick_tasks(void)
 {
     uint32_t saved_primask = arch_critical_enter();
@@ -860,6 +936,8 @@ void tick_tasks(void)
                 }
         }
     }
+
+    kernel_check_invariants_locked();
 
     arch_critical_exit(saved_primask);
 }
@@ -1032,6 +1110,12 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     g_wait_timeout_queue_send = 0U;
     g_wait_timeout_queue_receive = 0U;
     g_wait_timeout_mutex = 0U;
+    g_kernel_invariant_active = 0U;
+    g_kernel_invariant_code = JRT_INVARIANT_NONE;
+    g_kernel_invariant_task = 0U;
+    g_kernel_invariant_object = 0U;
+    g_kernel_invariant_aux = 0U;
+    g_kernel_invariant_tick = 0U;
     current_task->state = JRT_TASK_STATE_RUNNING;
     kernel_initialized = 1U;
     return JRT_STATUS_OK;

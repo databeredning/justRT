@@ -15,6 +15,33 @@ volatile uint32_t g_isr_queue_send_attempted KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_isr_queue_send_accepted KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_isr_queue_send_dropped KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_isr_queue_count_high_water KERNEL_PRIVILEGED_DATA;
+static JRT_Mutex_t *mutex_list KERNEL_PRIVILEGED_DATA;
+
+/* Caller holds the kernel critical section. */
+static int mutex_is_linked_locked(const JRT_Mutex_t *mutex)
+{
+    JRT_Mutex_t *current = mutex_list;
+
+    while (current != 0U)
+    {
+        if (current == mutex)
+        {
+            return 1;
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
+/* Caller holds the kernel critical section. */
+static void mutex_link_locked(JRT_Mutex_t *mutex)
+{
+    if (mutex_is_linked_locked(mutex) == 0)
+    {
+        mutex->next = mutex_list;
+        mutex_list = mutex;
+    }
+}
 
 static void count_context_misuse(volatile uint32_t *counter)
 {
@@ -98,11 +125,62 @@ void JRT_SemaphoreGiveFromISR(JRT_Semaphore_t *semaphore)
 void JRT_MutexCreateRecursiveStatic(JRT_Mutex_t *mutex)
 {
     uint32_t saved_primask = arch_critical_enter();
+    JRT_Mutex_t *next;
+    int linked;
 
+    linked = mutex_is_linked_locked(mutex);
+    next = (linked != 0) ? mutex->next : 0U;
     mutex->locked = 0U;
     mutex->owner = UINT32_MAX;
     mutex->recursion = 0U;
+    mutex->next = next;
+    mutex_link_locked(mutex);
     arch_critical_exit(saved_primask);
+}
+
+uint32_t sync_invariant_check(uint32_t configured_task_count,
+                              uintptr_t *object)
+{
+    JRT_Mutex_t *slow = mutex_list;
+    JRT_Mutex_t *fast = mutex_list;
+    JRT_Mutex_t *mutex;
+
+    while ((fast != 0U) && (fast->next != 0U))
+    {
+        slow = slow->next;
+        fast = fast->next->next;
+        if (slow == fast)
+        {
+            *object = (uintptr_t)slow;
+            return JRT_INVARIANT_MUTEX_LIST_CYCLE;
+        }
+    }
+
+    for (mutex = mutex_list; mutex != 0U; mutex = mutex->next)
+    {
+        if (mutex->locked == 0U)
+        {
+            if ((mutex->owner != UINT32_MAX) || (mutex->recursion != 0U))
+            {
+                *object = (uintptr_t)mutex;
+                return JRT_INVARIANT_MUTEX_UNLOCKED_STATE;
+            }
+        }
+        else
+        {
+            if (mutex->owner >= configured_task_count)
+            {
+                *object = (uintptr_t)mutex;
+                return JRT_INVARIANT_MUTEX_OWNER;
+            }
+            if (mutex->recursion == 0U)
+            {
+                *object = (uintptr_t)mutex;
+                return JRT_INVARIANT_MUTEX_RECURSION;
+            }
+        }
+    }
+    return JRT_INVARIANT_NONE;
 }
 
 int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)

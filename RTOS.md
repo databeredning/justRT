@@ -194,7 +194,9 @@ Tests:
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
-`g_svc_invalid_context`.
+`g_svc_invalid_context`. Kernel invariant failures set
+`g_kernel_invariant_active` and record the invariant code, task, object,
+auxiliary value, and tick before stopping with interrupts masked.
 
 ## Current Limitations
 

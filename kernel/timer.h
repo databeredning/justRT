@@ -29,5 +29,7 @@ uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer);
 void JRT_TimerDispatch(JRT_Timer_t *timer);
 /* Kernel-internal tick processing. */
 void kernel_timer_tick(void);
+/* Kernel-internal invariant validation. Caller holds a critical section. */
+uint32_t timer_invariant_check(uintptr_t *object);
 
 #endif

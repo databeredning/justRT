@@ -134,6 +134,16 @@ RESULT_RE = re.compile(
 )
 DIAG_RE = re.compile(r"JUSTRT_DIAG ([^=]+)=(\d+)")
 
+KERNEL_DIAGNOSTICS = (
+    "g_kernel_invariant_active",
+    "g_kernel_invariant_code",
+    "g_kernel_invariant_task",
+    "g_kernel_invariant_object",
+    "g_kernel_invariant_aux",
+    "g_kernel_invariant_tick",
+    "g_fault_active",
+)
+
 
 def executable_exists(command: str) -> bool:
     p = Path(command)
@@ -248,6 +258,10 @@ def gdb_script(test: TestCase, verbose: bool) -> str:
         # write done=0; the GDB condition filters those writes automatically.
         f"watch {r}.done",
         f"condition $bpnum {r}.done != 0",
+        "watch g_kernel_invariant_active",
+        "condition $bpnum g_kernel_invariant_active != 0",
+        "watch g_fault_active",
+        "condition $bpnum g_fault_active != 0",
         'printf "JUSTRT: completion watchpoint installed\\n"',
 
         # J-Link GDB Server accepts "monitor reset"; avoid the OpenOCD-style
@@ -259,13 +273,15 @@ def gdb_script(test: TestCase, verbose: bool) -> str:
         # If execution stops for some unrelated reason, report it clearly.
         f"if {r}.done == 0",
         '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
+        '  printf "JUSTRT_INVARIANT active=%u code=%u task=%u object=%u aux=%u tick=%u\\n", g_kernel_invariant_active, g_kernel_invariant_code, g_kernel_invariant_task, g_kernel_invariant_object, g_kernel_invariant_aux, g_kernel_invariant_tick',
+        '  printf "JUSTRT_FAULT active=%u\\n", g_fault_active',
         "  x/i $pc",
         "  info registers pc lr sp xpsr",
         "  bt",
         "else",
         f'  printf "JUSTRT_RESULT state=%u runs=%u pass=%u fail=%u done=%u\\n", {r}.state, {r}.runs, {r}.pass, {r}.fail, {r}.done',
     ]
-    for expr in test.diagnostic_exprs:
+    for expr in test.diagnostic_exprs + KERNEL_DIAGNOSTICS:
         lines.append(f'  printf "JUSTRT_DIAG {expr}=%u\\n", {expr}')
     lines.extend(["end", "monitor halt", "quit"])
     return "\n".join(lines) + "\n"
@@ -370,8 +386,11 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
 
         state, runs, passed, failed, done = map(int, match.groups())
         diagnostics = [(name, int(value)) for name, value in DIAG_RE.findall(output)]
+        diagnostic_values = dict(diagnostics)
 
-        ok = done != 0 and state == 2 and failed == 0
+        ok = (done != 0 and state == 2 and failed == 0
+              and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
+              and diagnostic_values.get("g_fault_active", 0) == 0)
         summary = f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
 
         useful = ", ".join(f"{name}={value}" for name, value in diagnostics if value != 0)

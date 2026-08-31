@@ -43,10 +43,10 @@ kernel API.
    - [x] Expose explicit result and race diagnostics to the debugger.
 
 6. Kernel invariants and diagnostics
-   - Detect impossible states such as a blocked task without a wait object, an
+   - [x] Detect impossible states such as a blocked task without a wait object, an
      invalid mutex owner, duplicate timer-list links, or a READY task retaining
      wait metadata.
-   - Record enough state for post-failure debugger inspection before stopping.
+   - [x] Record enough state for post-failure debugger inspection before stopping.
 
 ## Follow-on milestones
 

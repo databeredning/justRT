@@ -125,6 +125,21 @@ typedef struct
 	volatile uint32_t bits;
 } JRT_EventGroup_t;
 
+typedef enum
+{
+	JRT_INVARIANT_NONE = 0U,
+	JRT_INVARIANT_TASK_STATE,
+	JRT_INVARIANT_BLOCKED_WAIT_OBJECT,
+	JRT_INVARIANT_BLOCKED_WAIT_KIND,
+	JRT_INVARIANT_NONBLOCKED_WAIT_METADATA,
+	JRT_INVARIANT_MUTEX_LIST_CYCLE,
+	JRT_INVARIANT_MUTEX_UNLOCKED_STATE,
+	JRT_INVARIANT_MUTEX_OWNER,
+	JRT_INVARIANT_MUTEX_RECURSION,
+	JRT_INVARIANT_TIMER_LIST_CYCLE,
+	JRT_INVARIANT_TIMER_PERIODIC_STATE
+} JRT_KernelInvariantCode_t;
+
 JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config) KERNEL_PRIVILEGED;
 void JRT_KernelStart(void) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state) KERNEL_PRIVILEGED;
@@ -207,6 +222,12 @@ extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
 extern volatile uint32_t g_kernel_ticks;
+extern volatile uint32_t g_kernel_invariant_active;
+extern volatile uint32_t g_kernel_invariant_code;
+extern volatile uint32_t g_kernel_invariant_task;
+extern volatile uint32_t g_kernel_invariant_object;
+extern volatile uint32_t g_kernel_invariant_aux;
+extern volatile uint32_t g_kernel_invariant_tick;
 extern volatile uint32_t g_svc_invalid_service;
 extern volatile uint32_t g_svc_invalid_context;
 

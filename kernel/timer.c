@@ -214,3 +214,32 @@ void kernel_timer_tick(void)
         timer = timer->next;
     }
 }
+
+uint32_t timer_invariant_check(uintptr_t *object)
+{
+    JRT_Timer_t *slow = timer_list;
+    JRT_Timer_t *fast = timer_list;
+    JRT_Timer_t *timer;
+
+    while ((fast != 0U) && (fast->next != 0U))
+    {
+        slow = slow->next;
+        fast = fast->next->next;
+        if (slow == fast)
+        {
+            *object = (uintptr_t)slow;
+            return JRT_INVARIANT_TIMER_LIST_CYCLE;
+        }
+    }
+
+    for (timer = timer_list; timer != 0U; timer = timer->next)
+    {
+        if (((timer->periodic != 0U) && (timer->period == 0U))
+            || ((timer->periodic == 0U) && (timer->period != 0U)))
+        {
+            *object = (uintptr_t)timer;
+            return JRT_INVARIANT_TIMER_PERIODIC_STATE;
+        }
+    }
+    return JRT_INVARIANT_NONE;
+}
