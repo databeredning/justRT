@@ -80,7 +80,11 @@ enum
 #define MPU_UNPRIVILEGED_SVC_REGION 3U
 #define MPU_UNPRIVILEGED_RODATA_REGION 4U
 #define MPU_UNPRIVILEGED_DATA_REGION 5U
-#define MPU_GUARD_REGION_FIRST 8U
+#define MPU_GUARD_REGION_FIRST 6U
+#define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
+
+_Static_assert(MPU_GUARD_REGION_COUNT == ARCH_MPU_GUARD_REGION_COUNT,
+               "MPU guard-region count must match the port contract");
 
 extern uint8_t __unprivileged_functions_start[];
 extern uint8_t __unprivileged_functions_end[];

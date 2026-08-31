@@ -36,11 +36,10 @@ static const JRT_TaskDefinition_t tasks[] = {
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage is sized separately for up to
 `JRT_MAX_KERNEL_TASKS` kernel-owned tasks in addition to those applications;
-currently only the idle task is created internally. The current S32K312 MPU
-layout still limits a running configuration to eight guarded tasks until its
-guard-region expansion is implemented. States are `READY`, `RUNNING`,
-`SLEEPING`, and `BLOCKED`. Higher numeric priorities run first; equal
-priorities are selected round-robin.
+currently only the idle task is created internally. The S32K312 MPU assigns
+regions 6-15 to ten stack guards, matching the total scheduler capacity.
+States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
+priorities run first; equal priorities are selected round-robin.
 
 Each task supplies a statically allocated stack whose size is selected by the
 application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that
@@ -144,7 +143,7 @@ The S32K312 target enables the MPU and installs this static map:
 | 3 | `.unprivileged_svc` | Read/execute both privilege levels |
 | 4 | `.unprivileged_rodata` | Read-only, XN |
 | 5 | `.unprivileged_task_data` | Read/write, XN |
-| 8-15 | Per-task stack guards | No access, XN |
+| 6-15 | Per-task stack guards | No access, XN |
 
 Higher region numbers override lower ones. The linker aligns the explicit
 unprivileged sections to MPU-compatible boundaries. `PRIVDEFENA` remains set

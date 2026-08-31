@@ -10,7 +10,7 @@ applications no longer need to poll expirations or call
    - [x] Separate the public application-task limit from internal scheduler
      task-table capacity.
    - [ ] Add a statically allocated kernel timer-service task and stack.
-   - [ ] Reserve its task-table and stack-guard capacity without reducing the
+   - [x] Reserve its task-table and stack-guard capacity without reducing the
      documented application-task limit unexpectedly.
    - [ ] Define its priority relative to application and idle tasks.
 

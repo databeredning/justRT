@@ -36,8 +36,8 @@
  * already fully arch-owned.
  */
 
-/* Number of MPU regions available for per-task stack guards on this port. */
-#define ARCH_MPU_GUARD_REGION_COUNT 8U
+/* Number of statically guarded scheduler stacks supported by this port. */
+#define ARCH_MPU_GUARD_REGION_COUNT 10U
 
 /* CONTROL register value requesting privileged Thread-mode execution. */
 #define ARCH_LAUNCH_PRIVILEGED 2U
