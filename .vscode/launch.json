@@ -41,6 +41,18 @@
           "enabled": true,
           "samplesPerSecond": 4
         }
+      },
+      {
+        "name": "QEMU: Attach justRT",
+        "type": "cortex-debug",
+        "request": "attach",
+        "servertype": "external",
+        "gdbTarget": "localhost:1234",
+        "cwd": "${workspaceFolder}",
+        "executable": "${workspaceFolder}/bin/qemu-mps2-an385/justrt.elf",
+        "armToolchainPath": "C:/devtools/gcc/gcc-10.2-arm32-eabi/bin",
+        "runToEntryPoint": "main",
+        "showDevDebugOutput": "none"
       }
    ]
 }

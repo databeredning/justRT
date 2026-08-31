@@ -40,9 +40,14 @@ Build the QEMU Cortex-M3 target with:
 
 ```sh
 make -B TARGET=qemu-mps2-an385 TEST=simple
-qemu-system-arm -M mps2-an385 -cpu cortex-m3 \
-  -kernel bin/qemu-mps2-an385/justrt.elf -nographic
+qemu-system-arm -M mps2-an385 -cpu cortex-m3 -kernel bin/qemu-mps2-an385/justrt.elf -nographic -S -gdb tcp::1234
 ```
+
+QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
+`QEMU: Attach justRT` in VS Code and start debugging to continue execution.
+
+To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
+press `X`.
 
 Build artifacts are kept separately under `bin/` and `obj/` so switching
 targets cannot reuse objects compiled for another CPU.

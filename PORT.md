@@ -136,12 +136,16 @@ It uses Cortex-M3 flags, `JRT_ARCH_HAS_MPU=0`, and
 
 ```sh
 make -B TARGET=qemu-mps2-an385 TEST=simple
-qemu-system-arm -M mps2-an385 -cpu cortex-m3 \
-  -kernel bin/qemu-mps2-an385/justrt.elf -nographic
+qemu-system-arm -M mps2-an385 -cpu cortex-m3 -kernel bin/qemu-mps2-an385/justrt.elf -nographic -S -gdb tcp::1234
 ```
 
-Add `-S -gdb tcp::1234` to pause at reset and expose QEMU's GDB stub, then
-attach with `target remote :1234`. Manual bring-up has confirmed increasing
+QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
+`QEMU: Attach justRT` in VS Code and start debugging to continue execution.
+
+To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
+press `X`.
+
+Manual bring-up has confirmed increasing
 ticks and context switches, execution of both `simple` tasks, and no recorded
 fault or invariant failure.
 
