@@ -33,9 +33,14 @@ static const JRT_TaskDefinition_t tasks[] = {
 };
 ```
 
-The kernel supports up to seven application tasks plus one idle task. States
-are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric priorities
-run first; equal priorities are selected round-robin.
+The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
+application tasks. Scheduler storage is sized separately for up to
+`JRT_MAX_KERNEL_TASKS` kernel-owned tasks in addition to those applications;
+currently only the idle task is created internally. The current S32K312 MPU
+layout still limits a running configuration to eight guarded tasks until its
+guard-region expansion is implemented. States are `READY`, `RUNNING`,
+`SLEEPING`, and `BLOCKED`. Higher numeric priorities run first; equal
+priorities are selected round-robin.
 
 Each task supplies a statically allocated stack whose size is selected by the
 application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that

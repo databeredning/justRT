@@ -4,6 +4,15 @@
 #include "timer.h"
 #include "cortex_m/port_contract.h"
 
+#define JRT_IDLE_TASK_COUNT 1U
+
+_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_IDLE_TASK_COUNT)
+               <= JRT_MAX_SCHEDULER_TASKS,
+               "scheduler table must include application and idle tasks");
+_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_IDLE_TASK_COUNT)
+               <= ARCH_MPU_GUARD_REGION_COUNT,
+               "MPU guards must cover the current maximum task count");
+
 typedef struct
 {
     uint32_t *stack_bottom;
@@ -60,7 +69,7 @@ volatile uint32_t g_kernel_invariant_object KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_aux KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_tick KERNEL_PRIVILEGED_DATA = 0U;
 static idle_task_storage_t idle_task_storage JRT_TASK_UNPRIVILEGED_DATA;
-static task_t tasks[JRT_MAX_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
+static task_t tasks[JRT_MAX_SCHEDULER_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
@@ -1052,17 +1061,23 @@ static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config,
 
 JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 {
+    uint32_t configured_total_task_count;
     uint32_t index;
 
     if (config == 0U || config->tasks == 0U || config->task_count == 0U)
     {
         return JRT_STATUS_INVALID_CONFIG;
     }
-    if ((config->task_count + 1U) > JRT_MAX_TASKS)
+    if (config->task_count > JRT_MAX_APPLICATION_TASKS)
     {
         return JRT_STATUS_TOO_MANY_TASKS;
     }
-    if ((config->task_count + 1U) > ARCH_MPU_GUARD_REGION_COUNT)
+    configured_total_task_count = config->task_count + JRT_IDLE_TASK_COUNT;
+    if (configured_total_task_count > JRT_MAX_SCHEDULER_TASKS)
+    {
+        return JRT_STATUS_TOO_MANY_TASKS;
+    }
+    if (configured_total_task_count > ARCH_MPU_GUARD_REGION_COUNT)
     {
         return JRT_STATUS_TOO_MANY_TASKS;
     }
@@ -1080,14 +1095,14 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         }
     }
 
-    task_count = config->task_count + 1U;
+    task_count = configured_total_task_count;
     for (index = 0U; index < config->task_count; index++)
     {
         prepare_task(index, &config->tasks[index]);
     }
     prepare_idle_task();
     {
-        void *guard_addresses[JRT_MAX_TASKS];
+        void *guard_addresses[JRT_MAX_SCHEDULER_TASKS];
         uint32_t guard_index;
 
         for (guard_index = 0U; guard_index < task_count; guard_index++)

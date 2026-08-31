@@ -1,5 +1,48 @@
 # RTOS Roadmap
 
+## Current milestone: kernel timer service task
+
+Dispatch software-timer callbacks automatically from a kernel-owned task so
+applications no longer need to poll expirations or call
+`JRT_TimerDispatch()` manually.
+
+1. Service-task ownership and scheduling
+   - [x] Separate the public application-task limit from internal scheduler
+     task-table capacity.
+   - [ ] Add a statically allocated kernel timer-service task and stack.
+   - [ ] Reserve its task-table and stack-guard capacity without reducing the
+     documented application-task limit unexpectedly.
+   - [ ] Define its priority relative to application and idle tasks.
+
+2. Expiry notification and callback dispatch
+   - [ ] Keep SysTick limited to recording expirations and waking the service
+     task; never execute callbacks in exception context.
+   - [ ] Drain pending callbacks without holding the kernel critical section
+     while application callback code runs.
+   - [ ] Preserve accumulated expirations and the existing stop/start/restart
+     race semantics.
+   - [ ] Define behavior when callbacks start, stop, restart, or reconfigure
+     their own timer or another timer.
+
+3. API transition
+   - [ ] Keep expiration polling available for timers without callbacks.
+   - [ ] Decide whether `JRT_TimerDispatch()` remains as a compatibility API
+     or becomes kernel-internal.
+   - [ ] Document callback execution context, ordering, and blocking rules.
+
+4. Regression coverage
+   - [ ] Add a terminating timer-service regression profile.
+   - [ ] Cover one-shot and periodic callbacks, multiple pending expirations,
+     callback reconfiguration, and concurrent stop/restart operations.
+   - [ ] Verify callback execution is task context and does not occur while a
+     kernel critical section is held.
+   - [ ] Add the profile to QEMU and S32K312 automated runners.
+
+5. Cross-target validation
+   - [ ] Run `make qemu-test` with the timer-service profile enabled.
+   - [ ] Run the complete S32K312 `make auto-test` hardware suite.
+   - [ ] Confirm no fault, invariant, stack, or lost-expiration diagnostics.
+
 ## Completed milestone: QEMU regression target
 
 Add a fast Cortex-M target for repeatable scheduler and kernel regression
@@ -74,10 +117,8 @@ further expansion of the kernel API.
 
 ## Follow-on milestones
 
-1. Add a kernel-owned timer service task so callbacks no longer require manual
-   task-side dispatch.
-2. Add per-task MPU data isolation.
-3. Consider task suspend/resume and other lifecycle APIs only after ownership
+1. Add per-task MPU data isolation.
+2. Consider task suspend/resume and other lifecycle APIs only after ownership
    and cleanup rules are defined.
 
 ## Validation
