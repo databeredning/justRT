@@ -27,18 +27,18 @@ kernel API.
    - [x] Verify timeout comparisons across the 32-bit tick-counter wraparound.
 
 4. Timer synchronization
-   - Protect timer creation, list insertion, callback changes, start, stop, and
+   - [x] Protect timer creation, list insertion, callback changes, start, stop, and
      restart against concurrent `kernel_timer_tick()` execution.
-   - Define behavior when a timer is stopped or restarted concurrently with an
+   - [x] Define behavior when a timer is stopped or restarted concurrently with an
      expiry.
-   - Keep callback execution out of SysTick context.
+   - [x] Keep callback execution out of SysTick context.
 
 5. Adversarial regression test
    - [x] Add the named `race` hardware test and automated-runner profile.
    - [x] Exercise semaphore give versus take enrollment.
    - [x] Exercise empty-queue receive and full-queue send enrollment.
    - [x] Exercise mutex unlock versus timeout.
-   - [ ] Exercise timer start/stop/restart versus expiry.
+   - [x] Exercise timer start/stop/restart versus expiry.
    - [x] Exercise tick-counter wraparound.
    - [x] Expose explicit result and race diagnostics to the debugger.
 

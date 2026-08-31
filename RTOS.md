@@ -145,7 +145,10 @@ for the privileged background map. Task privilege is selected by
 - Per-task accumulated notifications.
 - Event groups with wait-any, wait-all, and clear-on-exit options.
 - One-shot and periodic software timers. SysTick records expirations; task
-  code dispatches callbacks.
+  code dispatches callbacks. Timer configuration and expiry processing are
+  serialized by the kernel critical section. If expiry wins a race with stop,
+  start, or restart, that expiration remains pending while the later operation
+  controls the timer's next deadline.
 - Fixed-size memory pools protected by critical sections.
 
 Task waits convert relative tick timeouts to one absolute deadline when the API
@@ -202,5 +205,3 @@ Useful diagnostics include `g_fault_record`, `g_fault_active`,
 - MPU regions are static and use power-of-two ranges.
 - Fault handling records state and stops; it does not recover or reset.
 - Timer callbacks require explicit task-side dispatch.
-- Synchronization waits and timer list operations still require further
-  concurrency hardening.

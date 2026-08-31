@@ -23,6 +23,11 @@ typedef struct
     volatile uint32_t mutex_acquisitions;
     volatile uint32_t mutex_timeouts;
     volatile uint32_t mutex_post_timeout_acquisitions;
+    volatile uint32_t timer_stops_before_expiry;
+    volatile uint32_t timer_stops_after_expiry;
+    volatile uint32_t timer_restart_expirations;
+    volatile uint32_t timer_start_expirations;
+    volatile uint32_t timer_callbacks;
     volatile uint32_t wrap_start_tick;
     volatile uint32_t wrap_end_tick;
     volatile uint32_t wrap_elapsed_ticks;

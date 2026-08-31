@@ -1,11 +1,13 @@
 #include "kernel.h"
 #include "sync.h"
 #include "test_race.h"
+#include "timer.h"
 
 #define TEST_RACE_SEMAPHORE_ITERATIONS 4096U
 #define TEST_RACE_QUEUE_ITERATIONS 1024U
 #define TEST_RACE_QUEUE_SEND_ITERATIONS 512U
 #define TEST_RACE_MUTEX_ITERATIONS 512U
+#define TEST_RACE_TIMER_ITERATIONS 128U
 #define TEST_RACE_TIMEOUT_TICKS 3U
 #define TEST_RACE_WRAP_TIMEOUT_TICKS 5U
 #define TEST_RACE_SIGNAL_SEMAPHORE 1U
@@ -22,10 +24,21 @@ static JRT_Mutex_t test_race_mutex;
 static JRT_Semaphore_t test_race_mutex_start_gate;
 static JRT_Semaphore_t test_race_mutex_locked_gate;
 static JRT_Semaphore_t test_race_mutex_released_gate;
+static JRT_Timer_t test_race_timer;
 static volatile uint32_t test_race_signal_armed;
 static volatile uint32_t test_race_signal_kind;
 
 race_test_state_t g_test_race;
+
+static void test_race_timer_callback(void *argument)
+{
+    (void)argument;
+    if (kernel_in_isr() != 0)
+    {
+        g_test_race.error_code = 23U;
+    }
+    g_test_race.timer_callbacks++;
+}
 
 static void test_race_mutex_owner_task(void *argument)
 {
@@ -211,6 +224,72 @@ static void test_race_waiter_task(void *argument)
         g_test_race.result.runs++;
     }
 
+    for (iteration = 0U; iteration < TEST_RACE_TIMER_ITERATIONS; iteration++)
+    {
+        uint32_t before_callbacks;
+        uint32_t expirations;
+
+        JRT_TimerStart(&test_race_timer, 2U);
+        JRT_TimerStop(&test_race_timer);
+        JRT_TaskDelay(2U);
+        expirations = JRT_TimerTakeExpirations(&test_race_timer);
+        if (expirations != 0U)
+        {
+            g_test_race.error_code = 24U;
+        }
+        else
+        {
+            g_test_race.timer_stops_before_expiry++;
+        }
+
+        /* The tick records an expiry before this task runs.  Stopping after
+         * wake-up must retain that already-pending expiration. */
+        JRT_TimerStart(&test_race_timer, 1U);
+        JRT_TaskDelay(1U);
+        JRT_TimerStop(&test_race_timer);
+        expirations = JRT_TimerTakeExpirations(&test_race_timer);
+        if (expirations != 1U)
+        {
+            g_test_race.error_code = 25U;
+        }
+        else
+        {
+            g_test_race.timer_stops_after_expiry++;
+        }
+
+        /* Restart and start also retain an expiry already recorded on the
+         * boundary tick while scheduling the next deadline atomically. */
+        JRT_TimerStart(&test_race_timer, 1U);
+        JRT_TaskDelay(1U);
+        JRT_TimerRestart(&test_race_timer);
+        JRT_TaskDelay(1U);
+        expirations = JRT_TimerTakeExpirations(&test_race_timer);
+        if (expirations != 2U)
+        {
+            g_test_race.error_code = 26U;
+        }
+        else
+        {
+            g_test_race.timer_restart_expirations += expirations;
+        }
+
+        JRT_TimerStart(&test_race_timer, 1U);
+        JRT_TaskDelay(1U);
+        JRT_TimerStart(&test_race_timer, 2U);
+        JRT_TaskDelay(2U);
+        before_callbacks = g_test_race.timer_callbacks;
+        JRT_TimerDispatch(&test_race_timer);
+        if ((g_test_race.timer_callbacks - before_callbacks) != 2U)
+        {
+            g_test_race.error_code = 27U;
+        }
+        else
+        {
+            g_test_race.timer_start_expirations += 2U;
+        }
+        g_test_race.result.runs++;
+    }
+
     {
         uint32_t saved_critical = critical_enter();
 
@@ -304,6 +383,16 @@ static void test_race_waiter_task(void *argument)
         && g_test_race.mutex_timeouts == (TEST_RACE_MUTEX_ITERATIONS / 2U)
         && g_test_race.mutex_post_timeout_acquisitions
             == (TEST_RACE_MUTEX_ITERATIONS / 2U)
+        && g_test_race.timer_stops_before_expiry
+            == TEST_RACE_TIMER_ITERATIONS
+        && g_test_race.timer_stops_after_expiry
+            == TEST_RACE_TIMER_ITERATIONS
+        && g_test_race.timer_restart_expirations
+            == (TEST_RACE_TIMER_ITERATIONS * 2U)
+        && g_test_race.timer_start_expirations
+            == (TEST_RACE_TIMER_ITERATIONS * 2U)
+        && g_test_race.timer_callbacks
+            == (TEST_RACE_TIMER_ITERATIONS * 2U)
         && g_test_race.wrap_timeouts == 1U)
     {
         g_test_race.result.pass = 1U;
@@ -368,6 +457,11 @@ void test_race_start(void)
     g_test_race.mutex_acquisitions = 0U;
     g_test_race.mutex_timeouts = 0U;
     g_test_race.mutex_post_timeout_acquisitions = 0U;
+    g_test_race.timer_stops_before_expiry = 0U;
+    g_test_race.timer_stops_after_expiry = 0U;
+    g_test_race.timer_restart_expirations = 0U;
+    g_test_race.timer_start_expirations = 0U;
+    g_test_race.timer_callbacks = 0U;
     g_test_race.wrap_start_tick = 0U;
     g_test_race.wrap_end_tick = 0U;
     g_test_race.wrap_elapsed_ticks = 0U;
@@ -391,6 +485,8 @@ void test_race_start(void)
     JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_start_gate, 0U);
     JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_locked_gate, 0U);
     JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_released_gate, 0U);
+    JRT_TimerCreateStatic(&test_race_timer);
+    JRT_TimerSetCallback(&test_race_timer, test_race_timer_callback, 0U);
     if (JRT_QueueSend(&test_race_full_queue, &initial_value, 0U) == 0)
     {
         g_test_race.error_code = 12U;

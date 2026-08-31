@@ -66,7 +66,7 @@ $(OBJDIR)/tests/test_fpu.o: tests/test_fpu.c tests/test_fpu.h tests/test_common.
 $(OBJDIR)/tests/test_fpu_registers.o: tests/test_fpu_registers.s | $(OBJDIR)/tests
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(OBJDIR)/tests/test_race.o: tests/test_race.c tests/test_race.h tests/test_common.h kernel/kernel.h kernel/sync.h | $(OBJDIR)/tests
+$(OBJDIR)/tests/test_race.o: tests/test_race.c tests/test_race.h tests/test_common.h kernel/kernel.h kernel/sync.h kernel/timer.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/examples/simple.o: examples/simple.c examples/simple.h kernel/kernel.h | $(OBJDIR)/examples
