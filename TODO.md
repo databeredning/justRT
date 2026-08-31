@@ -11,10 +11,10 @@ applications no longer need to poll expirations or call
      while keeping kernel-owned task capacity private.
    - [x] Separate the public application-task limit from internal scheduler
      task-table capacity.
-   - [ ] Add a statically allocated kernel timer-service task and stack.
+   - [x] Add a statically allocated kernel timer-service task and stack.
    - [x] Reserve its task-table and stack-guard capacity without reducing the
      documented application-task limit unexpectedly.
-   - [ ] Define its priority relative to application and idle tasks.
+   - [x] Define its priority relative to application and idle tasks.
 
 2. Expiry notification and callback dispatch
    - [ ] Keep SysTick limited to recording expirations and waking the service
@@ -23,14 +23,45 @@ applications no longer need to poll expirations or call
      while application callback code runs.
    - [ ] Preserve accumulated expirations and the existing stop/start/restart
      race semantics.
-   - [ ] Define behavior when callbacks start, stop, restart, or reconfigure
+   - [x] Define behavior when callbacks start, stop, restart, or reconfigure
      their own timer or another timer.
 
 3. API transition
    - [ ] Keep expiration polling available for timers without callbacks.
-   - [ ] Decide whether `JRT_TimerDispatch()` remains as a compatibility API
+   - [x] Decide whether `JRT_TimerDispatch()` remains as a compatibility API
      or becomes kernel-internal.
-   - [ ] Document callback execution context, ordering, and blocking rules.
+   - [x] Document callback execution context, ordering, and blocking rules.
+
+### Timer-service execution contract
+
+- The kernel-owned timer-service task has priority 1, immediately above the
+  priority-0 idle task. Application tasks with priority greater than 1 preempt
+  timer callbacks; priority-1 application tasks share the processor with the
+  service task under the scheduler's normal round-robin rule.
+- Callbacks execute serially in privileged Thread mode on the timer-service
+  task's stack. They never execute in SysTick or while the kernel critical
+  section is held.
+- Callbacks must not block, delay, or wait for synchronization. A callback
+  should perform bounded work or notify an application task that owns the
+  longer-running operation. One callback that does not return prevents every
+  other timer callback from being dispatched.
+- Each recorded expiration with a non-null callback produces one callback
+  invocation. Delayed periodic expirations accumulate and are not collapsed.
+  Pending timers are scanned in timer-list order; no ordering guarantee is
+  provided between different timers that expire on the same tick.
+- The service task claims one invocation atomically by capturing the callback
+  and argument and consuming one pending expiration. It releases the critical
+  section before invoking the callback. Callback or argument changes affect
+  only invocations that have not yet been claimed.
+- Stopping a timer prevents future expirations but does not discard recorded
+  expirations or revoke an invocation already claimed by the service task.
+  Starting or restarting a timer sets its next deadline without discarding
+  recorded expirations. These rules also apply when a callback operates on
+  itself or another timer.
+- Timers without callbacks retain their expiration counts for
+  `JRT_TimerTakeExpirations()`. `JRT_TimerDispatch()` remains public during the
+  transition for source compatibility, although new application code should
+  rely on automatic service-task dispatch for timers with callbacks.
 
 4. Regression coverage
    - [ ] Add a terminating timer-service regression profile.

@@ -35,9 +35,10 @@ static const JRT_TaskDefinition_t tasks[] = {
 
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
-slots for kernel-owned tasks; currently only the idle task is created
-internally. The S32K312 MPU assigns regions 6-15 to ten stack guards, matching
-the total scheduler capacity.
+slots for kernel-owned tasks. The idle and timer-service tasks are created
+internally; the timer-service task remains blocked until callback dispatch is
+implemented. The S32K312 MPU assigns regions 6-15 to ten stack guards,
+matching the total scheduler capacity.
 States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
 priorities run first; equal priorities are selected round-robin.
 

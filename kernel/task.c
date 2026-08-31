@@ -5,16 +5,27 @@
 #include "cortex_m/port_contract.h"
 
 #define JRT_IDLE_TASK_COUNT 1U
+#define JRT_TIMER_SERVICE_TASK_COUNT 1U
+#define JRT_INTERNAL_TASK_COUNT \
+    (JRT_IDLE_TASK_COUNT + JRT_TIMER_SERVICE_TASK_COUNT)
 #define JRT_MAX_KERNEL_TASKS 3U
 #define JRT_MAX_SCHEDULER_TASKS \
     (JRT_MAX_APPLICATION_TASKS + JRT_MAX_KERNEL_TASKS)
+#define JRT_TIMER_SERVICE_PRIORITY 1U
+#define JRT_TIMER_SERVICE_STACK_WORDS 128U
 
-_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_IDLE_TASK_COUNT)
+_Static_assert(JRT_INTERNAL_TASK_COUNT <= JRT_MAX_KERNEL_TASKS,
+               "kernel task reservation must cover internal tasks");
+_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_INTERNAL_TASK_COUNT)
                <= JRT_MAX_SCHEDULER_TASKS,
-               "scheduler table must include application and idle tasks");
-_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_IDLE_TASK_COUNT)
+               "scheduler table must include application and internal tasks");
+_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_INTERNAL_TASK_COUNT)
                <= ARCH_MPU_GUARD_REGION_COUNT,
                "MPU guards must cover the current maximum task count");
+_Static_assert(JRT_TIMER_SERVICE_STACK_WORDS >= JRT_MINIMUM_TASK_STACK_WORDS,
+               "timer-service stack is too small");
+_Static_assert((JRT_TIMER_SERVICE_STACK_WORDS & 1U) == 0U,
+               "timer-service stack must preserve 8-byte alignment");
 
 typedef struct
 {
@@ -50,6 +61,12 @@ typedef struct __attribute__((aligned(32)))
     uint32_t stack[JRT_IDLE_STACK_WORDS];
 } idle_task_storage_t;
 
+typedef struct __attribute__((aligned(32)))
+{
+    uint32_t guard[JRT_TASK_GUARD_WORDS];
+    uint32_t stack[JRT_TIMER_SERVICE_STACK_WORDS];
+} timer_service_task_storage_t;
+
 volatile uint32_t g_current_task_index KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_idle_kicks KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_context_switches KERNEL_PRIVILEGED_DATA = 0U;
@@ -72,6 +89,9 @@ volatile uint32_t g_kernel_invariant_object KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_aux KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_tick KERNEL_PRIVILEGED_DATA = 0U;
 static idle_task_storage_t idle_task_storage JRT_TASK_UNPRIVILEGED_DATA;
+static timer_service_task_storage_t timer_service_task_storage
+    JRT_TASK_UNPRIVILEGED_DATA;
+static uint32_t timer_service_wait_object KERNEL_PRIVILEGED_DATA;
 static task_t tasks[JRT_MAX_SCHEDULER_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
@@ -445,6 +465,15 @@ static void idle_body(void *argument)
     }
 }
 
+static void timer_service_body(void *argument)
+{
+    (void)argument;
+    while (1)
+    {
+        arch_wait_for_interrupt();
+    }
+}
+
 static void prepare_task(uint32_t index, const JRT_TaskDefinition_t *definition)
 {
     uint32_t *stack_bottom = definition->stack_buffer;
@@ -488,6 +517,29 @@ static void prepare_idle_task(void)
     tasks[idle_index].name = "idle";
     tasks[idle_index].flags = 0U;
     task_wait_reset(&tasks[idle_index]);
+}
+
+static void prepare_timer_service_task(uint32_t index)
+{
+    task_t *task = &tasks[index];
+
+    fill_stack(&timer_service_task_storage.stack[0],
+               &timer_service_task_storage.stack[JRT_TIMER_SERVICE_STACK_WORDS]);
+    task->stack_bottom = &timer_service_task_storage.stack[0];
+    task->stack_top =
+        &timer_service_task_storage.stack[JRT_TIMER_SERVICE_STACK_WORDS];
+    task->sp = build_initial_stack(task->stack_top, timer_service_body, 0U);
+    task->minimum_sp = task->sp;
+    task->high_water_words = JRT_INITIAL_STACK_USED_WORDS;
+    task->entry = timer_service_body;
+    task->argument = 0U;
+    task->priority = JRT_TIMER_SERVICE_PRIORITY;
+    task->base_priority = JRT_TIMER_SERVICE_PRIORITY;
+    task->name = "timer-service";
+    task->flags = 0U;
+    task_wait_reset(task);
+    task_wait_begin(task, &timer_service_wait_object, TASK_WAIT_TIMER_SERVICE,
+                    JRT_WAIT_FOREVER);
 }
 
 static int event_condition(uint32_t current, uint32_t requested, uint32_t wait_all)
@@ -855,7 +907,7 @@ static void kernel_check_invariants_locked(void)
                                       (uint32_t)task->wait_kind);
             }
             if ((task->wait_kind == TASK_WAIT_NONE)
-                || (task->wait_kind > TASK_WAIT_EVENT_GROUP))
+                || (task->wait_kind > TASK_WAIT_TIMER_SERVICE))
             {
                 kernel_invariant_fail(JRT_INVARIANT_BLOCKED_WAIT_KIND,
                                       index, (uintptr_t)task,
@@ -1075,7 +1127,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     {
         return JRT_STATUS_TOO_MANY_TASKS;
     }
-    configured_total_task_count = config->task_count + JRT_IDLE_TASK_COUNT;
+    configured_total_task_count = config->task_count + JRT_INTERNAL_TASK_COUNT;
     if (configured_total_task_count > JRT_MAX_SCHEDULER_TASKS)
     {
         return JRT_STATUS_TOO_MANY_TASKS;
@@ -1103,6 +1155,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     {
         prepare_task(index, &config->tasks[index]);
     }
+    prepare_timer_service_task(config->task_count);
     prepare_idle_task();
     {
         void *guard_addresses[JRT_MAX_SCHEDULER_TASKS];
@@ -1110,10 +1163,21 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 
         for (guard_index = 0U; guard_index < task_count; guard_index++)
         {
-            guard_addresses[guard_index] =
-                (guard_index < config->task_count)
-                    ? config->tasks[guard_index].stack_guard
-                    : (void *)&idle_task_storage.guard[0];
+            if (guard_index < config->task_count)
+            {
+                guard_addresses[guard_index] =
+                    config->tasks[guard_index].stack_guard;
+            }
+            else if (guard_index == config->task_count)
+            {
+                guard_addresses[guard_index] =
+                    (void *)&timer_service_task_storage.guard[0];
+            }
+            else
+            {
+                guard_addresses[guard_index] =
+                    (void *)&idle_task_storage.guard[0];
+            }
         }
         arch_configure_mpu(guard_addresses, task_count);
     }
