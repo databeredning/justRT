@@ -107,6 +107,7 @@ void JRT_MutexCreateRecursiveStatic(JRT_Mutex_t *mutex)
 int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)
 {
     uint32_t current_index = task_current_index();
+    uint32_t saved_primask;
 
     if (arch_in_isr() != 0)
     {
@@ -114,36 +115,32 @@ int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)
         return 0;
     }
 
-    while (1)
+    saved_primask = arch_critical_enter();
+
+    if (mutex->locked == 0U)
     {
-        uint32_t saved_primask = arch_critical_enter();
-
-        if (mutex->locked == 0U)
-        {
-            mutex->locked = 1U;
-            mutex->owner = current_index;
-            mutex->recursion = 1U;
-            arch_critical_exit(saved_primask);
-            return 1;
-        }
-        if (mutex->owner == current_index)
-        {
-            mutex->recursion++;
-            arch_critical_exit(saved_primask);
-            return 1;
-        }
-        task_inherit_priority(mutex->owner, task_current_priority());
+        mutex->locked = 1U;
+        mutex->owner = current_index;
+        mutex->recursion = 1U;
         arch_critical_exit(saved_primask);
-
-        if (timeout_ticks == 0U)
-        {
-            return 0;
-        }
-        if (task_block(mutex, TASK_WAIT_MUTEX, timeout_ticks) == 0)
-        {
-            return 0;
-        }
+        return 1;
     }
+    if (mutex->owner == current_index)
+    {
+        mutex->recursion++;
+        arch_critical_exit(saved_primask);
+        return 1;
+    }
+
+    if (timeout_ticks == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return 0;
+    }
+
+    task_inherit_priority(mutex->owner, task_current_priority());
+    return task_block_locked(mutex, TASK_WAIT_MUTEX, timeout_ticks,
+                             saved_primask);
 }
 
 int JRT_MutexUnlock(JRT_Mutex_t *mutex)
@@ -156,6 +153,7 @@ int JRT_MutexUnlock(JRT_Mutex_t *mutex)
 
     uint32_t saved_primask = arch_critical_enter();
     uint32_t owner_id;
+    uint32_t next_owner_id;
 
     if ((mutex->locked == 0U) || (mutex->owner != task_current_index()))
     {
@@ -169,11 +167,24 @@ int JRT_MutexUnlock(JRT_Mutex_t *mutex)
         return 1;
     }
     owner_id = mutex->owner;
-    mutex->owner = UINT32_MAX;
-    mutex->locked = 0U;
-    mutex->recursion = 0U;
+    next_owner_id = task_wake_get_id(mutex, TASK_WAIT_MUTEX);
+    if (next_owner_id != UINT32_MAX)
+    {
+        mutex->owner = next_owner_id;
+        mutex->locked = 1U;
+        mutex->recursion = 1U;
+    }
+    else
+    {
+        mutex->owner = UINT32_MAX;
+        mutex->locked = 0U;
+        mutex->recursion = 0U;
+    }
     task_restore_priority(owner_id);
-    task_wake(mutex, TASK_WAIT_MUTEX);
+    if (next_owner_id != UINT32_MAX)
+    {
+        task_restore_priority(next_owner_id);
+    }
     arch_critical_exit(saved_primask);
     return 1;
 }

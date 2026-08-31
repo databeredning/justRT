@@ -147,6 +147,8 @@ int task_block_locked(void *object, task_wait_kind_t wait_kind,
 					  uint32_t timeout_ticks,
 					  uint32_t saved_critical) KERNEL_PRIVILEGED;
 int task_wake(void *object, task_wait_kind_t wait_kind) KERNEL_PRIVILEGED;
+uint32_t task_wake_get_id(void *object,
+					  task_wait_kind_t wait_kind) KERNEL_PRIVILEGED;
 uint32_t task_current_index(void) KERNEL_PRIVILEGED;
 uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
 uint32_t *task_current_sp(void) KERNEL_PRIVILEGED;

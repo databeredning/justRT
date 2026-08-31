@@ -9,15 +9,17 @@ kernel API.
    - [x] Replace the split check-to-block sequence for semaphores.
    - [x] Replace the split check-to-block sequence for queue send and receive.
    - [x] Yield only after the blocked state has been committed.
-   - [ ] Apply atomic enrollment to mutexes, notifications, and event groups.
+   - [x] Apply atomic enrollment to mutexes.
+   - [ ] Apply atomic enrollment to notifications and event groups.
 
 2. Deterministic wake-up semantics
    - [x] Transfer semaphore tokens directly to selected waiters.
    - [x] Reserve queue slots and items for selected senders and receivers.
    - [x] Select the highest-priority eligible waiter, with task order breaking
      equal-priority ties deterministically.
-   - [ ] Define mutex ownership handoff and maintain priority inheritance when
-     waits time out or ownership changes.
+   - [x] Transfer mutex ownership directly to the selected waiter.
+   - [x] Maintain priority inheritance when mutex waits time out or ownership
+     changes.
 
 3. Absolute timeout deadlines
    - Preserve one absolute deadline across retry loops so a spurious or
@@ -35,7 +37,7 @@ kernel API.
    - [x] Add the named `race` hardware test and automated-runner profile.
    - [x] Exercise semaphore give versus take enrollment.
    - [x] Exercise empty-queue receive and full-queue send enrollment.
-   - [ ] Exercise mutex unlock versus timeout.
+   - [x] Exercise mutex unlock versus timeout.
    - [ ] Exercise timer start/stop/restart versus expiry.
    - [ ] Exercise tick-counter wraparound.
    - [x] Expose explicit result and race diagnostics to the debugger.

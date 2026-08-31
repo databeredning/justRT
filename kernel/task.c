@@ -706,7 +706,7 @@ int task_block_locked(void *object, task_wait_kind_t wait_kind,
     return (int)current_task->wait_result;
 }
 
-int task_wake(void *object, task_wait_kind_t wait_kind)
+uint32_t task_wake_get_id(void *object, task_wait_kind_t wait_kind)
 {
     uint32_t saved_primask = arch_critical_enter();
     uint32_t index;
@@ -734,7 +734,12 @@ int task_wake(void *object, task_wait_kind_t wait_kind)
     }
 
     arch_critical_exit(saved_primask);
-    return (selected_index != task_count) ? 1 : 0;
+    return (selected_index != task_count) ? selected_index : UINT32_MAX;
+}
+
+int task_wake(void *object, task_wait_kind_t wait_kind)
+{
+    return (task_wake_get_id(object, wait_kind) != UINT32_MAX) ? 1 : 0;
 }
 
 void tick_tasks(void)

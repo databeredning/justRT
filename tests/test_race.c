@@ -5,6 +5,7 @@
 #define TEST_RACE_SEMAPHORE_ITERATIONS 4096U
 #define TEST_RACE_QUEUE_ITERATIONS 1024U
 #define TEST_RACE_QUEUE_SEND_ITERATIONS 512U
+#define TEST_RACE_MUTEX_ITERATIONS 512U
 #define TEST_RACE_TIMEOUT_TICKS 3U
 #define TEST_RACE_SIGNAL_SEMAPHORE 1U
 #define TEST_RACE_SIGNAL_QUEUE 2U
@@ -16,10 +17,50 @@ static uint32_t test_race_queue_storage[1];
 static JRT_Queue_t test_race_full_queue;
 static uint32_t test_race_full_queue_storage[1];
 static JRT_Semaphore_t test_race_drain_gate;
+static JRT_Mutex_t test_race_mutex;
+static JRT_Semaphore_t test_race_mutex_start_gate;
+static JRT_Semaphore_t test_race_mutex_locked_gate;
+static JRT_Semaphore_t test_race_mutex_released_gate;
 static volatile uint32_t test_race_signal_armed;
 static volatile uint32_t test_race_signal_kind;
 
 race_test_state_t g_test_race;
+
+static void test_race_mutex_owner_task(void *argument)
+{
+    uint32_t iteration;
+
+    (void)argument;
+    for (iteration = 0U; iteration < TEST_RACE_MUTEX_ITERATIONS; iteration++)
+    {
+        if (JRT_SemaphoreTake(&test_race_mutex_start_gate,
+                              JRT_WAIT_FOREVER) == 0
+            || JRT_MutexLock(&test_race_mutex, 0U) == 0)
+        {
+            g_test_race.error_code = 13U;
+        }
+        JRT_SemaphoreGive(&test_race_mutex_locked_gate);
+
+        /* Alternate an unlock before the deadline with an unlock on the
+         * timeout tick.  This exercises both ownership handoff and removal
+         * of a timed-out waiter from the inheritance chain. */
+        JRT_TaskDelay(((iteration & 1U) == 0U) ? 2U : 3U);
+        if (JRT_MutexUnlock(&test_race_mutex) == 0)
+        {
+            g_test_race.error_code = 14U;
+        }
+        else
+        {
+            g_test_race.mutex_unlocks++;
+        }
+        JRT_SemaphoreGive(&test_race_mutex_released_gate);
+    }
+
+    while (1)
+    {
+        JRT_TaskDelay(1U);
+    }
+}
 
 static void test_race_tick_hook(void)
 {
@@ -169,6 +210,56 @@ static void test_race_waiter_task(void *argument)
         g_test_race.result.runs++;
     }
 
+    for (iteration = 0U; iteration < TEST_RACE_MUTEX_ITERATIONS; iteration++)
+    {
+        JRT_SemaphoreGive(&test_race_mutex_start_gate);
+        if (JRT_SemaphoreTake(&test_race_mutex_locked_gate,
+                              JRT_WAIT_FOREVER) == 0)
+        {
+            g_test_race.error_code = 15U;
+        }
+
+        if (JRT_MutexLock(&test_race_mutex, TEST_RACE_TIMEOUT_TICKS) != 0)
+        {
+            g_test_race.mutex_acquisitions++;
+            if ((iteration & 1U) != 0U
+                || JRT_MutexUnlock(&test_race_mutex) == 0)
+            {
+                g_test_race.error_code = 16U;
+            }
+        }
+        else
+        {
+            g_test_race.mutex_timeouts++;
+            if ((iteration & 1U) == 0U)
+            {
+                g_test_race.error_code = 17U;
+            }
+        }
+
+        if (JRT_SemaphoreTake(&test_race_mutex_released_gate,
+                              JRT_WAIT_FOREVER) == 0)
+        {
+            g_test_race.error_code = 18U;
+        }
+        if ((iteration & 1U) != 0U)
+        {
+            if (JRT_MutexLock(&test_race_mutex, 0U) == 0)
+            {
+                g_test_race.error_code = 19U;
+            }
+            else
+            {
+                g_test_race.mutex_post_timeout_acquisitions++;
+                if (JRT_MutexUnlock(&test_race_mutex) == 0)
+                {
+                    g_test_race.error_code = 20U;
+                }
+            }
+        }
+        g_test_race.result.runs++;
+    }
+
     if (g_test_race.error_code == 0U
         && g_test_race.signals == TEST_RACE_SEMAPHORE_ITERATIONS
         && g_test_race.takes == TEST_RACE_SEMAPHORE_ITERATIONS
@@ -177,7 +268,13 @@ static void test_race_waiter_task(void *argument)
         && g_test_race.queue_drain_signals
             == TEST_RACE_QUEUE_SEND_ITERATIONS
         && g_test_race.queue_drains == TEST_RACE_QUEUE_SEND_ITERATIONS
-        && g_test_race.queue_sends == TEST_RACE_QUEUE_SEND_ITERATIONS)
+        && g_test_race.queue_sends == TEST_RACE_QUEUE_SEND_ITERATIONS
+        && g_test_race.mutex_unlocks == TEST_RACE_MUTEX_ITERATIONS
+        && g_test_race.mutex_acquisitions
+            == (TEST_RACE_MUTEX_ITERATIONS / 2U)
+        && g_test_race.mutex_timeouts == (TEST_RACE_MUTEX_ITERATIONS / 2U)
+        && g_test_race.mutex_post_timeout_acquisitions
+            == (TEST_RACE_MUTEX_ITERATIONS / 2U))
     {
         g_test_race.result.pass = 1U;
     }
@@ -197,8 +294,13 @@ static void test_race_waiter_task(void *argument)
 JRT_DECLARE_STATIC_TASK_STACK(test_race_waiter_stack, JRT_TASK_STACK_WORDS);
 JRT_DECLARE_STATIC_TASK_STACK(test_race_queue_drainer_stack,
                               JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_race_mutex_owner_stack,
+                              JRT_TASK_STACK_WORDS);
 
 static const JRT_TaskDefinition_t test_race_tasks[] = {
+    JRT_TASK_DEFINITION(test_race_mutex_owner_task, 0U,
+                        test_race_mutex_owner_stack, 3U,
+                        "test-race-mutex-owner", 0U),
     JRT_TASK_DEFINITION(test_race_queue_drainer_task, 0U,
                         test_race_queue_drainer_stack, 2U,
                         "test-race-queue-drainer", 0U),
@@ -232,6 +334,10 @@ void test_race_start(void)
     g_test_race.queue_sends = 0U;
     g_test_race.queue_send_timeouts = 0U;
     g_test_race.queue_send_lost_wakeups = 0U;
+    g_test_race.mutex_unlocks = 0U;
+    g_test_race.mutex_acquisitions = 0U;
+    g_test_race.mutex_timeouts = 0U;
+    g_test_race.mutex_post_timeout_acquisitions = 0U;
     g_test_race.error_code = 0U;
     test_race_signal_armed = 0U;
     test_race_signal_kind = 0U;
@@ -247,6 +353,10 @@ void test_race_start(void)
                               / sizeof(test_race_full_queue_storage[0]),
                           sizeof(test_race_full_queue_storage[0]));
     JRT_SemaphoreCreateBinaryStatic(&test_race_drain_gate, 0U);
+    JRT_MutexCreateRecursiveStatic(&test_race_mutex);
+    JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_start_gate, 0U);
+    JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_locked_gate, 0U);
+    JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_released_gate, 0U);
     if (JRT_QueueSend(&test_race_full_queue, &initial_value, 0U) == 0)
     {
         g_test_race.error_code = 12U;
