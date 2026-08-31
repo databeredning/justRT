@@ -33,6 +33,7 @@ void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore,
 
 int JRT_SemaphoreTake(JRT_Semaphore_t *semaphore, uint32_t timeout_ticks)
 {
+    task_wait_deadline_t deadline = task_wait_deadline(timeout_ticks);
     uint32_t saved_primask;
 
     if (arch_in_isr() != 0)
@@ -55,8 +56,8 @@ int JRT_SemaphoreTake(JRT_Semaphore_t *semaphore, uint32_t timeout_ticks)
         return 0;
     }
 
-    return task_block_locked(semaphore, TASK_WAIT_SEMAPHORE, timeout_ticks,
-                             saved_primask);
+    return task_block_until_locked(semaphore, TASK_WAIT_SEMAPHORE, deadline,
+                                   saved_primask);
 }
 
 void JRT_SemaphoreGive(JRT_Semaphore_t *semaphore)
@@ -106,6 +107,7 @@ void JRT_MutexCreateRecursiveStatic(JRT_Mutex_t *mutex)
 
 int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)
 {
+    task_wait_deadline_t deadline = task_wait_deadline(timeout_ticks);
     uint32_t current_index = task_current_index();
     uint32_t saved_primask;
 
@@ -139,8 +141,8 @@ int JRT_MutexLock(JRT_Mutex_t *mutex, uint32_t timeout_ticks)
     }
 
     task_inherit_priority(mutex->owner, task_current_priority());
-    return task_block_locked(mutex, TASK_WAIT_MUTEX, timeout_ticks,
-                             saved_primask);
+    return task_block_until_locked(mutex, TASK_WAIT_MUTEX, deadline,
+                                   saved_primask);
 }
 
 int JRT_MutexUnlock(JRT_Mutex_t *mutex)
@@ -208,6 +210,7 @@ void JRT_QueueCreateStatic(JRT_Queue_t *queue, void *storage,
 int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
 {
     uint32_t reserved = 0U;
+    task_wait_deadline_t deadline = task_wait_deadline(timeout_ticks);
 
     if (arch_in_isr() != 0)
     {
@@ -251,8 +254,8 @@ int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
             arch_critical_exit(saved_primask);
             return 0;
         }
-        if (task_block_locked(queue, TASK_WAIT_QUEUE_SEND, timeout_ticks,
-                              saved_primask) == 0)
+        if (task_block_until_locked(queue, TASK_WAIT_QUEUE_SEND, deadline,
+                                    saved_primask) == 0)
         {
             return 0;
         }
@@ -263,6 +266,7 @@ int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
 int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
 {
     uint32_t reserved = 0U;
+    task_wait_deadline_t deadline = task_wait_deadline(timeout_ticks);
 
     if (arch_in_isr() != 0)
     {
@@ -305,8 +309,8 @@ int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
             arch_critical_exit(saved_primask);
             return 0;
         }
-        if (task_block_locked(queue, TASK_WAIT_QUEUE_RECEIVE, timeout_ticks,
-                              saved_primask) == 0)
+        if (task_block_until_locked(queue, TASK_WAIT_QUEUE_RECEIVE, deadline,
+                                    saved_primask) == 0)
         {
             return 0;
         }

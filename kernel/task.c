@@ -22,7 +22,9 @@ typedef struct
     uint32_t flags;
     void *wait_object;
     task_wait_kind_t wait_kind;
-    uint32_t wait_ticks;
+    uint32_t wait_start;
+    uint32_t wait_deadline;
+    uint32_t wait_forever;
     uint32_t wait_result;
     uint32_t notification_value;
     uint32_t event_wait_bits;
@@ -363,9 +365,29 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
 static void task_wait_begin(task_t *task, void *object,
                             task_wait_kind_t wait_kind, uint32_t timeout_ticks)
 {
+    task_wait_deadline_t deadline;
+
+    deadline.start = g_kernel_ticks;
+    deadline.tick = deadline.start + timeout_ticks;
+    deadline.forever = (timeout_ticks == JRT_WAIT_FOREVER) ? 1U : 0U;
     task->wait_object = object;
     task->wait_kind = wait_kind;
-    task->wait_ticks = timeout_ticks;
+    task->wait_start = deadline.start;
+    task->wait_deadline = deadline.tick;
+    task->wait_forever = deadline.forever;
+    task->wait_result = 0U;
+    task->state = JRT_TASK_STATE_BLOCKED;
+}
+
+static void task_wait_begin_until(task_t *task, void *object,
+                                  task_wait_kind_t wait_kind,
+                                  task_wait_deadline_t deadline)
+{
+    task->wait_object = object;
+    task->wait_kind = wait_kind;
+    task->wait_start = deadline.start;
+    task->wait_deadline = deadline.tick;
+    task->wait_forever = deadline.forever;
     task->wait_result = 0U;
     task->state = JRT_TASK_STATE_BLOCKED;
 }
@@ -376,14 +398,18 @@ static void task_wait_end(task_t *task, uint32_t result)
     task->wait_result = result;
     task->wait_object = 0U;
     task->wait_kind = TASK_WAIT_NONE;
-    task->wait_ticks = 0U;
+    task->wait_start = 0U;
+    task->wait_deadline = 0U;
+    task->wait_forever = 0U;
 }
 
 static void task_wait_reset(task_t *task)
 {
     task->wait_object = 0U;
     task->wait_kind = TASK_WAIT_NONE;
-    task->wait_ticks = 0U;
+    task->wait_start = 0U;
+    task->wait_deadline = 0U;
+    task->wait_forever = 0U;
     task->wait_result = 0U;
     task->notification_value = 0U;
     task->event_wait_bits = 0U;
@@ -737,6 +763,36 @@ uint32_t task_wake_get_id(void *object, task_wait_kind_t wait_kind)
     return (selected_index != task_count) ? selected_index : UINT32_MAX;
 }
 
+task_wait_deadline_t task_wait_deadline(uint32_t timeout_ticks)
+{
+    task_wait_deadline_t deadline;
+    uint32_t saved_primask = arch_critical_enter();
+
+    deadline.start = g_kernel_ticks;
+    deadline.tick = deadline.start + timeout_ticks;
+    deadline.forever = (timeout_ticks == JRT_WAIT_FOREVER) ? 1U : 0U;
+    arch_critical_exit(saved_primask);
+    return deadline;
+}
+
+int task_block_until_locked(void *object, task_wait_kind_t wait_kind,
+                            task_wait_deadline_t deadline,
+                            uint32_t saved_critical)
+{
+    if ((deadline.forever == 0U)
+        && ((uint32_t)(g_kernel_ticks - deadline.start)
+            >= (uint32_t)(deadline.tick - deadline.start)))
+    {
+        arch_critical_exit(saved_critical);
+        return 0;
+    }
+    task_wait_begin_until(current_task, object, wait_kind, deadline);
+    arch_critical_exit(saved_critical);
+    arch_yield();
+
+    return (int)current_task->wait_result;
+}
+
 int task_wake(void *object, task_wait_kind_t wait_kind)
 {
     return (task_wake_get_id(object, wait_kind) != UINT32_MAX) ? 1 : 0;
@@ -760,12 +816,11 @@ void tick_tasks(void)
             }
         }
         else if ((tasks[index].state == JRT_TASK_STATE_BLOCKED)
-            && (tasks[index].wait_ticks != JRT_WAIT_FOREVER)
-            && (tasks[index].wait_ticks > 0U))
+            && (tasks[index].wait_forever == 0U)
+            && ((uint32_t)(g_kernel_ticks - tasks[index].wait_start)
+                >= (uint32_t)(tasks[index].wait_deadline
+                              - tasks[index].wait_start)))
         {
-            tasks[index].wait_ticks--;
-            if (tasks[index].wait_ticks == 0U)
-            {
                 uint32_t mutex_owner_id = task_count;
                 task_wait_kind_t wait_kind = tasks[index].wait_kind;
 
@@ -803,7 +858,6 @@ void tick_tasks(void)
                 {
                     restore_priority_chain(mutex_owner_id);
                 }
-            }
         }
     }
 

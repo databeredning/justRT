@@ -148,9 +148,12 @@ for the privileged background map. Task privilege is selected by
   code dispatches callbacks.
 - Fixed-size memory pools protected by critical sections.
 
-Task waits use tick timeouts; `SEMAPHORE_WAIT_FOREVER` is the infinite timeout
-value. Synchronization APIs intended for tasks reject ISR use, while dedicated
-ISR APIs are non-blocking.
+Task waits convert relative tick timeouts to one absolute deadline when the API
+is entered. The deadline is retained across internal retry loops. Expiry uses
+unsigned elapsed-tick arithmetic, which remains valid across 32-bit tick
+wraparound for every finite timeout value.
+`JRT_WAIT_FOREVER` selects an infinite wait. Synchronization APIs intended for
+tasks reject ISR use, while dedicated ISR APIs are non-blocking.
 
 ## Port Boundary
 

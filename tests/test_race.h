@@ -23,6 +23,10 @@ typedef struct
     volatile uint32_t mutex_acquisitions;
     volatile uint32_t mutex_timeouts;
     volatile uint32_t mutex_post_timeout_acquisitions;
+    volatile uint32_t wrap_start_tick;
+    volatile uint32_t wrap_end_tick;
+    volatile uint32_t wrap_elapsed_ticks;
+    volatile uint32_t wrap_timeouts;
     volatile uint32_t error_code;
 } race_test_state_t;
 

@@ -10,7 +10,7 @@ kernel API.
    - [x] Replace the split check-to-block sequence for queue send and receive.
    - [x] Yield only after the blocked state has been committed.
    - [x] Apply atomic enrollment to mutexes.
-   - [ ] Apply atomic enrollment to notifications and event groups.
+   - [x] Confirm atomic enrollment for notifications and event groups.
 
 2. Deterministic wake-up semantics
    - [x] Transfer semaphore tokens directly to selected waiters.
@@ -22,9 +22,9 @@ kernel API.
      changes.
 
 3. Absolute timeout deadlines
-   - Preserve one absolute deadline across retry loops so a spurious or
+   - [x] Preserve one absolute deadline across retry loops so a spurious or
      intermediate wake-up cannot restart the full timeout.
-   - Verify timeout comparisons across the 32-bit tick-counter wraparound.
+   - [x] Verify timeout comparisons across the 32-bit tick-counter wraparound.
 
 4. Timer synchronization
    - Protect timer creation, list insertion, callback changes, start, stop, and
@@ -39,7 +39,7 @@ kernel API.
    - [x] Exercise empty-queue receive and full-queue send enrollment.
    - [x] Exercise mutex unlock versus timeout.
    - [ ] Exercise timer start/stop/restart versus expiry.
-   - [ ] Exercise tick-counter wraparound.
+   - [x] Exercise tick-counter wraparound.
    - [x] Expose explicit result and race diagnostics to the debugger.
 
 6. Kernel invariants and diagnostics

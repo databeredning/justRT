@@ -7,6 +7,7 @@
 #define TEST_RACE_QUEUE_SEND_ITERATIONS 512U
 #define TEST_RACE_MUTEX_ITERATIONS 512U
 #define TEST_RACE_TIMEOUT_TICKS 3U
+#define TEST_RACE_WRAP_TIMEOUT_TICKS 5U
 #define TEST_RACE_SIGNAL_SEMAPHORE 1U
 #define TEST_RACE_SIGNAL_QUEUE 2U
 #define TEST_RACE_SIGNAL_QUEUE_DRAIN 3U
@@ -44,7 +45,7 @@ static void test_race_mutex_owner_task(void *argument)
         /* Alternate an unlock before the deadline with an unlock on the
          * timeout tick.  This exercises both ownership handoff and removal
          * of a timed-out waiter from the inheritance chain. */
-        JRT_TaskDelay(((iteration & 1U) == 0U) ? 2U : 3U);
+        JRT_TaskDelay(((iteration & 1U) == 0U) ? 2U : 4U);
         if (JRT_MutexUnlock(&test_race_mutex) == 0)
         {
             g_test_race.error_code = 14U;
@@ -210,6 +211,32 @@ static void test_race_waiter_task(void *argument)
         g_test_race.result.runs++;
     }
 
+    {
+        uint32_t saved_critical = critical_enter();
+
+        g_kernel_ticks = UINT32_MAX - 2U;
+        g_test_race.wrap_start_tick = g_kernel_ticks;
+        critical_exit(saved_critical);
+    }
+    if (JRT_SemaphoreTake(&test_race_semaphore,
+                          TEST_RACE_WRAP_TIMEOUT_TICKS) == 0)
+    {
+        g_test_race.wrap_timeouts++;
+    }
+    else
+    {
+        g_test_race.error_code = 21U;
+    }
+    g_test_race.wrap_end_tick = JRT_KernelGetTickCount();
+    g_test_race.wrap_elapsed_ticks =
+        g_test_race.wrap_end_tick - g_test_race.wrap_start_tick;
+    if ((g_test_race.wrap_end_tick != 2U)
+        || (g_test_race.wrap_elapsed_ticks != TEST_RACE_WRAP_TIMEOUT_TICKS))
+    {
+        g_test_race.error_code = 22U;
+    }
+    g_test_race.result.runs++;
+
     for (iteration = 0U; iteration < TEST_RACE_MUTEX_ITERATIONS; iteration++)
     {
         JRT_SemaphoreGive(&test_race_mutex_start_gate);
@@ -221,9 +248,11 @@ static void test_race_waiter_task(void *argument)
 
         if (JRT_MutexLock(&test_race_mutex, TEST_RACE_TIMEOUT_TICKS) != 0)
         {
+            uint32_t unlock_result;
+
             g_test_race.mutex_acquisitions++;
-            if ((iteration & 1U) != 0U
-                || JRT_MutexUnlock(&test_race_mutex) == 0)
+            unlock_result = (uint32_t)JRT_MutexUnlock(&test_race_mutex);
+            if (((iteration & 1U) != 0U) || (unlock_result == 0U))
             {
                 g_test_race.error_code = 16U;
             }
@@ -274,7 +303,8 @@ static void test_race_waiter_task(void *argument)
             == (TEST_RACE_MUTEX_ITERATIONS / 2U)
         && g_test_race.mutex_timeouts == (TEST_RACE_MUTEX_ITERATIONS / 2U)
         && g_test_race.mutex_post_timeout_acquisitions
-            == (TEST_RACE_MUTEX_ITERATIONS / 2U))
+            == (TEST_RACE_MUTEX_ITERATIONS / 2U)
+        && g_test_race.wrap_timeouts == 1U)
     {
         g_test_race.result.pass = 1U;
     }
@@ -338,6 +368,10 @@ void test_race_start(void)
     g_test_race.mutex_acquisitions = 0U;
     g_test_race.mutex_timeouts = 0U;
     g_test_race.mutex_post_timeout_acquisitions = 0U;
+    g_test_race.wrap_start_tick = 0U;
+    g_test_race.wrap_end_tick = 0U;
+    g_test_race.wrap_elapsed_ticks = 0U;
+    g_test_race.wrap_timeouts = 0U;
     g_test_race.error_code = 0U;
     test_race_signal_armed = 0U;
     test_race_signal_kind = 0U;
