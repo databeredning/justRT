@@ -1,4 +1,4 @@
-# Example
+# Examples
 
 `simple.c` is the single board-independent application example. It starts two
 unprivileged tasks and continuously exercises first-task SVC startup, task scheduling,
@@ -8,6 +8,7 @@ Build it with:
 
 ```sh
 make -B TEST=simple
+make -B TARGET=qemu-mps2-an385 TEST=simple
 ```
 
 Inspect these debugger-visible values:
@@ -19,5 +20,6 @@ g_simple_worker_runs > 0
 ```
 
 The example performs no board or peripheral access. Kernel regression tests
-are kept under `tests/` and are selected with `TEST=boot`, `TEST=sync`, or
-`TEST=mutex`; floating-point context switching is covered by `TEST=fpu`.
+are kept under `tests/` and are selected with `TEST=boot`, `TEST=sync`,
+`TEST=mutex`, `TEST=fpu`, or `TEST=race`. The FPU profile is available only on
+the S32K312 target.

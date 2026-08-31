@@ -1,374 +1,170 @@
-# PORT.md — Porting JustRT to a New Architecture or Platform
+# Porting justRT to a New Architecture or Platform
 
-This document explains the port boundary established by the architecture
-extraction (see `RTOS.md` chapter 16), what exactly must be implemented to
-bring the kernel up on a new CPU family or board, and walks through a
-concrete worked example: porting to a Cortex-M3 target running under QEMU
-(`qemu-system-arm -M mps2-an385`).
+This guide describes the boundary between the portable kernel, Cortex-M
+support, and target-specific startup and board code. It also records the
+implemented QEMU MPS2-AN385 port as a reference.
 
-## 1. The three layers
+## Project Layers
 
-```
-kernel/            portable kernel: scheduler, sync primitives, timers,
-                   memory pools. No CPU register access. No board access.
-arch/<family>/     CPU-family port. Implements the port contract
-                   (arch/<family>/port_contract.h) plus the exception
-                   vectors that are reached only via the vector table.
-platform/<board>/  Startup code, vector table, linker script, and board
-                   (LED/GPIO/UART) driver for one specific chip/board.
+```text
+kernel/            Scheduler, synchronization, timers, and memory pools.
+arch/<family>/     Architecture contract consumed by the portable kernel.
+platform/<target>/ Reset startup, vectors, linker script, and board driver.
 ```
 
-Only `platform/` should know about a specific chip or board. Only `arch/`
-should know about the CPU family's registers (NVIC, SysTick, MPU, PRIMASK,
-CONTROL). `kernel/` should know about neither — it only calls the contract
-functions declared in `arch/<family>/port_contract.h`.
+Portable `kernel/*.c` code must not access CPU or board registers directly.
+The current Cortex-M exception implementation remains in historically named
+files under `kernel/`, while `arch/cortex_m/port_contract.h` defines the
+boundary that portable code calls. A new board using the same Cortex-M model
+normally needs a new `platform/<target>/` and build selection, not a fork of
+the portable kernel.
 
-To port JustRT to a new target you generally need:
+## Cortex-M Port Contract
 
-- A new `arch/<family>/` **only if the CPU family changes** (different
-  instruction set family, e.g. RISC-V, or a Cortex-M without MPU/FPU that
-  needs a reduced contract implementation). Porting to another Cortex-M3/M4/M7
-  chip can usually reuse `arch/cortex_m/` unchanged.
-- Always a new `platform/<board>/` for a new chip or board.
-- Makefile changes to point at the new arch/platform directories.
+The portable kernel uses these functions from
+`arch/cortex_m/port_contract.h`:
 
-## 2. The port contract (`arch/cortex_m/port_contract.h`)
+| Function | Responsibility |
+| --- | --- |
+| `arch_request_switch()` | Pend the lowest-priority context-switch exception. |
+| `arch_critical_enter()` | Mask interrupts and return the previous mask state. |
+| `arch_critical_exit()` | Restore the exact state returned by critical entry. |
+| `arch_in_isr()` | Report whether execution is in exception context. |
+| `arch_tick_init()` | Configure SysTick and exception priorities. |
+| `arch_yield()` | Enter the privileged yield path and reschedule. |
+| `arch_configure_mpu()` | Install target protection regions, or safely do nothing when MPU support is disabled. |
+| `arch_start_first_task()` | Enter startup SVC and restore the first task context. |
+| `arch_wait_for_interrupt()` | Wait efficiently in the idle task. |
 
-The kernel calls exactly these functions from `kernel/task.c`, `sync.c`,
-`timer.c`, and `mempool.c`. Implement every one of them for a new arch.
+The contract also defines `ARCH_MPU_GUARD_REGION_COUNT` and the CONTROL values
+`ARCH_LAUNCH_PRIVILEGED` and `ARCH_LAUNCH_UNPRIVILEGED`. The guard count still
+limits configured tasks when hardware MPU support is disabled because the
+kernel retains software stack-bound checks.
 
-| Function | Called from | Must do |
-| --- | --- | --- |
-| `void arch_request_switch(void)` | `task.c`, `sync.c` after waking a task | Pend a context switch so it happens at the next opportunity (lowest exception priority). On Cortex-M this is `PendSV`. |
-| `uint32_t arch_critical_enter(void)` | everywhere kernel state is touched | Disable interrupts (or raise to a priority above all kernel-using ISRs) and return an opaque token that restores the prior state. |
-| `void arch_critical_exit(uint32_t saved)` | paired with the above | Restore interrupts to the state captured by `arch_critical_enter()`. Must nest correctly (save/restore, not a plain enable). |
-| `int arch_in_isr(void)` | `sync.c` ISR-vs-task API guards, `task.c` event-group ISR path | Return non-zero only when the CPU is currently executing in exception/interrupt context. |
-| `void arch_tick_init(void)` | `task.c` `kernel_start()` | Configure and start the periodic tick interrupt at the tick rate in `kernel.h` (`KERNEL_TICK_RATE_HZ`), and set exception priorities so the tick and switch exceptions are the two lowest-priority exceptions in the system. |
-| `void arch_yield(void)` | `task.c` every blocking wait | Force an immediate reschedule and return only after the calling task is scheduled again. On Cortex-M this is an `SVC` instruction handled by `svc_dispatch()`. |
-| `void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)` | `task.c` `kernel_init()` | Program a not-a-must memory-protection scheme: flash/SRAM base regions plus one no-access guard region per task stack (`guard_addresses[i]`, each `KERNEL_TASK_GUARD_WORDS * 4` bytes). If the target has no MPU, this can be a no-op — stack guards then rely on `update_stack_usage()`'s software bounds check alone (see `RTOS.md` chapter 8). |
-| `void arch_start_first_task(void)` | `task.c` `kernel_start()`, once | Never returns. Enter the startup SVC; the handler loads the current task's saved frame and privilege level before returning to its PSP. |
-| `void arch_wait_for_interrupt(void)` | `task.c` idle task | Put the CPU in its lowest-overhead wait state until the next interrupt (Cortex-M `wfi`; a busy-loop is also legal but wastes power). |
+## Exception and Context Rules
 
-### Constants the contract also defines
+Tasks use PSP. Reset, kernel code, SVC, PendSV, SysTick, and fault handlers use
+MSP. Startup enters SVC 0, which restores the synthetic task frame through
+`arch_restore_task_context()` and exception-returns using PSP.
 
-- `ARCH_MPU_GUARD_REGION_COUNT` — maximum number of tasks `arch_configure_mpu()`
-  can guard. `kernel_init()` rejects configurations that would exceed it.
-- `ARCH_LAUNCH_PRIVILEGED` / `ARCH_LAUNCH_UNPRIVILEGED` — architecture-defined
-  CONTROL register values used by first-task and context-switch paths; on
-  Cortex-M they are 2 and 3.
+PendSV saves the outgoing `EXC_RETURN` and `r4-r11`, asks the scheduler for the
+next saved stack pointer, restores that task, reapplies its CONTROL value, and
+exception-returns. When `JRT_ARCH_FPU_CONTEXT=1`, the path also preserves
+`s16-s31` for tasks whose `EXC_RETURN` identifies an extended FP frame.
 
-### Exception vectors that are *not* part of the contract
+The relevant implementation files are:
 
-`SysTick_Handler`, `PendSV_Handler`, `SVC_Handler`, `HardFault_Handler`,
-`MemManage_Handler`, `BusFault_Handler`, and `UsageFault_Handler` are reached
-only through the vector table, never called by name from the portable
-kernel. They still must exist in `arch/<family>/`, but they are not part of
-the contract header — they are the arch's own private implementation detail.
-On Cortex-M:
+- `kernel/port_cm7.c`: Cortex-M register access, SysTick, PendSV, SVC dispatch,
+  and optional MPU programming.
+- `kernel/svc_cm7.s`: SVC entry and shared task-context restore.
+- `kernel/svc_stubs_cm7.c`: task-facing unprivileged SVC wrappers.
+- `kernel/fault.c`: debugger-visible fault capture and fail-stop handlers.
 
-- `SysTick_Handler()` calls `tick_tasks()` (portable), then the registered
-  tick hook (`kernel_set_tick_hook()`), then `arch_request_switch()`.
-- `PendSV_Handler()` is a naked handler that saves r4-r11, calls
-  `pendsv_switch(sp)` (portable — returns the next task's saved sp), uses the
-  shared context-restore helper, updates CONTROL for the selected task, and
-  returns.
-- `SVC_Handler` (in `arch/cortex_m/svc_cm7.s`) picks MSP or PSP based on
-  `EXC_RETURN` bit 2, then calls `svc_dispatch(stacked_frame, exc_return)`
-  (arch-owned, in `port_cm7.c`) for normal task services. Startup SVC zero
-  restores the first task frame and returns through PSP; normal SVC calls
-  require PSP and dispatch yield, sleep, or LED services.
-- The four fault handlers capture the exception frame and fault status
-  registers into `g_fault_record` (see `kernel/fault.c`) and spin forever;
-  MSP/PSP addresses the core-register portion for both basic and extended
-  floating-point frames. They have no portable-kernel call sites at all.
+The `cm7` filenames are historical. The same code is compiled for the current
+Cortex-M3 QEMU target with FPU and MPU features disabled.
 
-## 3. MPU / memory-protection contract (if implemented)
+## MPU and Linker Contract
 
-`arch_configure_mpu()` is expected to set up, at minimum:
+When `JRT_ARCH_HAS_MPU=1`, the target supplies linker-aligned regions for
+privileged flash and SRAM, unprivileged code, SVC wrappers, read-only data,
+task data, and 32-byte task stack guards. Higher-numbered Cortex-M MPU regions
+win overlaps, so guard regions must override the general SRAM mapping.
 
-1. A general flash (code) region.
-2. A general SRAM region.
-3. One no-access guard region per task, placed at `guard_addresses[i]`
-   (`KERNEL_TASK_GUARD_WORDS * 4` = 32 bytes on this port), used to catch
-   stack overflow via `MemManage_Handler`.
-4. If unprivileged tasks are used: an unprivileged-writable data region
-   covering the linker's `.unprivileged_task_data` output section.
+When `JRT_ARCH_HAS_MPU=0`, `arch_configure_mpu()` is a no-op. Stack bounds are
+still checked in software, but the target does not provide privilege-based
+memory isolation.
 
-Region numbering matters: guard regions must have a **higher** priority
-(higher region number on Cortex-M, where higher numbers win overlaps) than
-the general SRAM region, or a stack guard will be silently shadowed.
+The linker script must retain these sections:
 
-If the new target has no MPU, `arch_configure_mpu()` can be an empty
-function — `kernel_init()` will still call it, and stack safety continues to
-rely on `update_stack_usage()`'s software check (which halts and records
-`g_stack_fault`/`g_stack_fault_task`/`g_stack_fault_sp` regardless of MPU
-presence).
+| Source attribute | Output section |
+| --- | --- |
+| `KERNEL_PRIVILEGED` | `.privileged_functions` |
+| `KERNEL_PRIVILEGED_DATA` | `.privileged_data` |
+| `JRT_TASK_UNPRIVILEGED` | `.unprivileged_functions` |
+| `JRT_TASK_UNPRIVILEGED_RODATA` | `.unprivileged_rodata` |
+| `JRT_TASK_UNPRIVILEGED_DATA` | `.unprivileged_task_data` |
+| Unprivileged SVC wrappers | `.unprivileged_svc` |
 
-## 4. Linker script contract
+The SVC handler itself remains privileged. MPU-enabled ports must also define
+`__unprivileged_task_data_start` and `__unprivileged_task_data_end`. Startup
+must provide whatever symbols its `.data` copy and `.bss` clear implementation
+uses.
 
-The linker script is entirely platform-owned, but the kernel/arch code
-expects certain **sections** and **symbols** to exist, because attributes in
-`kernel/kernel.h` and `board/board.h`-equivalent headers place code/data into
-named sections:
+## Board Contract
 
-| Section macro (from `kernel.h`) | Linker section | Purpose |
-| --- | --- | --- |
-| `KERNEL_PRIVILEGED` | `.privileged_functions` | Kernel + board code that must run privileged. |
-| `KERNEL_PRIVILEGED_DATA` | `.privileged_data` | Kernel state (task table, counters). |
-| `TASK_UNPRIVILEGED` | `.unprivileged_functions` | Application task code allowed to run unprivileged. |
-| `TASK_UNPRIVILEGED_RODATA` | `.unprivileged_rodata` | Read-only task tables read from unprivileged code. |
-| `TASK_UNPRIVILEGED_DATA` | `.unprivileged_task_data` | Task-owned RAM, covered by the MPU unprivileged-data region. |
-| SVC instruction wrappers | `.unprivileged_svc` | The `svc` instruction wrappers only, so they stay reachable from unprivileged code. |
-
-The SVC exception handler itself must remain privileged and must not share
-`.unprivileged_svc` with the wrappers.
-
-**Ordering matters**: on this port, unprivileged code/data regions and stack
-guards have higher MPU region numbers than the privileged base regions, so the
-specific permitted ranges and no-access guards override the base policy. The
-linker aligns the section boundaries for the MPU's power-of-two regions.
-
-Symbols the arch/platform startup code is expected to define (see
-`platform/s32k312/linker_flash_s32k312.ld` for the full worked example):
-
-- `__unprivileged_task_data_start` / `_end` — consumed directly by
-  `arch_configure_mpu()` in `port_cm7.c`.
-- Whatever copy/zero-table symbols your startup's `init_data_bss()`
-  equivalent needs (S32K312 uses `__init_table`/`__zero_table`, generated in
-  `startup_cm7.s` and consumed by `system.c`). A QEMU or other bare-metal
-  target can normally use the compiler's default `.data`/`.bss` handling
-  instead and skip this table entirely (see the worked example below).
-
-## 5. Board interface contract
-
-Application examples call a tiny, project-defined board interface (not part
-of `arch/`, lives under `platform/<board>/board/`):
+Each `platform/<target>/board/` provides:
 
 ```c
-void board_init(void);       /* one-time GPIO/UART/etc. setup */
-void board_led_toggle(void); /* toggle whatever the examples use as "the LED" */
+void board_init(void);
+void board_led_toggle(void);
 ```
 
-Both are marked `BOARD_PRIVILEGED` (same section as `KERNEL_PRIVILEGED`). The
-LED is called by the SVC gateway (`SVC_SERVICE_LED_TOGGLE` in
-`svc_dispatch()`), so an unprivileged task never accesses the GPIO register.
+Both functions are privileged. An unprivileged task calls
+`JRT_BoardLedToggle()`, whose SVC wrapper reaches the privileged board driver.
+The QEMU board implementation is intentionally a no-op because `simple` has no
+peripheral dependency and regression results are inspected through GDB.
 
-## 6. Build system integration
+## Build Integration
 
-The Makefile needs, for a new arch/platform pair:
+The root Makefile selects a target with `TARGET`. A new target must provide:
 
-- `-I<path-to-arch-root>` (currently `-Iarch`) so `#include "cortex_m/port_contract.h"`-style includes resolve.
-- `-I<path-to-platform-root>` (currently `-Iplatform/s32k312`) so
-  `#include "board/board.h"` resolves to the new board driver.
-- New object rules for the platform's startup/vector-table/system-init
-  sources and the board driver.
-- `-T <path-to-new-linker-script>` in `LDFLAGS`.
-- CPU flags (`-mcpu=...`, `-mfpu=...`, `-mfloat-abi=...`) matching the new
-  target; drop `-mfpu`/`-mfloat-abi` entirely for FPU-less cores (Cortex-M3/M0).
+- its platform include path and source/object rules;
+- CPU flags matching the core and floating-point ABI;
+- a linker script and separate target artifact directories;
+- feature definitions for `JRT_ARCH_HAS_MPU` and `JRT_ARCH_FPU_CONTEXT`;
+- an explicit policy for tests that require unavailable hardware features.
 
-## 7. Worked example: porting to QEMU `mps2-an385` (Cortex-M3)
+Keep each target's objects separate so code compiled for one CPU cannot be
+silently reused for another. The current layouts are `obj/s32k312`,
+`bin/s32k312`, `obj/qemu-mps2-an385`, and `bin/qemu-mps2-an385`.
 
-This target is a good first port to try because:
+## Implemented QEMU Reference Target
 
-- It is Cortex-M3 (ARMv7-M, same NVIC/SysTick/PendSV/SVC/PRIMASK model as the
-  existing `arch/cortex_m`), so **`arch/cortex_m/port_contract.h`,
-  `port_cm7.c`, `svc_cm7.s`, and `fault.c` can be reused almost unchanged** —
-  only the MPU code needs adjusting (Cortex-M3 either lacks an MPU or has a
-  smaller region count depending on variant; if absent, stub
-  `arch_configure_mpu()` per section 3) and the FPU-related build flags must
-  be dropped (Cortex-M3 has no FPU).
-- QEMU boots straight into the vector table with SRAM/flash already mapped
-  and clocked — there is no NXP-style MC_ME clock-gating/PLL sequence to
-  reimplement, so the new `platform/qemu_mps2an385/startup.s` is a fraction
-  of the size of `platform/s32k312/startup_cm7.s`.
-- It has a real, well-known memory map and a CMSDK UART you can use in place
-  of the LED for `board_led_toggle()` (toggle a GPIO bit if you want visual
-  parity, or write a byte to the UART as a simpler stand-in).
+The QEMU target lives in `platform/qemu_mps2_an385/` and contains:
 
-### 7.1 Decide the arch reuse strategy
-
-Create `arch/cortex_m3/` only if you need a *reduced* contract (no MPU, no
-FPU-related concerns). Otherwise, prefer adding a compile-time guard to the
-existing `arch/cortex_m/port_cm7.c` (e.g. `#if defined(ARCH_HAS_MPU)`
-around the MPU register defines and `arch_configure_mpu()` body, falling
-back to a no-op) rather than forking the whole file. This keeps one arch
-implementation serving multiple Cortex-M variants, which is the model this
-project already uses for privileged/unprivileged task flags.
-
-### 7.2 Create `platform/qemu_mps2an385/`
-
-```
-platform/qemu_mps2an385/
-  startup.s                 -- reset handler, minimal stack setup, jumps to main()
-  Vector_Table.s             -- same layout as platform/s32k312/Vector_Table.s
-                               (Stack pointer, Reset, NMI, HardFault, MemManage,
-                               BusFault, UsageFault, ..., SVC, PendSV, SysTick)
-  linker_qemu_mps2an385.ld   -- memory map for mps2-an385 (flash at 0x00000000,
-                               SRAM at 0x20000000 are the QEMU/MPS2 defaults;
-                               confirm against your QEMU version's -M help output)
-  board/board.c              -- board_init()/board_led_toggle() using the
-                               CMSDK GPIO or UART peripheral at its documented
-                               base address for this machine
-  board/board.h
+```text
+startup_cm3.s       Reset handler and data/BSS initialization.
+Vector_Table.s      Cortex-M exception vector table.
+linker.ld           MPS2-AN385 flash and SRAM layout.
+system.c            Target system initialization.
+board/board.c       Privileged no-op board implementation.
+board/board.h       Board interface declarations.
 ```
 
-Minimal `startup.s` (no clock tree, no ECC/TCM init needed under QEMU):
-
-```asm
-.syntax unified
-.thumb
-.section .vectors, "ax"
-.section .text.Reset_Handler, "ax"
-.thumb_func
-.global Reset_Handler
-Reset_Handler:
-    ldr r0, =__data_load_start
-    ldr r1, =__data_start
-    ldr r2, =__data_end
-copy_data:
-    cmp r1, r2
-    beq zero_bss
-    ldr r3, [r0], #4
-    str r3, [r1], #4
-    b copy_data
-zero_bss:
-    ldr r1, =__bss_start
-    ldr r2, =__bss_end
-    movs r3, #0
-zero_loop:
-    cmp r1, r2
-    beq call_main
-    str r3, [r1], #4
-    b zero_loop
-call_main:
-    bl main
-hang:
-    b hang
-```
-
-This is deliberately simpler than `platform/s32k312/startup_cm7.s`: standard
-`.data`/`.bss` copy/zero loops instead of the S32K312's `.init_table`/
-`.zero_table` scheme, because QEMU needs none of the MC_ME/PLL/ECC bring-up
-this chip requires.
-
-Reuse `platform/s32k312/Vector_Table.s` almost verbatim — only the initial
-stack pointer symbol name and the `.section` name may need to match your new
-linker script.
-
-### 7.3 Minimal linker script sketch
-
-```ld
-ENTRY(Reset_Handler)
-MEMORY
-{
-    flash (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00040000
-    sram  (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00010000
-}
-SECTIONS
-{
-    .vectors : { KEEP(*(.vectors)) } > flash
-    .privileged_functions : { *(.privileged_functions .privileged_functions.*) } > flash
-    .unprivileged_functions : { *(.unprivileged_functions .unprivileged_functions.*) } > flash
-    .unprivileged_rodata : { *(.unprivileged_rodata .unprivileged_rodata.*) } > flash
-    .unprivileged_svc : { *(.unprivileged_svc .unprivileged_svc.*) } > flash
-    .text : { *(.text .text.*) *(.rodata .rodata.*) } > flash
-    __data_load_start = LOADADDR(.data);
-    .privileged_data : { *(.privileged_data .privileged_data.*) } > sram AT> flash
-    .unprivileged_task_data (NOLOAD) :
-    {
-        __unprivileged_task_data_start = .;
-        *(.unprivileged_task_data .unprivileged_task_data.*)
-        __unprivileged_task_data_end = .;
-    } > sram
-    .data : { __data_start = .; *(.data .data.*); __data_end = .; } > sram AT> flash
-    .bss (NOLOAD) : { __bss_start = .; *(.bss .bss.*) *(COMMON); __bss_end = .; } > sram
-    . = ALIGN(8);
-    __StackTop = ORIGIN(sram) + LENGTH(sram);
-}
-```
-
-Adjust the `ORIGIN`/`LENGTH` values to match whatever `-M mps2-an385 -m ...`
-reports for your QEMU version; use `qemu-system-arm -M mps2-an385 -kernel
-build/test.elf -S -s` with GDB attached to confirm the reset vector and
-memory map if unsure.
-
-### 7.4 Board driver stand-in
-
-```c
-/* platform/qemu_mps2an385/board/board.c */
-#include "board.h"
-
-#define CMSDK_UART0_BASE 0x40004000U
-#define UART_DATA (*(volatile uint32_t *)(CMSDK_UART0_BASE + 0x00))
-#define UART_STATE (*(volatile uint32_t *)(CMSDK_UART0_BASE + 0x04))
-#define UART_CTRL (*(volatile uint32_t *)(CMSDK_UART0_BASE + 0x08))
-#define UART_CTRL_TX_ENABLE (1UL << 0)
-
-static uint32_t led_state;
-
-void board_init(void)
-{
-    UART_CTRL = UART_CTRL_TX_ENABLE;
-}
-
-void board_led_toggle(void)
-{
-    led_state ^= 1U;
-    UART_DATA = led_state ? 'X' : '.';
-}
-```
-
-Replace this with real GPIO register writes if your QEMU machine models a
-GPIO block you want to exercise instead.
-
-### 7.5 Makefile changes
-
-```make
-PLATFORM_DIR := platform/qemu_mps2an385
-CPUFLAGS := -mcpu=cortex-m3 -mthumb            # no -mfpu/-mfloat-abi: no FPU
-CFLAGS += -I$(PLATFORM_DIR)
-LDFLAGS += -T $(PLATFORM_DIR)/linker_qemu_mps2an385.ld
-OBJS += $(OBJDIR)/startup.o $(OBJDIR)/Vector_Table.o $(OBJDIR)/board/board.o
-```
-
-(Follow the same object-rule pattern already used for
-`platform/s32k312/*` in the existing `Makefile`.)
-
-### 7.6 Running under QEMU
+It uses Cortex-M3 flags, `JRT_ARCH_HAS_MPU=0`, and
+`JRT_ARCH_FPU_CONTEXT=0`. Build and run it from Git Bash/MINGW64 with:
 
 ```sh
-make -B TEST=simple
-qemu-system-arm -M mps2-an385 -nographic -kernel bin/justrt.elf
+make -B TARGET=qemu-mps2-an385 TEST=simple
+qemu-system-arm -M mps2-an385 -cpu cortex-m3 \
+  -kernel bin/qemu-mps2-an385/justrt.elf -nographic
 ```
 
-Use `-s -S` to pause at reset and attach GDB (`target remote :1234`) the same
-way the existing S32K312 `gdb-server` workflow does, substituting the QEMU
-gdbstub for the physical debug probe.
+Add `-S -gdb tcp::1234` to pause at reset and expose QEMU's GDB stub, then
+attach with `target remote :1234`. Manual bring-up has confirmed increasing
+ticks and context switches, execution of both `simple` tasks, and no recorded
+fault or invariant failure.
 
-For the S32K312 hardware test suite, run:
+Automated QEMU execution of the terminating profiles is current milestone
+work. `TEST=fpu` is rejected for this target because Cortex-M3 has no FPU.
 
-```sh
-make auto-test
-```
+## Validation Checklist
 
-This invokes `tools/run_tests.py` with quiet nested builds. Use
-`py tools/run_tests.py --verbose` for detailed J-Link and GDB output.
+For a new target, validate in increasing scope:
 
-### 7.7 Validation checklist for any new port
+1. Build `TEST=simple` and confirm first-task startup, both application tasks,
+   delays, yields, SysTick, PendSV, and idle execution.
+2. Run `TEST=boot` and confirm task arguments, privilege transitions, and the
+   SVC board gateway. Treat MPU isolation as target-dependent.
+3. Run `TEST=sync` for ISR semaphore, queue, notification, and event-group
+   paths.
+4. Run `TEST=mutex` for recursive ownership and priority inheritance.
+5. Run `TEST=race` for lost-wakeup, timeout, wraparound, mutex, queue, and timer
+   start/stop/restart races.
+6. Run `TEST=fpu` only when the target enables floating-point context support.
+7. Confirm `g_fault_active == 0`, `g_kernel_invariant_active == 0`,
+   `g_stack_fault == 0`, and increasing `g_context_switches`.
 
-Once the new arch/platform builds:
-
-1. `TEST=simple` — confirms first-task SVC startup, task scheduling, sleep,
-  yield, and the idle fallback without board dependencies.
-2. `TEST=boot` — confirms unprivileged startup, task arguments, MPU execution
-  permissions, and the SVC LED gateway.
-3. `TEST=sync` — confirms ISR-context semaphore, queue, event-group, and
-  notification paths.
-4. `TEST=mutex` — confirms recursive ownership, priority inheritance, and
-  chained waiter behavior.
-5. `TEST=fpu` — confirms `s16-s31`, extended frames, and mixed FP/non-FP task
-   switching across SVC and SysTick preemption.
-6. `g_stack_fault` stays `0` and `g_context_switches` increases steadily
-   across all of the above — this is the same acceptance bar used throughout
-   the original architecture extraction (see the commit history for
-   `arch: extract ...` and the paired `validate: confirm ...` commits).
+On S32K312 hardware, `make auto-test` runs the terminating `boot`, `sync`,
+`mutex`, `fpu`, and `race` profiles through J-Link/GDB. Use
+`py tools/run_tests.py --verbose` for detailed runner output.

@@ -1,8 +1,8 @@
 # Run LED GPIO Setup
 
 This document describes the verified native GPIO path for the run LED on the
-S32K312. The implementation is in `platform/s32k312/board/board.c`; it does not depend on RTD
-drivers or dynamic allocation.
+S32K312. The implementation is in `platform/s32k312/board/board.c`; it does
+not depend on RTD drivers or dynamic allocation.
 
 ## Hardware Mapping
 
@@ -48,9 +48,9 @@ on the actual core clock because SysTick uses that clock.
 
 ## SIUL2 Clock Dependency
 
-SIUL2 must be clocked before *any* SIUL2 register access. The heartbeat example calls
-`board_init()` before task creation and before SysTick is enabled. The first
-operation in `board_init()` is `enable_siul2_clock()`.
+SIUL2 must be clocked before *any* SIUL2 register access. The boot regression
+calls `board_init()` before task creation and before SysTick is enabled. The
+first operation in `board_init()` is `enable_siul2_clock()`.
 
 SIUL2 is MC_ME block 73, controlled through Partition 1 Clock Output Function
 Block 2 (COFB2):
@@ -82,11 +82,12 @@ It writes `0x00280000`:
 The output latch's reset state is low, so initialization does not need to
 write PGPDO3 before enabling the output buffer.
 
-## Runtime Blink Path
+## Runtime LED Path
 
-The heartbeat example's LED task
-calls `board_led_toggle()` directly, then sleeps for `ms_to_ticks(100)`
-(`ms_to_ticks(100)`, approximately 100 ms at a 120 MHz core clock).
+The unprivileged boot-test task calls `JRT_BoardLedToggle()`. That public
+wrapper issues SVC 3; privileged SVC dispatch then calls
+`board_led_toggle()`. Unprivileged code therefore never accesses SIUL2
+directly.
 
 The privileged `board_led_toggle()` routine performs a 16-bit read-modify-write:
 
@@ -95,10 +96,8 @@ SIUL2_PGPDO3 ^= 0x2000U;
 ```
 
 This flips PTB18 while preserving the other PTB16--PTB31 output latches. The
-The task sleeps for `ms_to_ticks(100)` SysTick interrupts;
-`SysTick_Handler` decrements the sleep counter and requests a PendSV context
-switch. With the current tick rate of 7500 Hz, the interval is approximately
-100 ms.
+boot test delays for `JRT_MillisecondsToTicks(100U)` between toggles;
+`SysTick_Handler` advances the delay and requests a PendSV context switch.
 
 ## Ordering Requirements
 
@@ -109,7 +108,7 @@ switch. With the current tick rate of 7500 Hz, the interval is approximately
 3. Program the output latch before enabling an output buffer when a defined
    startup level is required. This design relies on the low reset latch.
 4. Enable SysTick only after `board_init()` and task stacks are ready; the
-   first task may call `board_led_toggle()` immediately after task launch.
+   first task may use the LED SVC immediately after task launch.
 
 ## Reference Source
 

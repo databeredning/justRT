@@ -2,20 +2,24 @@
 
 ## Scope
 
-justRT is a statically configured preemptive RTOS for the NXP S32K312
-Cortex-M7. It uses no heap or C runtime. The current port uses PSP for tasks,
-MSP for reset and exception handlers, SysTick for timekeeping, and PendSV for
-context switching.
+justRT is a statically configured preemptive RTOS for Cortex-M targets. It
+currently supports the NXP S32K312 Cortex-M7 and QEMU's MPS2-AN385 Cortex-M3.
+It uses no heap or C runtime. Tasks use PSP, reset and exception handlers use
+MSP, SysTick provides timekeeping, and PendSV performs context switching.
 
 ## Source Layout
 
 - `kernel/`: portable scheduler, synchronization, timers, and memory pools.
 - `arch/cortex_m/`: architecture contract.
-- `kernel/port_cm7.c`: Cortex-M7 port, MPU, SVC dispatch, SysTick, and PendSV.
+- `kernel/port_cm7.c`: shared Cortex-M port, optional MPU, SVC dispatch,
+  SysTick, and PendSV. The historical filename is retained.
 - `kernel/svc_cm7.s`: SVC exception handler and context restore helper.
 - `kernel/svc_stubs_cm7.c`: unprivileged SVC wrappers.
 - `platform/s32k312/`: startup, vectors, linker script, and board driver.
-- `examples/`: hardware regression profiles.
+- `platform/qemu_mps2_an385/`: QEMU startup, vectors, linker script, and board
+  driver.
+- `examples/`: board-independent examples.
+- `tests/`: named regression firmware profiles.
 
 ## Task Model
 
@@ -120,6 +124,8 @@ registers occupy the higher-address portion of an extended frame.
 
 ## MPU
 
+The S32K312 target enables the MPU and installs this static map:
+
 `arch_configure_mpu()` clears all region slots and installs this static map:
 
 | Region | Contents | Access |
@@ -135,7 +141,9 @@ registers occupy the higher-address portion of an extended frame.
 Higher region numbers override lower ones. The linker aligns the explicit
 unprivileged sections to MPU-compatible boundaries. `PRIVDEFENA` remains set
 for the privileged background map. Task privilege is selected by
-`TASK_FLAG_UNPRIVILEGED` and reapplied by PendSV.
+`JRT_TASK_FLAG_UNPRIVILEGED` and reapplied by PendSV. The QEMU Cortex-M3 target
+currently builds with `JRT_ARCH_HAS_MPU=0`; its stack guards therefore rely on
+the kernel's software bounds checks and do not validate hardware isolation.
 
 ## Kernel Services
 
@@ -163,9 +171,8 @@ tasks reject ISR use, while dedicated ISR APIs are non-blocking.
 Portable kernel code calls the contract in
 `arch/cortex_m/port_contract.h` for critical sections, ISR detection, tick
 startup, yielding, MPU setup, first-task startup, context switching, and idle
-wait. Board-specific GPIO access stays in
-`platform/s32k312/board/board.c` and is reached from unprivileged tasks through
-the LED SVC gateway.
+wait. Board-specific access stays below each `platform/<target>/board/`
+directory and is reached from unprivileged tasks through the LED SVC gateway.
 
 ## Build and Validation
 
@@ -175,14 +182,26 @@ make -B TEST=boot
 make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
+make -B TEST=race
 make auto-test
 ```
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
-the boot, synchronization, mutex, and FPU tests through J-Link/GDB. It suppresses
-nested build output while preserving test status and diagnostics. The runner
-also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
-`--test <name>` options.
+the boot, synchronization, mutex, FPU, and race tests on S32K312 hardware
+through J-Link/GDB. It suppresses nested build output while preserving test
+status and diagnostics. The runner also accepts `--quiet-build`, `--verbose`,
+`--timeout`, and repeated `--test <name>` options.
+
+Build and launch the QEMU target with:
+
+```sh
+make -B TARGET=qemu-mps2-an385 TEST=simple
+qemu-system-arm -M mps2-an385 -cpu cortex-m3 \
+  -kernel bin/qemu-mps2-an385/justrt.elf -nographic
+```
+
+QEMU test automation is not implemented yet. `TEST=fpu` is intentionally
+unavailable for its Cortex-M3 CPU.
 
 Tests:
 
@@ -191,6 +210,8 @@ Tests:
 - `sync`: ISR semaphore, queue, event-group, and notification paths.
 - `mutex`: recursive ownership, priority inheritance, and chained waiters.
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
+- `race`: blocking, timeout, tick-wrap, timer start/stop/restart, and wake-up
+  race coverage.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
@@ -207,3 +228,4 @@ auxiliary value, and tick before stopping with interrupts masked.
 - MPU regions are static and use power-of-two ranges.
 - Fault handling records state and stops; it does not recover or reset.
 - Timer callbacks require explicit task-side dispatch.
+- QEMU regressions currently require manual launch and debugger inspection.
