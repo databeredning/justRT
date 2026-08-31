@@ -96,6 +96,7 @@ static task_t tasks[JRT_MAX_SCHEDULER_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
+static uint32_t timer_service_task_index KERNEL_PRIVILEGED_DATA;
 
 static JRT_Status_t validate_task_id(uint32_t task_id)
 {
@@ -467,10 +468,16 @@ static void idle_body(void *argument)
 
 static void timer_service_body(void *argument)
 {
+    JRT_TimerCallback_t callback;
+    void *callback_argument;
+
     (void)argument;
     while (1)
     {
-        arch_wait_for_interrupt();
+        if (kernel_timer_service_claim(&callback, &callback_argument) != 0)
+        {
+            callback(callback_argument);
+        }
     }
 }
 
@@ -523,6 +530,7 @@ static void prepare_timer_service_task(uint32_t index)
 {
     task_t *task = &tasks[index];
 
+    timer_service_task_index = index;
     fill_stack(&timer_service_task_storage.stack[0],
                &timer_service_task_storage.stack[JRT_TIMER_SERVICE_STACK_WORDS]);
     task->stack_bottom = &timer_service_task_storage.stack[0];
@@ -540,6 +548,27 @@ static void prepare_timer_service_task(uint32_t index)
     task_wait_reset(task);
     task_wait_begin(task, &timer_service_wait_object, TASK_WAIT_TIMER_SERVICE,
                     JRT_WAIT_FOREVER);
+}
+
+/* Caller holds the kernel critical section. */
+void task_timer_service_wake_locked(void)
+{
+    task_t *task = &tasks[timer_service_task_index];
+
+    if ((task->state == JRT_TASK_STATE_BLOCKED)
+        && (task->wait_object == &timer_service_wait_object)
+        && (task->wait_kind == TASK_WAIT_TIMER_SERVICE))
+    {
+        task_wait_end(task, 1U);
+    }
+}
+
+void task_timer_service_block_locked(uint32_t saved_critical)
+{
+    task_wait_begin(current_task, &timer_service_wait_object,
+                    TASK_WAIT_TIMER_SERVICE, JRT_WAIT_FOREVER);
+    arch_critical_exit(saved_critical);
+    arch_yield();
 }
 
 static int event_condition(uint32_t current, uint32_t requested, uint32_t wait_all)

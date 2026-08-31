@@ -36,9 +36,9 @@ static const JRT_TaskDefinition_t tasks[] = {
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
 slots for kernel-owned tasks. The idle and timer-service tasks are created
-internally; the timer-service task remains blocked until callback dispatch is
-implemented. The S32K312 MPU assigns regions 6-15 to ten stack guards,
-matching the total scheduler capacity.
+internally. The timer-service task blocks while no callback work is pending.
+The S32K312 MPU assigns regions 6-15 to ten stack guards, matching the total
+scheduler capacity.
 States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
 priorities run first; equal priorities are selected round-robin.
 
@@ -165,11 +165,12 @@ the kernel's software bounds checks and do not validate hardware isolation.
 - Bounded queues with task send/receive and non-blocking ISR send.
 - Per-task accumulated notifications.
 - Event groups with wait-any, wait-all, and clear-on-exit options.
-- One-shot and periodic software timers. SysTick records expirations; task
-  code dispatches callbacks. Timer configuration and expiry processing are
-  serialized by the kernel critical section. If expiry wins a race with stop,
-  start, or restart, that expiration remains pending while the later operation
-  controls the timer's next deadline.
+- One-shot and periodic software timers. SysTick records expirations and wakes
+  the kernel timer-service task, which claims each pending invocation under the
+  kernel critical section and executes its callback after leaving the critical
+  section. Timer configuration and expiry processing are serialized. If expiry
+  wins a race with stop, start, or restart, that expiration remains pending
+  while the later operation controls the timer's next deadline.
 - Fixed-size memory pools protected by critical sections.
 
 Task waits convert relative tick timeouts to one absolute deadline when the API
@@ -247,5 +248,6 @@ auxiliary value, and tick before stopping with interrupts masked.
   implemented.
 - MPU regions are static and use power-of-two ranges.
 - Fault handling records state and stops; it does not recover or reset.
-- Timer callbacks require explicit task-side dispatch.
+- Timer callbacks run serially in the priority-1 kernel timer-service task and
+  must not block, delay, or wait for synchronization.
 - QEMU cannot exercise MPU isolation or floating-point context switching.

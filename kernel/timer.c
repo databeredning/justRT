@@ -66,10 +66,20 @@ void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
     if (timer != 0U)
     {
         uint32_t saved_primask = arch_critical_enter();
+        int wake_service = 0;
 
         timer->callback = callback;
         timer->argument = argument;
+        if ((callback != 0U) && (timer->expirations != 0U))
+        {
+            task_timer_service_wake_locked();
+            wake_service = 1;
+        }
         arch_critical_exit(saved_primask);
+        if (wake_service != 0)
+        {
+            arch_request_switch();
+        }
     }
 }
 
@@ -202,6 +212,10 @@ void kernel_timer_tick(void)
             && ((int32_t)(now - timer->deadline) >= 0))
         {
             timer->expirations++;
+            if (timer->callback != 0U)
+            {
+                task_timer_service_wake_locked();
+            }
             if (timer->periodic != 0U)
             {
                 timer->deadline += timer->period;
@@ -213,6 +227,29 @@ void kernel_timer_tick(void)
         }
         timer = timer->next;
     }
+}
+
+int kernel_timer_service_claim(JRT_TimerCallback_t *callback, void **argument)
+{
+    uint32_t saved_primask = arch_critical_enter();
+    JRT_Timer_t *timer = timer_list;
+
+    while (timer != 0U)
+    {
+        if ((timer->callback != 0U) && (timer->expirations != 0U))
+        {
+            *callback = timer->callback;
+            *argument = timer->argument;
+            timer->expirations--;
+            arch_critical_exit(saved_primask);
+            return 1;
+        }
+        timer = timer->next;
+    }
+
+    /* Publish the blocked state before re-enabling interrupts. */
+    task_timer_service_block_locked(saved_primask);
+    return 0;
 }
 
 uint32_t timer_invariant_check(uintptr_t *object)

@@ -17,11 +17,11 @@ applications no longer need to poll expirations or call
    - [x] Define its priority relative to application and idle tasks.
 
 2. Expiry notification and callback dispatch
-   - [ ] Keep SysTick limited to recording expirations and waking the service
+   - [x] Keep SysTick limited to recording expirations and waking the service
      task; never execute callbacks in exception context.
-   - [ ] Drain pending callbacks without holding the kernel critical section
+   - [x] Drain pending callbacks without holding the kernel critical section
      while application callback code runs.
-   - [ ] Preserve accumulated expirations and the existing stop/start/restart
+   - [x] Preserve accumulated expirations and the existing stop/start/restart
      race semantics.
    - [x] Define behavior when callbacks start, stop, restart, or reconfigure
      their own timer or another timer.

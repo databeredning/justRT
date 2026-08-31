@@ -197,6 +197,9 @@ uint32_t task_current_index(void) KERNEL_PRIVILEGED;
 uint32_t task_current_priority(void) KERNEL_PRIVILEGED;
 uint32_t *task_current_sp(void) KERNEL_PRIVILEGED;
 uint32_t task_current_control(void) KERNEL_PRIVILEGED;
+/* Timer-service transitions; caller holds the kernel critical section. */
+void task_timer_service_wake_locked(void) KERNEL_PRIVILEGED;
+void task_timer_service_block_locked(uint32_t saved_critical) KERNEL_PRIVILEGED;
 void task_inherit_priority(uint32_t task_id, uint32_t priority) KERNEL_PRIVILEGED;
 void task_restore_priority(uint32_t task_id) KERNEL_PRIVILEGED;
 int JRT_TaskNotify(uint32_t task_id, uint32_t value) KERNEL_PRIVILEGED;

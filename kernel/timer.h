@@ -29,6 +29,8 @@ uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer);
 void JRT_TimerDispatch(JRT_Timer_t *timer);
 /* Kernel-internal tick processing. */
 void kernel_timer_tick(void);
+/* Kernel-internal callback claim; blocks the service task when no work exists. */
+int kernel_timer_service_claim(JRT_TimerCallback_t *callback, void **argument);
 /* Kernel-internal invariant validation. Caller holds a critical section. */
 uint32_t timer_invariant_check(uintptr_t *object);
 

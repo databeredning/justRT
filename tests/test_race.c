@@ -279,7 +279,9 @@ static void test_race_waiter_task(void *argument)
         JRT_TimerStart(&test_race_timer, 2U);
         JRT_TaskDelay(2U);
         before_callbacks = g_test_race.timer_callbacks;
-        JRT_TimerDispatch(&test_race_timer);
+        JRT_TimerSetCallback(&test_race_timer, test_race_timer_callback, 0U);
+        JRT_TaskDelay(1U);
+        JRT_TimerSetCallback(&test_race_timer, 0U, 0U);
         if ((g_test_race.timer_callbacks - before_callbacks) != 2U)
         {
             g_test_race.error_code = 27U;
@@ -488,7 +490,6 @@ void test_race_start(void)
     JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_locked_gate, 0U);
     JRT_SemaphoreCreateBinaryStatic(&test_race_mutex_released_gate, 0U);
     JRT_TimerCreateStatic(&test_race_timer);
-    JRT_TimerSetCallback(&test_race_timer, test_race_timer_callback, 0U);
     if (JRT_QueueSend(&test_race_full_queue, &initial_value, 0U) == 0)
     {
         g_test_race.error_code = 12U;
