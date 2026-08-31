@@ -52,6 +52,7 @@ enum
     SVC_SERVICE_LED_TOGGLE = 3U
 };
 
+#if JRT_ARCH_HAS_MPU
 #define MPU_CTRL (*(volatile uint32_t *)0xE000ED94U)
 #define MPU_RNR (*(volatile uint32_t *)0xE000ED98U)
 #define MPU_RBAR (*(volatile uint32_t *)0xE000ED9CU)
@@ -158,9 +159,11 @@ static void configure_memory_regions(void)
                            (uintptr_t)__unprivileged_task_data_end,
                            unprivileged_data_attributes);
 }
+#endif
 
 void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
 {
+#if JRT_ARCH_HAS_MPU
     uint32_t index;
 
     MPU_CTRL = 0U;
@@ -180,6 +183,10 @@ void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
     }
     MPU_CTRL = MPU_CTRL_ENABLE | MPU_CTRL_PRIVDEFENA;
     __asm volatile ("dsb\nisb" : : : "memory");
+#else
+    (void)guard_addresses;
+    (void)guard_count;
+#endif
 }
 
 void tick_init(void)

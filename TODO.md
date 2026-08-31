@@ -1,9 +1,33 @@
 # RTOS Roadmap
 
-## Current milestone: concurrency hardening
+## Current milestone: QEMU regression target
 
-Make blocking, wake-up, and timer operations race-free before expanding the
-kernel API.
+Add a fast Cortex-M target for repeatable scheduler and kernel regression
+testing while retaining S32K312 hardware tests as the final acceptance gate.
+
+1. Target and platform bring-up
+   - [x] Add an isolated `qemu-mps2-an385` Cortex-M3 build target.
+   - [x] Add minimal startup, vector table, linker script, and board layer.
+   - [x] Keep QEMU build artifacts separate from S32K312 artifacts.
+   - [x] Boot `simple` and confirm SysTick/PendSV switching without faults or
+     invariant failures.
+
+2. Automated regression
+   - [ ] Add an automated QEMU/GDB test runner.
+   - [ ] Run `boot`, `sync`, `mutex`, and `race` under QEMU.
+   - [ ] Report the same result, fault, and invariant diagnostics as the
+     J-Link hardware runner.
+   - [ ] Add a convenient `make qemu-test` entry point.
+
+3. Cross-target validation
+   - [ ] Run the complete S32K312 hardware suite after shared Cortex-M changes.
+   - [ ] Document supported QEMU tests and explicitly exclude the Cortex-M3
+     `fpu` profile.
+
+## Completed milestone: concurrency hardening
+
+Blocking, wake-up, timeout, and timer operations are race-hardened before
+further expansion of the kernel API.
 
 1. Atomic wait enrollment
    - [x] Replace the split check-to-block sequence for semaphores.
@@ -53,8 +77,7 @@ kernel API.
 1. Add a kernel-owned timer service task so callbacks no longer require manual
    task-side dispatch.
 2. Add per-task MPU data isolation.
-3. Add a QEMU Cortex-M target for fast, repeatable CI regression testing.
-4. Consider task suspend/resume and other lifecycle APIs only after ownership
+3. Consider task suspend/resume and other lifecycle APIs only after ownership
    and cleanup rules are defined.
 
 ## Validation
@@ -65,6 +88,7 @@ For each focused change:
 2. Run `git diff --check`.
 3. Run the applicable hardware regression, and run `make auto-test` for shared
    scheduler, synchronization, or timer changes.
-4. Inspect `g_fault_active`, `g_fault_record`, `g_context_switches`, and the
+4. Run the applicable QEMU regression once the automated runner is available.
+5. Inspect `g_fault_active`, `g_fault_record`, `g_context_switches`, and the
    test result fields in the debugger.
-5. Keep generated `bin/` and `obj/` artifacts out of commits.
+6. Keep generated `bin/` and `obj/` artifacts out of commits.
