@@ -10,6 +10,15 @@ typedef struct
     volatile uint32_t takes;
     volatile uint32_t timeouts;
     volatile uint32_t lost_wakeups;
+    volatile uint32_t queue_signals;
+    volatile uint32_t queue_receives;
+    volatile uint32_t queue_timeouts;
+    volatile uint32_t queue_lost_wakeups;
+    volatile uint32_t queue_drain_signals;
+    volatile uint32_t queue_drains;
+    volatile uint32_t queue_sends;
+    volatile uint32_t queue_send_timeouts;
+    volatile uint32_t queue_send_lost_wakeups;
     volatile uint32_t error_code;
 } race_test_state_t;
 

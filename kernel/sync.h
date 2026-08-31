@@ -27,6 +27,8 @@ typedef struct
     volatile uint32_t head;
     volatile uint32_t tail;
     volatile uint32_t count;
+    volatile uint32_t send_reservations;
+    volatile uint32_t receive_reservations;
 } JRT_Queue_t;
 
 void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore,

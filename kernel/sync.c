@@ -189,11 +189,15 @@ void JRT_QueueCreateStatic(JRT_Queue_t *queue, void *storage,
     queue->head = 0U;
     queue->tail = 0U;
     queue->count = 0U;
+    queue->send_reservations = 0U;
+    queue->receive_reservations = 0U;
     arch_critical_exit(saved_primask);
 }
 
 int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
 {
+    uint32_t reserved = 0U;
+
     if (arch_in_isr() != 0)
     {
         count_context_misuse(&g_sync_misuse_queue_send);
@@ -205,7 +209,9 @@ int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
         uint32_t saved_primask = arch_critical_enter();
 
         if ((queue->capacity != 0U) && (queue->item_size != 0U)
-            && (queue->count < queue->capacity))
+            && ((reserved != 0U)
+                || ((queue->count + queue->send_reservations)
+                    < queue->capacity)))
         {
             uint8_t *destination = &queue->storage[queue->head * queue->item_size];
             const uint8_t *source = (const uint8_t *)item;
@@ -215,27 +221,38 @@ int JRT_QueueSend(JRT_Queue_t *queue, const void *item, uint32_t timeout_ticks)
             {
                 destination[index] = source[index];
             }
+            if (reserved != 0U)
+            {
+                queue->send_reservations--;
+            }
             queue->head = (queue->head + 1U) % queue->capacity;
             queue->count++;
-            task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
+            if (task_wake(queue, TASK_WAIT_QUEUE_RECEIVE) != 0)
+            {
+                queue->receive_reservations++;
+            }
             arch_critical_exit(saved_primask);
             return 1;
         }
-        arch_critical_exit(saved_primask);
 
         if (timeout_ticks == 0U)
         {
+            arch_critical_exit(saved_primask);
             return 0;
         }
-        if (task_block(queue, TASK_WAIT_QUEUE_SEND, timeout_ticks) == 0)
+        if (task_block_locked(queue, TASK_WAIT_QUEUE_SEND, timeout_ticks,
+                              saved_primask) == 0)
         {
             return 0;
         }
+        reserved = 1U;
     }
 }
 
 int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
 {
+    uint32_t reserved = 0U;
+
     if (arch_in_isr() != 0)
     {
         count_context_misuse(&g_sync_misuse_queue_receive);
@@ -246,7 +263,9 @@ int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
     {
         uint32_t saved_primask = arch_critical_enter();
 
-        if ((queue->item_size != 0U) && (queue->count != 0U))
+        if ((queue->item_size != 0U)
+            && ((reserved != 0U)
+                || (queue->count > queue->receive_reservations)))
         {
             const uint8_t *source = &queue->storage[queue->tail * queue->item_size];
             uint8_t *destination = (uint8_t *)item;
@@ -256,22 +275,31 @@ int JRT_QueueReceive(JRT_Queue_t *queue, void *item, uint32_t timeout_ticks)
             {
                 destination[index] = source[index];
             }
+            if (reserved != 0U)
+            {
+                queue->receive_reservations--;
+            }
             queue->tail = (queue->tail + 1U) % queue->capacity;
             queue->count--;
-            task_wake(queue, TASK_WAIT_QUEUE_SEND);
+            if (task_wake(queue, TASK_WAIT_QUEUE_SEND) != 0)
+            {
+                queue->send_reservations++;
+            }
             arch_critical_exit(saved_primask);
             return 1;
         }
-        arch_critical_exit(saved_primask);
 
         if (timeout_ticks == 0U)
         {
+            arch_critical_exit(saved_primask);
             return 0;
         }
-        if (task_block(queue, TASK_WAIT_QUEUE_RECEIVE, timeout_ticks) == 0)
+        if (task_block_locked(queue, TASK_WAIT_QUEUE_RECEIVE, timeout_ticks,
+                              saved_primask) == 0)
         {
             return 0;
         }
+        reserved = 1U;
     }
 }
 
@@ -288,7 +316,7 @@ int JRT_QueueSendFromISR(JRT_Queue_t *queue, const void *item)
     g_isr_queue_send_attempted++;
 
     if ((queue->capacity != 0U) && (queue->item_size != 0U)
-        && (queue->count < queue->capacity))
+        && ((queue->count + queue->send_reservations) < queue->capacity))
     {
         uint8_t *destination = &queue->storage[queue->head * queue->item_size];
         const uint8_t *source = (const uint8_t *)item;
@@ -305,7 +333,10 @@ int JRT_QueueSendFromISR(JRT_Queue_t *queue, const void *item)
         {
             g_isr_queue_count_high_water = queue->count;
         }
-        task_wake(queue, TASK_WAIT_QUEUE_RECEIVE);
+        if (task_wake(queue, TASK_WAIT_QUEUE_RECEIVE) != 0)
+        {
+            queue->receive_reservations++;
+        }
         arch_critical_exit(saved_primask);
         arch_request_switch();
         return 1;

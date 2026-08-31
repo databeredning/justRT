@@ -6,20 +6,18 @@ Make blocking, wake-up, and timer operations race-free before expanding the
 kernel API.
 
 1. Atomic wait enrollment
-   - Replace the split `inspect object -> leave critical section -> task_block()`
-     sequence with an internal operation that checks the condition and enrolls
-     the waiter while the same critical section is held.
-   - Yield only after the blocked state has been committed.
-   - Apply this consistently to semaphores, queues, mutexes, notifications, and
-     event groups.
+   - [x] Replace the split check-to-block sequence for semaphores.
+   - [x] Replace the split check-to-block sequence for queue send and receive.
+   - [x] Yield only after the blocked state has been committed.
+   - [ ] Apply atomic enrollment to mutexes, notifications, and event groups.
 
 2. Deterministic wake-up semantics
-   - Define whether waking transfers or reserves a semaphore, queue slot/item,
-     or mutex ownership for the selected waiter.
-   - Always select the highest-priority eligible waiter, with deterministic
-     handling of equal priorities.
-   - Maintain priority inheritance correctly when mutex waits time out or
-     ownership changes.
+   - [x] Transfer semaphore tokens directly to selected waiters.
+   - [x] Reserve queue slots and items for selected senders and receivers.
+   - [x] Select the highest-priority eligible waiter, with task order breaking
+     equal-priority ties deterministically.
+   - [ ] Define mutex ownership handoff and maintain priority inheritance when
+     waits time out or ownership changes.
 
 3. Absolute timeout deadlines
    - Preserve one absolute deadline across retry loops so a spurious or
@@ -34,15 +32,13 @@ kernel API.
    - Keep callback execution out of SysTick context.
 
 5. Adversarial regression test
-   - Add a named `race` hardware test that repeatedly exercises:
-     - semaphore give versus take enrollment
-     - queue send/receive versus timeout
-     - mutex unlock versus timeout
-     - timer start/stop/restart versus expiry
-     - tick-counter wraparound
-   - Expose explicit pass, fail, done, and race-iteration counters to the
-     debugger.
-   - Add the test to `make auto-test` after it is stable.
+   - [x] Add the named `race` hardware test and automated-runner profile.
+   - [x] Exercise semaphore give versus take enrollment.
+   - [x] Exercise empty-queue receive and full-queue send enrollment.
+   - [ ] Exercise mutex unlock versus timeout.
+   - [ ] Exercise timer start/stop/restart versus expiry.
+   - [ ] Exercise tick-counter wraparound.
+   - [x] Expose explicit result and race diagnostics to the debugger.
 
 6. Kernel invariants and diagnostics
    - Detect impossible states such as a blocked task without a wait object, an
