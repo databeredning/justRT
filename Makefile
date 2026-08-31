@@ -1,4 +1,6 @@
 PROJECT := justrt
+.DEFAULT_GOAL := all
+
 TARGET ?= s32k312
 ifeq ($(TARGET),s32k312)
 OBJDIR := obj
