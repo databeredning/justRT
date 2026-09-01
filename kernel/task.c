@@ -94,7 +94,9 @@ static uint32_t timer_service_wait_object KERNEL_PRIVILEGED_DATA;
 static task_t tasks[JRT_MAX_SCHEDULER_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
+static uint32_t application_task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
+static uint32_t kernel_started KERNEL_PRIVILEGED_DATA;
 static uint32_t timer_service_task_index KERNEL_PRIVILEGED_DATA;
 
 extern uint8_t __task_private_data_start[];
@@ -108,6 +110,24 @@ static void *task_stack_guard(const task_t *task)
 static JRT_Status_t validate_task_id(uint32_t task_id)
 {
     return (task_id < task_count) ? JRT_STATUS_OK : JRT_STATUS_INVALID_TASK;
+}
+
+static JRT_Status_t resolve_application_task_id(uint32_t requested_task_id,
+                                                int allow_self,
+                                                uint32_t *resolved_task_id)
+{
+    uint32_t task_id = requested_task_id;
+
+    if ((allow_self != 0) && (task_id == JRT_TASK_ID_SELF))
+    {
+        task_id = g_current_task_index;
+    }
+    if (task_id >= application_task_count)
+    {
+        return JRT_STATUS_INVALID_TASK;
+    }
+    *resolved_task_id = task_id;
+    return JRT_STATUS_OK;
 }
 
 JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state)
@@ -167,6 +187,93 @@ JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority)
     }
     saved_primask = arch_critical_enter();
     *priority = tasks[task_id].priority;
+    arch_critical_exit(saved_primask);
+    return JRT_STATUS_OK;
+}
+
+JRT_Status_t JRT_TaskSuspend(uint32_t requested_task_id)
+{
+    uint32_t saved_primask;
+    uint32_t task_id;
+    int suspend_self;
+    JRT_Status_t status;
+
+    if (arch_in_isr() != 0)
+    {
+        return JRT_STATUS_INVALID_CONTEXT;
+    }
+
+    saved_primask = arch_critical_enter();
+    if (kernel_initialized == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_NOT_INITIALIZED;
+    }
+    if (kernel_started == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_INVALID_CONTEXT;
+    }
+    status = resolve_application_task_id(requested_task_id, 1, &task_id);
+    if (status != JRT_STATUS_OK)
+    {
+        arch_critical_exit(saved_primask);
+        return status;
+    }
+    if ((tasks[task_id].state != JRT_TASK_STATE_READY)
+        && ((tasks[task_id].state != JRT_TASK_STATE_RUNNING)
+            || (task_id != g_current_task_index)))
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_INVALID_STATE;
+    }
+
+    tasks[task_id].state = JRT_TASK_STATE_SUSPENDED;
+    suspend_self = (task_id == g_current_task_index) ? 1 : 0;
+    arch_critical_exit(saved_primask);
+    if (suspend_self != 0)
+    {
+        arch_yield();
+    }
+    return JRT_STATUS_OK;
+}
+
+JRT_Status_t JRT_TaskResume(uint32_t requested_task_id)
+{
+    uint32_t saved_primask;
+    uint32_t task_id;
+    JRT_Status_t status;
+
+    if (arch_in_isr() != 0)
+    {
+        return JRT_STATUS_INVALID_CONTEXT;
+    }
+
+    saved_primask = arch_critical_enter();
+    if (kernel_initialized == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_NOT_INITIALIZED;
+    }
+    if (kernel_started == 0U)
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_INVALID_CONTEXT;
+    }
+    status = resolve_application_task_id(requested_task_id, 0, &task_id);
+    if (status != JRT_STATUS_OK)
+    {
+        arch_critical_exit(saved_primask);
+        return status;
+    }
+    if (tasks[task_id].state != JRT_TASK_STATE_SUSPENDED)
+    {
+        arch_critical_exit(saved_primask);
+        return JRT_STATUS_INVALID_STATE;
+    }
+
+    tasks[task_id].state = JRT_TASK_STATE_READY;
+    arch_request_switch();
     arch_critical_exit(saved_primask);
     return JRT_STATUS_OK;
 }
@@ -935,7 +1042,7 @@ static void kernel_check_invariants_locked(void)
     {
         task_t *task = &tasks[index];
 
-        if (task->state > JRT_TASK_STATE_BLOCKED)
+        if (task->state > JRT_TASK_STATE_SUSPENDED)
         {
             kernel_invariant_fail(JRT_INVARIANT_TASK_STATE, index,
                                   (uintptr_t)task, task->state);
@@ -1271,6 +1378,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         }
     }
 
+    application_task_count = config->task_count;
     task_count = configured_total_task_count;
     for (index = 0U; index < config->task_count; index++)
     {
@@ -1295,6 +1403,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     g_kernel_invariant_object = 0U;
     g_kernel_invariant_aux = 0U;
     g_kernel_invariant_tick = 0U;
+    kernel_started = 0U;
     arch_configure_mpu(task_stack_guard(current_task),
                        current_task->private_data_base,
                        current_task->private_data_size);
@@ -1312,5 +1421,6 @@ void JRT_KernelStart(void)
         }
     }
     arch_tick_init();
+    kernel_started = 1U;
     arch_start_first_task();
 }

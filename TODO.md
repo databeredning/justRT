@@ -25,15 +25,15 @@ Suggested commit: `api: define static task suspension semantics`
 
 ### Planned commit 2: implement suspension state transitions
 
-- [ ] Remove suspended tasks from scheduler selection without altering their
+- [x] Remove suspended tasks from scheduler selection without altering their
   saved stack, priority, notification value, or private-memory ownership.
-- [ ] Make self-suspension request an immediate context switch and prevent the
+- [x] Make self-suspension request an immediate context switch and prevent the
   caller from running again until resumed.
-- [ ] Suspend another `READY` task atomically and resume a suspended task as
+- [x] Suspend another `READY` task atomically and resume a suspended task as
   `READY`.
-- [ ] Reject sleeping, synchronization-blocked, already-suspended, and
+- [x] Reject sleeping, synchronization-blocked, already-suspended, and
   kernel-owned targets according to the API contract.
-- [ ] Extend kernel invariants so suspended tasks cannot retain active wait
+- [x] Extend kernel invariants so suspended tasks cannot retain active wait
   metadata or appear as the current running task after a switch.
 
 Suggested commit: `kernel: implement static task suspension`
