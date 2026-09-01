@@ -475,9 +475,7 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
         g_stack_fault = 1U;
         g_stack_fault_task = g_current_task_index;
         g_stack_fault_sp = (uint32_t)(uintptr_t)current_sp;
-        while (1)
-        {
-        }
+        kernel_fatal(JRT_FATAL_STACK_OVERFLOW);
     }
 
     if (current_sp < task->minimum_sp)
@@ -995,9 +993,7 @@ static void kernel_invariant_fail(uint32_t code, uint32_t task_id, uintptr_t obj
     g_kernel_invariant_aux = aux;
     g_kernel_invariant_tick = g_kernel_ticks;
     g_kernel_invariant_active = 1U;
-    while (1)
-    {
-    }
+    kernel_fatal(JRT_FATAL_KERNEL_INVARIANT);
 }
 
 /* Caller holds the kernel critical section. */

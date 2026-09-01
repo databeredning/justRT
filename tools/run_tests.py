@@ -286,6 +286,9 @@ KERNEL_DIAGNOSTICS = (
     "g_stack_fault",
     "g_stack_fault_task",
     "g_stack_fault_sp",
+    "g_fatal_active",
+    "g_fatal_reason",
+    "g_fatal_hook_returned",
     "g_context_switches",
     "g_kernel_ticks",
     "g_mpu_stack_guard_base",
@@ -587,7 +590,8 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
         ok = (done != 0 and state == 2 and failed == 0
               and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
               and diagnostic_values.get("g_fault_active", 0) == 0
-              and diagnostic_values.get("g_stack_fault", 0) == 0)
+              and diagnostic_values.get("g_stack_fault", 0) == 0
+              and diagnostic_values.get("g_fatal_active", 0) == 0)
         summary = f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
 
         useful = ", ".join(f"{name}={value}" for name, value in diagnostics if value != 0)

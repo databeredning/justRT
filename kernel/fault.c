@@ -9,27 +9,7 @@
 #define SCB_BFAR (*(volatile uint32_t *)0xE000ED38U)
 #define SCB_AFSR (*(volatile uint32_t *)0xE000ED3CU)
 
-typedef struct
-{
-    uint32_t r0;
-    uint32_t r1;
-    uint32_t r2;
-    uint32_t r3;
-    uint32_t r12;
-    uint32_t lr;
-    uint32_t pc;
-    uint32_t xpsr;
-    uint32_t exc_return;
-    uint32_t cfsr;
-    uint32_t hfsr;
-    uint32_t dfsr;
-    uint32_t mmfar;
-    uint32_t bfar;
-    uint32_t afsr;
-    uint32_t fault_type;
-} fault_record_t;
-
-volatile fault_record_t g_fault_record KERNEL_PRIVILEGED_DATA;
+volatile JRT_FaultRecord_t g_fault_record KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_fault_active KERNEL_PRIVILEGED_DATA = 0U;
 
 void fault_capture(uint32_t *stacked_frame, uint32_t exc_return, uint32_t fault_type)
@@ -51,10 +31,7 @@ void fault_capture(uint32_t *stacked_frame, uint32_t exc_return, uint32_t fault_
     g_fault_record.afsr = SCB_AFSR;
     g_fault_record.fault_type = fault_type;
     g_fault_active = 1U;
-
-    while (1)
-    {
-    }
+    kernel_fatal(JRT_FATAL_PROCESSOR_FAULT);
 }
 
 #define DEFINE_FAULT_HANDLER(name, type) \

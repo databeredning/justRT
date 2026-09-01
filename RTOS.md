@@ -344,6 +344,31 @@ notify an application task. A callback that does not return prevents later
 timer callbacks from running, while higher-priority application tasks may
 still preempt it normally.
 
+## Fatal-Error Policy
+
+Processor faults, kernel-invariant failures, and software-detected task-stack
+overflows retain their source-specific debugger records and then enter the
+shared fatal path. The path masks all maskable interrupts, records
+`g_fatal_active` and `g_fatal_reason`, and calls the weak
+`JRT_FatalErrorHook()`. The default hook returns immediately to the kernel's
+permanent halt loop.
+
+An application may provide one strong definition of `JRT_FatalErrorHook()` to
+record persistent diagnostics, signal an external watchdog, or request a
+platform reset. The hook executes in privileged context with maskable
+interrupts disabled. It must use only bounded, polling operations that are
+safe in fault context; it must not call the scheduler, kernel APIs, blocking
+drivers, or code that depends on interrupts. If the hook returns, the kernel
+sets `g_fatal_hook_returned` and enters the same halt loop, so a faulty hook
+cannot resume the scheduler or exception return path.
+
+The hook receives a `JRT_FatalReason_t` value identifying processor fault,
+kernel invariant, or stack overflow. Detailed data remains in
+`g_fault_record`, the `g_kernel_invariant_*` fields, or the `g_stack_fault_*`
+fields respectively. Reset and watchdog behavior is deliberately supplied by
+the application because the correct mechanism and diagnostic-retention policy
+are platform-specific.
+
 ## Port Boundary
 
 Portable kernel code calls the contract in

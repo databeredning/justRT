@@ -184,6 +184,33 @@ typedef enum
 	JRT_INVARIANT_TIMER_PERIODIC_STATE
 } JRT_KernelInvariantCode_t;
 
+typedef enum
+{
+	JRT_FATAL_PROCESSOR_FAULT = 1U,
+	JRT_FATAL_KERNEL_INVARIANT,
+	JRT_FATAL_STACK_OVERFLOW
+} JRT_FatalReason_t;
+
+typedef struct
+{
+	uint32_t r0;
+	uint32_t r1;
+	uint32_t r2;
+	uint32_t r3;
+	uint32_t r12;
+	uint32_t lr;
+	uint32_t pc;
+	uint32_t xpsr;
+	uint32_t exc_return;
+	uint32_t cfsr;
+	uint32_t hfsr;
+	uint32_t dfsr;
+	uint32_t mmfar;
+	uint32_t bfar;
+	uint32_t afsr;
+	uint32_t fault_type;
+} JRT_FaultRecord_t;
+
 JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config) KERNEL_PRIVILEGED;
 void JRT_KernelStart(void) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state) KERNEL_PRIVILEGED;
@@ -204,6 +231,8 @@ void tick_init(void) KERNEL_PRIVILEGED;
 typedef void (*JRT_KernelTickHook_t)(void);
 
 void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook) KERNEL_PRIVILEGED;
+void JRT_FatalErrorHook(JRT_FatalReason_t reason);
+void kernel_fatal(JRT_FatalReason_t reason) __attribute__((noreturn)) KERNEL_PRIVILEGED;
 void request_switch(void) KERNEL_PRIVILEGED;
 int kernel_in_isr(void) KERNEL_PRIVILEGED;
 uint32_t critical_enter(void) KERNEL_PRIVILEGED;
@@ -274,6 +303,11 @@ extern volatile uint32_t g_wait_timeout_mutex;
 extern volatile uint32_t g_stack_fault;
 extern volatile uint32_t g_stack_fault_task;
 extern volatile uint32_t g_stack_fault_sp;
+extern volatile uint32_t g_fatal_active;
+extern volatile uint32_t g_fatal_reason;
+extern volatile uint32_t g_fatal_hook_returned;
+extern volatile JRT_FaultRecord_t g_fault_record;
+extern volatile uint32_t g_fault_active;
 extern volatile uint32_t g_kernel_ticks;
 extern volatile uint32_t g_kernel_invariant_active;
 extern volatile uint32_t g_kernel_invariant_code;

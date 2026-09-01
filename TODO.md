@@ -21,11 +21,11 @@ Suggested commit: `docs: define execution and interrupt safety contract`
 
 ### Planned commit 2: add configurable fatal-error hooks
 
-- [ ] Define application hooks for kernel invariants, stack overflow, and
+- [x] Define application hooks for kernel invariants, stack overflow, and
   processor faults while retaining debugger-visible fault records.
-- [ ] Provide deterministic default stop behavior and an optional reset or
+- [x] Provide deterministic default stop behavior and an optional reset or
   watchdog handoff policy.
-- [ ] Ensure fatal paths mask interrupts, avoid scheduler re-entry, and cannot
+- [x] Ensure fatal paths mask interrupts, avoid scheduler re-entry, and cannot
   return accidentally.
 - [ ] Add focused hook and default-policy regression coverage.
 

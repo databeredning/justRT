@@ -84,7 +84,7 @@ $(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mu
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
 $(OBJS): JRTConfig.h
 
@@ -163,6 +163,9 @@ $(OBJDIR)/kernel/svc_cm7.o: kernel/svc_cm7.s | $(OBJDIR)/kernel
 	$(CC) $(ASFLAGS) -c $< -o $@
 
 $(OBJDIR)/kernel/fault.o: kernel/fault.c kernel/kernel.h | $(OBJDIR)/kernel
+	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
+
+$(OBJDIR)/kernel/fatal.o: kernel/fatal.c kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
 $(OBJDIR)/kernel/sync.o: kernel/sync.c kernel/sync.h kernel/kernel.h | $(OBJDIR)/kernel
