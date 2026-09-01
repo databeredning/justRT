@@ -191,17 +191,11 @@ JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority)
     return JRT_STATUS_OK;
 }
 
-JRT_Status_t JRT_TaskSuspend(uint32_t requested_task_id)
+JRT_Status_t kernel_task_suspend(uint32_t requested_task_id)
 {
     uint32_t saved_primask;
     uint32_t task_id;
-    int suspend_self;
     JRT_Status_t status;
-
-    if (arch_in_isr() != 0)
-    {
-        return JRT_STATUS_INVALID_CONTEXT;
-    }
 
     saved_primask = arch_critical_enter();
     if (kernel_initialized == 0U)
@@ -229,25 +223,15 @@ JRT_Status_t JRT_TaskSuspend(uint32_t requested_task_id)
     }
 
     tasks[task_id].state = JRT_TASK_STATE_SUSPENDED;
-    suspend_self = (task_id == g_current_task_index) ? 1 : 0;
     arch_critical_exit(saved_primask);
-    if (suspend_self != 0)
-    {
-        arch_yield();
-    }
     return JRT_STATUS_OK;
 }
 
-JRT_Status_t JRT_TaskResume(uint32_t requested_task_id)
+JRT_Status_t kernel_task_resume(uint32_t requested_task_id)
 {
     uint32_t saved_primask;
     uint32_t task_id;
     JRT_Status_t status;
-
-    if (arch_in_isr() != 0)
-    {
-        return JRT_STATUS_INVALID_CONTEXT;
-    }
 
     saved_primask = arch_critical_enter();
     if (kernel_initialized == 0U)
@@ -273,7 +257,6 @@ JRT_Status_t JRT_TaskResume(uint32_t requested_task_id)
     }
 
     tasks[task_id].state = JRT_TASK_STATE_READY;
-    arch_request_switch();
     arch_critical_exit(saved_primask);
     return JRT_STATUS_OK;
 }

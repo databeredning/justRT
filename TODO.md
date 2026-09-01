@@ -40,12 +40,12 @@ Suggested commit: `kernel: implement static task suspension`
 
 ### Planned commit 3: expose suspension to unprivileged tasks
 
-- [ ] Add SVC services and wrappers for suspend and resume without allowing
+- [x] Add SVC services and wrappers for suspend and resume without allowing
   unprivileged callers to bypass task-ID or state validation.
-- [ ] Preserve exception-context restrictions and reject ISR misuse.
-- [ ] Ensure self-suspension cannot return to unprivileged Thread mode before
+- [x] Preserve exception-context restrictions and reject ISR misuse.
+- [x] Ensure self-suspension cannot return to unprivileged Thread mode before
   PendSV selects a different runnable task.
-- [ ] Confirm normal task selection replaces the suspended task's dynamic
+- [x] Confirm normal task selection replaces the suspended task's dynamic
   stack guard and private-data MPU region before exception return.
 
 Suggested commit: `arch: add unprivileged task suspension gateways`

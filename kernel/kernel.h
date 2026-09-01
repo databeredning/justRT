@@ -240,6 +240,8 @@ uint32_t JRT_EventGroupSetBitsFromISR(JRT_EventGroup_t *group, uint32_t bits) KE
 uint32_t JRT_EventGroupWaitBits(JRT_EventGroup_t *group, uint32_t bits,
 							   int wait_all, int clear_on_exit,
 							   uint32_t timeout_ticks) KERNEL_PRIVILEGED;
+JRT_Status_t kernel_task_suspend(uint32_t task_id) KERNEL_PRIVILEGED;
+JRT_Status_t kernel_task_resume(uint32_t task_id) KERNEL_PRIVILEGED;
 uint32_t *pendsv_switch(uint32_t *current_sp) KERNEL_PRIVILEGED;
 void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return) KERNEL_PRIVILEGED;
 

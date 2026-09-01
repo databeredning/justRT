@@ -90,15 +90,15 @@ its configured index.
 
 The suspension API contract is intentionally narrow. `JRT_TaskSuspend()` and
 `JRT_TaskResume()` are task-context operations; ISR calls return
-`JRT_STATUS_INVALID_CONTEXT`, and calls before successful initialization
-return `JRT_STATUS_NOT_INITIALIZED`. Suspend accepts the calling `RUNNING`
-task or another `READY` application task. Sleeping, blocked, or already
-suspended targets return `JRT_STATUS_INVALID_STATE`. Resume accepts only a
-suspended application task and makes it ready; it does not restore or invent a
-previous wait. Invalid and kernel-owned IDs return `JRT_STATUS_INVALID_TASK`.
-Suspension requires an explicit resume and is not ended by ticks, notifications,
-queues, semaphores, or events. The scheduler and SVC implementation of this
-contract are delivered by the following milestone commits.
+`JRT_STATUS_INVALID_CONTEXT`; pre-scheduler Thread mode also has no valid task
+context. Suspend accepts the calling `RUNNING` task or another `READY`
+application task. Sleeping, blocked, or already suspended targets return
+`JRT_STATUS_INVALID_STATE`. Resume accepts only a suspended application task
+and makes it ready; it does not restore or invent a previous wait. Invalid and
+kernel-owned IDs return `JRT_STATUS_INVALID_TASK`. Suspension requires an
+explicit resume and is not ended by ticks, notifications, queues, semaphores,
+or events. Unprivileged calls use SVC 4 and 5; the privileged handlers validate
+the target and pend normal scheduler selection before exception return.
 
 Each task supplies a statically allocated stack whose size is selected by the
 application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that
@@ -186,6 +186,8 @@ privileged.
 | 1 | Yield and request PendSV |
 | 2 | Sleep for the tick count in `r0` |
 | 3 | Toggle the board LED through privileged code |
+| 4 | Suspend the application task identified by `r0`; return status in `r0` |
+| 5 | Resume the application task identified by `r0`; return status in `r0` |
 
 Normal task SVC calls require Thread mode using PSP. The SVC handler reads the
 number from the instruction before the stacked PC and rejects invalid context

@@ -49,7 +49,9 @@ enum
     SVC_SERVICE_START_FIRST_TASK = 0U,
     SVC_SERVICE_YIELD = 1U,
     SVC_SERVICE_SLEEP = 2U,
-    SVC_SERVICE_LED_TOGGLE = 3U
+    SVC_SERVICE_LED_TOGGLE = 3U,
+    SVC_SERVICE_TASK_SUSPEND = 4U,
+    SVC_SERVICE_TASK_RESUME = 5U
 };
 
 #if JRT_ARCH_HAS_MPU
@@ -407,6 +409,7 @@ void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return)
         || (exc_return & (1UL << 2)) == 0U)
     {
         g_svc_invalid_context++;
+        stacked_frame[0] = JRT_STATUS_INVALID_CONTEXT;
         return;
     }
 
@@ -419,6 +422,12 @@ void svc_dispatch(uint32_t *stacked_frame, uint32_t exc_return)
             break;
         case SVC_SERVICE_LED_TOGGLE:
             board_led_toggle();
+            break;
+        case SVC_SERVICE_TASK_SUSPEND:
+            stacked_frame[0] = kernel_task_suspend(stacked_frame[0]);
+            break;
+        case SVC_SERVICE_TASK_RESUME:
+            stacked_frame[0] = kernel_task_resume(stacked_frame[0]);
             break;
         default:
             g_svc_invalid_service++;
