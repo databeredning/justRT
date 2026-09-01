@@ -64,6 +64,16 @@ TESTS = (
         ("g_test_boot_argument",),
     ),
     TestCase(
+        "config_runtime",
+        "g_test_config_runtime.result",
+        (
+            "g_test_config_runtime.priority_rejected",
+            "g_test_config_runtime.conversion_checks",
+            "g_test_config_runtime.saturation_checked",
+            "g_test_config_runtime.error_code",
+        ),
+    ),
+    TestCase(
         "fatal_hook",
         "g_test_fatal_hook.result",
         (

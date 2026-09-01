@@ -11,9 +11,6 @@
 #define JRT_MAX_KERNEL_TASKS 3U
 #define JRT_MAX_SCHEDULER_TASKS \
     (JRT_MAX_APPLICATION_TASKS + JRT_MAX_KERNEL_TASKS)
-#define JRT_TIMER_SERVICE_PRIORITY 1U
-#define JRT_TIMER_SERVICE_STACK_WORDS 128U
-
 _Static_assert(JRT_INTERNAL_TASK_COUNT <= JRT_MAX_KERNEL_TASKS,
                "kernel task reservation must cover internal tasks");
 _Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_INTERNAL_TASK_COUNT)
@@ -1325,6 +1322,10 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         if (definition->entry == 0U)
         {
             return JRT_STATUS_INVALID_ENTRY;
+        }
+        if (definition->priority > JRT_MAX_TASK_PRIORITY)
+        {
+            return JRT_STATUS_INVALID_PRIORITY;
         }
         if (validate_task_stack(config, index) != JRT_STATUS_OK)
         {

@@ -42,6 +42,8 @@ make -B TEST=stack_guard
 make -B TEST=private_config
 make -B TEST=mpu_isolation_read
 make -B TEST=mpu_isolation_write
+make -B TEST=config_runtime
+make config-test
 ```
 
 Build the QEMU Cortex-M3 target with:
@@ -85,10 +87,10 @@ faults. The continuous `simple` example is intentionally not part of the
 terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`,
-`fatal_hook`, `fatal_hook_return`, `sync`, `mutex`, `race`, `timer_service`,
-`task_capacity`, `private_config`, and `task_suspension` profiles, including
-result, fault, invariant, stack, scheduler, MPU-transition, and tick
-diagnostics:
+`config_runtime`, `fatal_hook`, `fatal_hook_return`, `sync`, `mutex`, `race`,
+`timer_service`, `task_capacity`, `private_config`, and `task_suspension`
+profiles, including result, fault, invariant, stack, scheduler,
+MPU-transition, and tick diagnostics:
 
 ```sh
 make qemu-test

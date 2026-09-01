@@ -35,12 +35,12 @@ Suggested commit: `kernel: add configurable fatal-error hooks`
 
 ### Planned commit 3: validate release-time kernel settings
 
-- [ ] Extend compile-time checks for clocks, tick conversion, task limits,
+- [x] Extend compile-time checks for clocks, tick conversion, task limits,
   priorities, and all kernel-owned stack sizes.
-- [ ] Separate release diagnostics and test hooks from required production
+- [x] Separate release diagnostics and test hooks from required production
   behavior without weakening invariant checks.
-- [ ] Reject unsupported or ambiguous configurations with actionable errors.
-- [ ] Add positive and negative configuration-build tests.
+- [x] Reject unsupported or ambiguous configurations with actionable errors.
+- [x] Add positive and negative configuration-build tests.
 
 Suggested commit: `config: validate release-time kernel settings`
 

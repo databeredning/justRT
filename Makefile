@@ -40,12 +40,14 @@ TEST ?= simple
 ifeq ($(TEST),simple)
 else ifeq ($(TEST),boot)
 CFLAGS += -DJUSTRT_TEST_BOOT=1
+else ifeq ($(TEST),config_runtime)
+CFLAGS += -DJUSTRT_TEST_CONFIG_RUNTIME=1 -DJRT_TICK_RATE_HZ=1024UL
 else ifeq ($(TEST),fatal_hook)
 CFLAGS += -DJUSTRT_TEST_FATAL_HOOK=1
 else ifeq ($(TEST),fatal_hook_return)
 CFLAGS += -DJUSTRT_TEST_FATAL_HOOK_RETURN=1
 else ifeq ($(TEST),sync)
-CFLAGS += -DJUSTRT_TEST_SYNC=1
+CFLAGS += -DJUSTRT_TEST_SYNC=1 -DJRT_ENABLE_TEST_HOOKS=1
 else ifeq ($(TEST),mutex)
 CFLAGS += -DJUSTRT_TEST_MUTEX=1
 else ifeq ($(TEST),fpu)
@@ -54,7 +56,7 @@ $(error TEST=fpu requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_FPU=1
 else ifeq ($(TEST),race)
-CFLAGS += -DJUSTRT_TEST_RACE=1
+CFLAGS += -DJUSTRT_TEST_RACE=1 -DJRT_ENABLE_TEST_HOOKS=1
 else ifeq ($(TEST),timer_service)
 CFLAGS += -DJUSTRT_TEST_TIMER_SERVICE=1
 else ifeq ($(TEST),task_capacity)
@@ -77,18 +79,18 @@ $(error TEST=mpu_isolation_write requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_MPU_ISOLATION_WRITE=1
 else ifeq ($(TEST),task_suspension)
-CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION=1
+CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION=1 -DJRT_ENABLE_TEST_HOOKS=1
 else ifeq ($(TEST),task_suspension_mpu)
 ifneq ($(TARGET),s32k312)
 $(error TEST=task_suspension_mpu requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION_MPU=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=fatal_hook, TEST=fatal_hook_return, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=config_runtime, TEST=fatal_hook, TEST=fatal_hook_return, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_config_runtime.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
 $(OBJS): JRTConfig.h
 
@@ -116,6 +118,9 @@ $(OBJDIR)/main.o: main.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/tests/test_boot_and_privilege.o: tests/test_boot_and_privilege.c tests/test_boot_and_privilege.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_config_runtime.o: tests/test_config_runtime.c tests/test_config_runtime.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/tests/test_fatal_hook.o: tests/test_fatal_hook.c tests/test_fatal_hook.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
@@ -199,4 +204,7 @@ auto-test:
 qemu-test:
 	$(PYTHON) tools/run_qemu_tests.py --quiet-build
 
-.PHONY: all clean auto-test qemu-test
+config-test:
+	$(PYTHON) tools/test_config_builds.py
+
+.PHONY: all clean auto-test qemu-test config-test

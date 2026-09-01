@@ -9,8 +9,14 @@
 #if JRT_CORE_CLOCK_HZ == 0UL
 #error "JRT_CORE_CLOCK_HZ must be greater than zero"
 #endif
+#if JRT_CORE_CLOCK_HZ > UINT32_MAX
+#error "JRT_CORE_CLOCK_HZ must fit in uint32_t"
+#endif
 #if JRT_TICK_RATE_HZ == 0UL
 #error "JRT_TICK_RATE_HZ must be greater than zero"
+#endif
+#if JRT_TICK_RATE_HZ > UINT32_MAX
+#error "JRT_TICK_RATE_HZ must fit in uint32_t"
 #endif
 #if JRT_TICK_RATE_HZ > JRT_CORE_CLOCK_HZ
 #error "JRT_TICK_RATE_HZ must not exceed JRT_CORE_CLOCK_HZ"
@@ -20,6 +26,9 @@
 #endif
 #if JRT_MAX_APPLICATION_TASKS == 0U
 #error "JRT_MAX_APPLICATION_TASKS must be greater than zero"
+#endif
+#if JRT_MAX_APPLICATION_TASKS > (UINT32_MAX - 3U)
+#error "JRT_MAX_APPLICATION_TASKS exceeds scheduler index capacity"
 #endif
 #define JRT_SYSTICK_RELOAD ((JRT_CORE_CLOCK_HZ / JRT_TICK_RATE_HZ) - 1UL)
 #define JRT_TASK_STACK_WORDS JRT_DEFAULT_TASK_STACK_WORDS
@@ -38,8 +47,47 @@
 #if JRT_DEFAULT_TASK_STACK_WORDS < JRT_MINIMUM_TASK_STACK_WORDS
 #error "JRT_DEFAULT_TASK_STACK_WORDS is below the architecture minimum"
 #endif
+#if (JRT_DEFAULT_TASK_STACK_WORDS & 1U) != 0U
+#error "JRT_DEFAULT_TASK_STACK_WORDS must be even for 8-byte alignment"
+#endif
+#if JRT_DEFAULT_TASK_STACK_WORDS > (UINT32_MAX / 4U)
+#error "JRT_DEFAULT_TASK_STACK_WORDS byte size overflows uint32_t"
+#endif
 #if JRT_IDLE_STACK_WORDS < JRT_MINIMUM_TASK_STACK_WORDS
 #error "JRT_IDLE_STACK_WORDS is below the architecture minimum"
+#endif
+#if (JRT_IDLE_STACK_WORDS & 1U) != 0U
+#error "JRT_IDLE_STACK_WORDS must be even for 8-byte alignment"
+#endif
+#if JRT_IDLE_STACK_WORDS > (UINT32_MAX / 4U)
+#error "JRT_IDLE_STACK_WORDS byte size overflows uint32_t"
+#endif
+#if JRT_TIMER_SERVICE_STACK_WORDS < JRT_MINIMUM_TASK_STACK_WORDS
+#error "JRT_TIMER_SERVICE_STACK_WORDS is below the architecture minimum"
+#endif
+#if (JRT_TIMER_SERVICE_STACK_WORDS & 1U) != 0U
+#error "JRT_TIMER_SERVICE_STACK_WORDS must be even for 8-byte alignment"
+#endif
+#if JRT_TIMER_SERVICE_STACK_WORDS > (UINT32_MAX / 4U)
+#error "JRT_TIMER_SERVICE_STACK_WORDS byte size overflows uint32_t"
+#endif
+#if JRT_MAX_TASK_PRIORITY == 0U
+#error "JRT_MAX_TASK_PRIORITY must be greater than zero"
+#endif
+#if JRT_MAX_TASK_PRIORITY > UINT32_MAX
+#error "JRT_MAX_TASK_PRIORITY must fit in uint32_t"
+#endif
+#if JRT_TIMER_SERVICE_PRIORITY > UINT32_MAX
+#error "JRT_TIMER_SERVICE_PRIORITY must fit in uint32_t"
+#endif
+#if JRT_TIMER_SERVICE_PRIORITY == 0U
+#error "JRT_TIMER_SERVICE_PRIORITY must be greater than idle priority"
+#endif
+#if JRT_TIMER_SERVICE_PRIORITY > JRT_MAX_TASK_PRIORITY
+#error "JRT_TIMER_SERVICE_PRIORITY exceeds JRT_MAX_TASK_PRIORITY"
+#endif
+#if (JRT_ENABLE_TEST_HOOKS != 0U) && (JRT_ENABLE_TEST_HOOKS != 1U)
+#error "JRT_ENABLE_TEST_HOOKS must be 0 or 1"
 #endif
 #define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define JRT_TASK_ID_SELF UINT32_MAX
@@ -125,7 +173,8 @@ typedef enum
 	JRT_STATUS_NOT_INITIALIZED,
 	JRT_STATUS_INVALID_TASK,
 	JRT_STATUS_INVALID_STATE,
-	JRT_STATUS_INVALID_CONTEXT
+	JRT_STATUS_INVALID_CONTEXT,
+	JRT_STATUS_INVALID_PRIORITY
 } JRT_Status_t;
 
 typedef enum

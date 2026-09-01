@@ -128,8 +128,14 @@ idle-task stack and still performs no heap allocation.
 
 Application and target-specific build settings live in `JRTConfig.h`. They
 select the core clock, tick rate, application-task limit, default application
-stack size, and idle-task stack size. Kernel-owned task capacity and derived
-architecture limits remain private implementation details.
+stack size, idle and timer-service stack sizes, maximum task priority,
+timer-service priority, and test-hook inclusion. Kernel-owned task capacity
+and derived architecture limits remain private implementation details.
+
+`JRT_ENABLE_TEST_HOOKS` defaults to zero. Production builds therefore omit the
+optional SysTick hook load/call path while retaining fault records, stack
+diagnostics, and kernel-invariant checks. Regression profiles that require
+controlled tick-time injection enable the hook explicitly.
 
 Kernel initialization rejects null, undersized, oddly sized, misaligned,
 non-adjacent, overflowing, or overlapping stack/guard ranges. Stack sizes are
@@ -396,15 +402,17 @@ make -B TEST=mpu_isolation_read
 make -B TEST=mpu_isolation_write
 make -B TEST=task_suspension
 make -B TEST=task_suspension_mpu
+make -B TEST=config_runtime
+make config-test
 make auto-test
 ```
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
-the terminating boot, synchronization, mutex, FPU, race, timer-service,
-task-capacity, private-configuration, stack-guard, and MPU-isolation profiles
-plus the task-suspension profiles on S32K312 hardware through J-Link/GDB. The
-stack-guard, isolation, and suspension-MPU profiles pass by capturing and
-validating their expected MemManage faults. The runner
+the terminating boot, configuration, fatal-hook, synchronization, mutex, FPU,
+race, timer-service, task-capacity, private-configuration, stack-guard,
+MPU-isolation, and task-suspension profiles on S32K312 hardware through
+J-Link/GDB. The stack-guard, isolation, and suspension-MPU profiles pass by
+capturing and validating their expected MemManage faults. The runner
 suppresses nested build output while preserving test status and diagnostics.
 It also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
 `--test <name>` options.
@@ -422,12 +430,13 @@ QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
 To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
 press `X`.
 
-`make qemu-test` runs the terminating `boot`, `sync`, `mutex`, `race`,
-`timer_service`, `task_capacity`, `private_config`, and `task_suspension`
-profiles under QEMU/GDB and checks their results plus fault, invariant, stack,
-scheduler, MPU-transition, and tick diagnostics. The Cortex-M3 target rejects
-`fpu`, `stack_guard`, both `mpu_isolation` profiles, and
-`task_suspension_mpu` because it cannot enforce those hardware features.
+`make qemu-test` runs the terminating `boot`, `config_runtime`, `fatal_hook`,
+`fatal_hook_return`, `sync`, `mutex`, `race`, `timer_service`, `task_capacity`,
+`private_config`, and `task_suspension` profiles under QEMU/GDB and checks
+their results plus fault, invariant, stack, scheduler, MPU-transition, and
+tick diagnostics. The Cortex-M3 target rejects `fpu`, `stack_guard`, both
+`mpu_isolation` profiles, and `task_suspension_mpu` because it cannot enforce
+those hardware features.
 
 Tests:
 
@@ -448,6 +457,8 @@ Tests:
   rejection, full-capacity scheduling, and dynamic guard transitions.
 - `private_config`: valid private-region ownership plus invalid size,
   alignment, range, privilege, and overlap configurations.
+- `config_runtime`: non-default tick conversion, overflow saturation, and
+  runtime rejection of task priorities above the configured ceiling.
 - `stack_guard`: S32K312 expected-fault proof that the running task's dynamic
   guard captures an unprivileged write.
 - `mpu_isolation_read` and `mpu_isolation_write`: S32K312 expected-fault

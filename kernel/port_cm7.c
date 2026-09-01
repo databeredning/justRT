@@ -7,14 +7,20 @@
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
 
+#if JRT_ENABLE_TEST_HOOKS
 static JRT_KernelTickHook_t tick_hook KERNEL_PRIVILEGED_DATA;
+#endif
 
 void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 {
+#if JRT_ENABLE_TEST_HOOKS
     uint32_t saved_primask = critical_enter();
 
     tick_hook = hook;
     critical_exit(saved_primask);
+#else
+    (void)hook;
+#endif
 }
 
 #define SYST_CSR (*(volatile uint32_t *)0xE000E010U)
@@ -355,10 +361,25 @@ void arch_yield(void)
 
 JRT_TASK_UNPRIVILEGED uint32_t JRT_MillisecondsToTicks(uint32_t milliseconds)
 {
-    uint32_t half_milliseconds = milliseconds >> 1U;
-    uint32_t odd_millisecond = milliseconds & 1U;
+    uint32_t whole_seconds = milliseconds / 1000U;
+    uint32_t remaining_milliseconds = milliseconds % 1000U;
+    uint32_t whole_ticks;
+    uint32_t remaining_ticks;
+    uint32_t fractional_ticks;
 
-    return (half_milliseconds * 15U) + (odd_millisecond * 8U);
+    if (whole_seconds > (UINT32_MAX / JRT_TICK_RATE_HZ))
+    {
+        return UINT32_MAX;
+    }
+    whole_ticks = whole_seconds * JRT_TICK_RATE_HZ;
+    remaining_ticks = remaining_milliseconds * (JRT_TICK_RATE_HZ / 1000U);
+    fractional_ticks = remaining_milliseconds * (JRT_TICK_RATE_HZ % 1000U);
+    remaining_ticks += (fractional_ticks + 999U) / 1000U;
+    if (whole_ticks > (UINT32_MAX - remaining_ticks))
+    {
+        return UINT32_MAX;
+    }
+    return whole_ticks + remaining_ticks;
 }
 
 void arch_wait_for_interrupt(void)
@@ -388,13 +409,17 @@ void arch_start_first_task(void)
 
 void SysTick_Handler(void)
 {
+#if JRT_ENABLE_TEST_HOOKS
     JRT_KernelTickHook_t hook = tick_hook;
+#endif
 
     tick_tasks();
+#if JRT_ENABLE_TEST_HOOKS
     if (hook != 0)
     {
         hook();
     }
+#endif
     request_switch();
 }
 
