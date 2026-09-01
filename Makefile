@@ -210,7 +210,7 @@ clean:
 	rm -f $(OBJS) $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex $(BINDIR)/$(PROJECT).map
 
 auto-test:
-	$(PYTHON) tools/run_tests.py --quiet-build
+	$(PYTHON) tools/run_tests.py --quiet-build --timeout 20
 
 qemu-test:
 	$(PYTHON) tools/run_qemu_tests.py --quiet-build

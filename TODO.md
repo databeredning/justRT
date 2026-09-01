@@ -1,6 +1,15 @@
 # RTOS Roadmap
 
-## Current milestone: production-readiness hardening
+## Next release action
+
+- [ ] Tag the validated production-readiness milestone.
+
+## Completed milestones
+
+<details>
+<summary>Production-readiness hardening</summary>
+
+### Production-readiness hardening
 
 Turn the tested static kernel into a clearly bounded release configuration.
 This milestone prioritizes explicit safety contracts, deterministic failure
@@ -70,12 +79,14 @@ Suggested commit: `ci: automate qemu release validation`
 - [x] Document the supported toolchain, targets, configuration envelope, and
   application integration checklist.
 - [x] Document residual risks and explicitly unsupported contexts/features.
-- [ ] Run complete QEMU and S32K312 acceptance suites from a clean checkout.
-- [ ] Tag the validated production-readiness milestone.
+- [x] Run complete QEMU and S32K312 acceptance suites from a clean checkout.
 
 Suggested commit: `docs: publish supported release configuration`
 
-## Completed milestones
+Acceptance: manual GitHub release validation passed; S32K312 hardware suites
+passed with 17 debug profiles and 6 optimized release profiles.
+
+</details>
 
 <details>
 <summary>Static task suspension</summary>
