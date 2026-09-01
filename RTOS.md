@@ -383,6 +383,7 @@ directory and is reached from unprivileged tasks through the LED SVC gateway.
 make -B TEST=simple
 make -B TEST=boot
 make -B TEST=fatal_hook
+make -B TEST=fatal_hook_return
 make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
@@ -434,6 +435,8 @@ Tests:
 - `boot`: unprivileged startup, MPU, SVC LED gateway, and privilege switching.
 - `fatal_hook`: configurable fatal-hook invocation, reason propagation,
   interrupt masking, and application-selected non-returning handoff.
+- `fatal_hook_return`: returning-hook proof that the kernel records the return
+  and remains in its interrupt-masked default halt policy.
 - `sync`: ISR semaphore, queue, event-group, and notification paths.
 - `mutex`: recursive ownership, priority inheritance, and chained waiters.
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.

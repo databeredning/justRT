@@ -31,6 +31,7 @@ the default:
 make -B TEST=simple
 make -B TEST=boot
 make -B TEST=fatal_hook
+make -B TEST=fatal_hook_return
 make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
@@ -84,9 +85,10 @@ faults. The continuous `simple` example is intentionally not part of the
 terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`,
-`fatal_hook`, `sync`, `mutex`, `race`, `timer_service`, `task_capacity`,
-`private_config`, and `task_suspension` profiles, including result, fault,
-invariant, stack, scheduler, MPU-transition, and tick diagnostics:
+`fatal_hook`, `fatal_hook_return`, `sync`, `mutex`, `race`, `timer_service`,
+`task_capacity`, `private_config`, and `task_suspension` profiles, including
+result, fault, invariant, stack, scheduler, MPU-transition, and tick
+diagnostics:
 
 ```sh
 make qemu-test

@@ -53,6 +53,8 @@ class TestCase:
     expected_fault_task: int = -1
     expected_fault_marker_expr: str = ""
     expected_fatal_reason: int = 0
+    expected_fatal_hook_returned: int = 0
+    completion_expr: str = ""
 
 
 TESTS = (
@@ -71,6 +73,19 @@ TESTS = (
             "g_test_fatal_hook.error_code",
         ),
         expected_fatal_reason=2,
+    ),
+    TestCase(
+        "fatal_hook_return",
+        "g_test_fatal_hook.result",
+        (
+            "g_test_fatal_hook.hook_calls",
+            "g_test_fatal_hook.hook_reason",
+            "g_test_fatal_hook.interrupts_masked",
+            "g_test_fatal_hook.error_code",
+        ),
+        expected_fatal_reason=2,
+        expected_fatal_hook_returned=1,
+        completion_expr="g_fatal_hook_returned",
     ),
     TestCase(
         "sync",
@@ -407,6 +422,7 @@ def start_jlink(verbose: bool):
 
 def gdb_script(test: TestCase, verbose: bool) -> str:
     r = test.result_expr
+    completion = test.completion_expr or f"{r}.done"
     lines = [
         "set pagination off",
         "set confirm off",
@@ -423,8 +439,8 @@ def gdb_script(test: TestCase, verbose: bool) -> str:
 
         # Install the completion watchpoint before reset/start. Startup may
         # write done=0; the GDB condition filters those writes automatically.
-        f"watch {r}.done",
-        f"condition $bpnum {r}.done != 0",
+        f"watch {completion}",
+        f"condition $bpnum {completion} != 0",
         "watch g_kernel_invariant_active",
         "condition $bpnum g_kernel_invariant_active != 0",
         "watch g_fault_active",
@@ -605,7 +621,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             else (
                 diagnostic_values.get("g_fatal_active", 0) == 1
                 and diagnostic_values.get("g_fatal_reason", 0) == test.expected_fatal_reason
-                and diagnostic_values.get("g_fatal_hook_returned", 0) == 0
+                and diagnostic_values.get("g_fatal_hook_returned", 0) == test.expected_fatal_hook_returned
             )
         )
         ok = (done != 0 and state == 2 and failed == 0

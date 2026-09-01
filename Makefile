@@ -42,6 +42,8 @@ else ifeq ($(TEST),boot)
 CFLAGS += -DJUSTRT_TEST_BOOT=1
 else ifeq ($(TEST),fatal_hook)
 CFLAGS += -DJUSTRT_TEST_FATAL_HOOK=1
+else ifeq ($(TEST),fatal_hook_return)
+CFLAGS += -DJUSTRT_TEST_FATAL_HOOK_RETURN=1
 else ifeq ($(TEST),sync)
 CFLAGS += -DJUSTRT_TEST_SYNC=1
 else ifeq ($(TEST),mutex)
@@ -82,7 +84,7 @@ $(error TEST=task_suspension_mpu requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION_MPU=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=fatal_hook, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=fatal_hook, TEST=fatal_hook_return, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)

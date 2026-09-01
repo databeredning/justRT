@@ -16,7 +16,7 @@ int main(void)
 {
 #if defined(JUSTRT_TEST_BOOT)
     test_boot_and_privilege_start();
-#elif defined(JUSTRT_TEST_FATAL_HOOK)
+#elif defined(JUSTRT_TEST_FATAL_HOOK) || defined(JUSTRT_TEST_FATAL_HOOK_RETURN)
     test_fatal_hook_start();
 #elif defined(JUSTRT_TEST_SYNC)
     test_synchronization_start();

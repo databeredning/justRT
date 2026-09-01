@@ -3,7 +3,7 @@
 
 fatal_hook_test_state_t g_test_fatal_hook KERNEL_PRIVILEGED_DATA;
 
-#if defined(JUSTRT_TEST_FATAL_HOOK)
+#if defined(JUSTRT_TEST_FATAL_HOOK) || defined(JUSTRT_TEST_FATAL_HOOK_RETURN)
 
 void JRT_FatalErrorHook(JRT_FatalReason_t reason)
 {
@@ -29,9 +29,13 @@ void JRT_FatalErrorHook(JRT_FatalReason_t reason)
     g_test_fatal_hook.result.state = TEST_STATE_COMPLETE;
     g_test_fatal_hook.result.done = 1U;
 
+#if defined(JUSTRT_TEST_FATAL_HOOK_RETURN)
+    return;
+#else
     while (1)
     {
     }
+#endif
 }
 
 static void fatal_hook_task(void *argument)
@@ -50,7 +54,7 @@ static const JRT_TaskDefinition_t fatal_hook_tasks[] = {
 
 void test_fatal_hook_start(void)
 {
-#if defined(JUSTRT_TEST_FATAL_HOOK)
+#if defined(JUSTRT_TEST_FATAL_HOOK) || defined(JUSTRT_TEST_FATAL_HOOK_RETURN)
     const JRT_KernelConfig_t config = {
         fatal_hook_tasks,
         sizeof(fatal_hook_tasks) / sizeof(fatal_hook_tasks[0])

@@ -38,6 +38,8 @@ class TestCase:
     result_expr: str
     diagnostic_exprs: tuple[str, ...] = ()
     expected_fatal_reason: int = 0
+    expected_fatal_hook_returned: int = 0
+    completion_expr: str = ""
 
 
 TESTS = (
@@ -52,6 +54,19 @@ TESTS = (
             "g_test_fatal_hook.error_code",
         ),
         expected_fatal_reason=2,
+    ),
+    TestCase(
+        "fatal_hook_return",
+        "g_test_fatal_hook.result",
+        (
+            "g_test_fatal_hook.hook_calls",
+            "g_test_fatal_hook.hook_reason",
+            "g_test_fatal_hook.interrupts_masked",
+            "g_test_fatal_hook.error_code",
+        ),
+        expected_fatal_reason=2,
+        expected_fatal_hook_returned=1,
+        completion_expr="g_fatal_hook_returned",
     ),
     TestCase(
         "sync",
@@ -276,6 +291,7 @@ def run_build(test: TestCase, verbose: bool, quiet_build: bool) -> None:
 
 def make_gdb_script(test: TestCase, port: int) -> str:
     result = test.result_expr
+    completion = test.completion_expr or f"{result}.done"
     lines = [
         "set pagination off",
         "set confirm off",
@@ -283,8 +299,8 @@ def make_gdb_script(test: TestCase, port: int) -> str:
         "set remotetimeout 5",
         f'file "{ELF.as_posix()}"',
         f"target remote 127.0.0.1:{port}",
-        f"watch {result}.done",
-        f"condition $bpnum {result}.done != 0",
+        f"watch {completion}",
+        f"condition $bpnum {completion} != 0",
         "watch g_kernel_invariant_active",
         "condition $bpnum g_kernel_invariant_active != 0",
         "watch g_fault_active",
@@ -462,7 +478,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             else (
                 values.get("g_fatal_active", 0) == 1
                 and values.get("g_fatal_reason", 0) == test.expected_fatal_reason
-                and values.get("g_fatal_hook_returned", 0) == 0
+                and values.get("g_fatal_hook_returned", 0) == test.expected_fatal_hook_returned
             )
         )
         ok = (
