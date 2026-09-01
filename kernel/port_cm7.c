@@ -80,11 +80,7 @@ enum
 #define MPU_UNPRIVILEGED_SVC_REGION 3U
 #define MPU_UNPRIVILEGED_RODATA_REGION 4U
 #define MPU_UNPRIVILEGED_DATA_REGION 5U
-#define MPU_GUARD_REGION_FIRST 6U
-#define MPU_GUARD_REGION_COUNT (MPU_REGION_COUNT - MPU_GUARD_REGION_FIRST)
-
-_Static_assert(MPU_GUARD_REGION_COUNT == ARCH_MPU_GUARD_REGION_COUNT,
-               "MPU guard-region count must match the port contract");
+#define MPU_STACK_GUARD_REGION 15U
 
 extern uint8_t __unprivileged_functions_start[];
 extern uint8_t __unprivileged_functions_end[];
@@ -165,7 +161,28 @@ static void configure_memory_regions(void)
 }
 #endif
 
-void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
+volatile uint32_t g_mpu_stack_guard_base KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_mpu_stack_guard_updates KERNEL_PRIVILEGED_DATA;
+
+void arch_set_task_stack_guard(void *guard_address)
+{
+    uint32_t base = (uint32_t)(uintptr_t)guard_address;
+
+    if (g_mpu_stack_guard_base == base)
+    {
+        return;
+    }
+#if JRT_ARCH_HAS_MPU
+    MPU_RNR = MPU_STACK_GUARD_REGION;
+    MPU_RBAR = base;
+    MPU_RASR = MPU_RASR_XN | MPU_RASR_SIZE_32_BYTES | MPU_RASR_ENABLE;
+    __asm volatile ("dsb\nisb" : : : "memory");
+#endif
+    g_mpu_stack_guard_base = base;
+    g_mpu_stack_guard_updates++;
+}
+
+void arch_configure_mpu(void *guard_address)
 {
 #if JRT_ARCH_HAS_MPU
     uint32_t index;
@@ -179,17 +196,15 @@ void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count)
         MPU_RASR = 0U;
     }
     configure_memory_regions();
-    for (index = 0U; index < guard_count; index++)
-    {
-        MPU_RNR = index + MPU_GUARD_REGION_FIRST;
-        MPU_RBAR = (uint32_t)(uintptr_t)guard_addresses[index];
-        MPU_RASR = MPU_RASR_XN | MPU_RASR_SIZE_32_BYTES | MPU_RASR_ENABLE;
-    }
+    g_mpu_stack_guard_base = 0U;
+    g_mpu_stack_guard_updates = 0U;
+    arch_set_task_stack_guard(guard_address);
     MPU_CTRL = MPU_CTRL_ENABLE | MPU_CTRL_PRIVDEFENA;
     __asm volatile ("dsb\nisb" : : : "memory");
 #else
-    (void)guard_addresses;
-    (void)guard_count;
+    g_mpu_stack_guard_base = 0U;
+    g_mpu_stack_guard_updates = 0U;
+    arch_set_task_stack_guard(guard_address);
 #endif
 }
 

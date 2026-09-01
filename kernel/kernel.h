@@ -231,6 +231,8 @@ extern volatile uint32_t g_ready_scan_depth_max;
 extern volatile uint32_t g_sched_pass1_iters_total;
 extern volatile uint32_t g_sched_pass2_iters_total;
 extern volatile uint32_t g_sched_pass2_iters_max;
+extern volatile uint32_t g_mpu_stack_guard_base;
+extern volatile uint32_t g_mpu_stack_guard_updates;
 extern volatile uint32_t g_isr_queue_send_attempted;
 extern volatile uint32_t g_isr_queue_send_accepted;
 extern volatile uint32_t g_isr_queue_send_dropped;

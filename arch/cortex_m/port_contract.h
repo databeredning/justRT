@@ -20,8 +20,10 @@
  *   - arch_in_isr(): true when called from exception/interrupt context.
  *   - arch_tick_init(): configure and start the periodic tick source.
  *   - arch_yield(): request an immediate reschedule via SVC.
- *   - arch_configure_mpu(): program the MPU (flash/SRAM/unprivileged data
- *     regions plus one guard region per task stack).
+ *   - arch_configure_mpu(): program the static MPU map and the first task's
+ *     dynamic stack guard.
+ *   - arch_set_task_stack_guard(): replace the dynamic guard for the task
+ *     selected by the scheduler.
  *   - arch_start_first_task(): drop to the first task's stack/privilege
  *     level and never return.
  *   - arch_wait_for_interrupt(): idle until the next interrupt (`wfi`).
@@ -35,9 +37,6 @@
  * is reached only via the vector table -- so it needs no seam here. It is
  * already fully arch-owned.
  */
-
-/* Number of statically guarded scheduler stacks supported by this port. */
-#define ARCH_MPU_GUARD_REGION_COUNT 10U
 
 /* CONTROL register value requesting privileged Thread-mode execution. */
 #define ARCH_LAUNCH_PRIVILEGED 2U
@@ -54,7 +53,8 @@ int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_tick_start(void);
 void arch_yield(void);
-void arch_configure_mpu(void *const *guard_addresses, uint32_t guard_count);
+void arch_configure_mpu(void *guard_address);
+void arch_set_task_stack_guard(void *guard_address);
 void arch_start_first_task(void);
 void arch_wait_for_interrupt(void);
 

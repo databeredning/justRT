@@ -19,9 +19,6 @@ _Static_assert(JRT_INTERNAL_TASK_COUNT <= JRT_MAX_KERNEL_TASKS,
 _Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_INTERNAL_TASK_COUNT)
                <= JRT_MAX_SCHEDULER_TASKS,
                "scheduler table must include application and internal tasks");
-_Static_assert((JRT_MAX_APPLICATION_TASKS + JRT_INTERNAL_TASK_COUNT)
-               <= ARCH_MPU_GUARD_REGION_COUNT,
-               "MPU guards must cover the current maximum task count");
 _Static_assert(JRT_TIMER_SERVICE_STACK_WORDS >= JRT_MINIMUM_TASK_STACK_WORDS,
                "timer-service stack is too small");
 _Static_assert((JRT_TIMER_SERVICE_STACK_WORDS & 1U) == 0U,
@@ -97,6 +94,11 @@ static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
 static uint32_t timer_service_task_index KERNEL_PRIVILEGED_DATA;
+
+static void *task_stack_guard(const task_t *task)
+{
+    return (void *)(task->stack_bottom - JRT_TASK_GUARD_WORDS);
+}
 
 static JRT_Status_t validate_task_id(uint32_t task_id)
 {
@@ -1096,6 +1098,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     current_task = &tasks[g_current_task_index];
     current_task->state = JRT_TASK_STATE_RUNNING;
+    arch_set_task_stack_guard(task_stack_guard(current_task));
     arch_critical_exit(saved_primask);
     return current_task->sp;
 }
@@ -1161,10 +1164,6 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     {
         return JRT_STATUS_TOO_MANY_TASKS;
     }
-    if (configured_total_task_count > ARCH_MPU_GUARD_REGION_COUNT)
-    {
-        return JRT_STATUS_TOO_MANY_TASKS;
-    }
     for (index = 0U; index < config->task_count; index++)
     {
         const JRT_TaskDefinition_t *definition = &config->tasks[index];
@@ -1186,30 +1185,6 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     }
     prepare_timer_service_task(config->task_count);
     prepare_idle_task();
-    {
-        void *guard_addresses[JRT_MAX_SCHEDULER_TASKS];
-        uint32_t guard_index;
-
-        for (guard_index = 0U; guard_index < task_count; guard_index++)
-        {
-            if (guard_index < config->task_count)
-            {
-                guard_addresses[guard_index] =
-                    config->tasks[guard_index].stack_guard;
-            }
-            else if (guard_index == config->task_count)
-            {
-                guard_addresses[guard_index] =
-                    (void *)&timer_service_task_storage.guard[0];
-            }
-            else
-            {
-                guard_addresses[guard_index] =
-                    (void *)&idle_task_storage.guard[0];
-            }
-        }
-        arch_configure_mpu(guard_addresses, task_count);
-    }
     current_task = &tasks[0];
     g_current_task_index = 0U;
     g_context_switches = 0U;
@@ -1227,6 +1202,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     g_kernel_invariant_object = 0U;
     g_kernel_invariant_aux = 0U;
     g_kernel_invariant_tick = 0U;
+    arch_configure_mpu(task_stack_guard(current_task));
     current_task->state = JRT_TASK_STATE_RUNNING;
     kernel_initialized = 1U;
     return JRT_STATUS_OK;

@@ -53,12 +53,19 @@ else ifeq ($(TEST),race)
 CFLAGS += -DJUSTRT_TEST_RACE=1
 else ifeq ($(TEST),timer_service)
 CFLAGS += -DJUSTRT_TEST_TIMER_SERVICE=1
+else ifeq ($(TEST),task_capacity)
+CFLAGS += -DJUSTRT_TEST_TASK_CAPACITY=1
+else ifeq ($(TEST),stack_guard)
+ifeq ($(TARGET),qemu-mps2-an385)
+$(error TEST=stack_guard requires an MPU-enabled target)
+endif
+CFLAGS += -DJUSTRT_TEST_STACK_GUARD=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, or TEST=timer_service)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, or TEST=stack_guard)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
 $(OBJS): JRTConfig.h
 
@@ -104,6 +111,12 @@ $(OBJDIR)/tests/test_race.o: tests/test_race.c tests/test_race.h tests/test_comm
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/tests/test_timer_service.o: tests/test_timer_service.c tests/test_timer_service.h tests/test_common.h kernel/kernel.h kernel/timer.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_task_capacity.o: tests/test_task_capacity.c tests/test_task_capacity.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_stack_guard.o: tests/test_stack_guard.c tests/test_stack_guard.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/examples/simple.o: examples/simple.c examples/simple.h kernel/kernel.h | $(OBJDIR)/examples

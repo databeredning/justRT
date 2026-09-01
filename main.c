@@ -3,7 +3,9 @@
 #include "tests/test_fpu.h"
 #include "tests/test_mutex.h"
 #include "tests/test_race.h"
+#include "tests/test_stack_guard.h"
 #include "tests/test_synchronization.h"
+#include "tests/test_task_capacity.h"
 #include "tests/test_timer_service.h"
 
 int main(void)
@@ -20,6 +22,10 @@ int main(void)
     test_race_start();
 #elif defined(JUSTRT_TEST_TIMER_SERVICE)
     test_timer_service_start();
+#elif defined(JUSTRT_TEST_TASK_CAPACITY)
+    test_task_capacity_start();
+#elif defined(JUSTRT_TEST_STACK_GUARD)
+    test_stack_guard_start();
 #else
     simple_example_start();
 #endif

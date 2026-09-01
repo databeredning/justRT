@@ -37,8 +37,15 @@ The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
 slots for kernel-owned tasks. The idle and timer-service tasks are created
 internally. The timer-service task blocks while no callback work is pending.
-The S32K312 MPU assigns regions 6-15 to ten stack guards, matching the total
-scheduler capacity.
+The default of seven application tasks is a conservative static-RAM and
+linear scheduler-scan policy, not an MPU limit. Applications may override
+`JRT_MAX_APPLICATION_TASKS`; the scheduler table grows with that setting and
+kernel initialization still rejects configurations above the selected limit.
+In the current 32-bit build each scheduler slot costs 96 bytes before the
+separately supplied task stack. Seven application tasks plus the two active
+internal tasks require at most nine entries in each scheduler selection pass;
+the table retains one additional reserved kernel slot. Selection is linear,
+with one priority-discovery pass and at most one full tie-breaking pass.
 States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
 priorities run first; equal priorities are selected round-robin.
 
@@ -149,14 +156,18 @@ The S32K312 target enables the MPU and installs this static map:
 | 3 | `.unprivileged_svc` | Read/execute both privilege levels |
 | 4 | `.unprivileged_rodata` | Read-only, XN |
 | 5 | `.unprivileged_task_data` | Read/write, XN |
-| 6-15 | Per-task stack guards | No access, XN |
+| 15 | Running task's dynamic stack guard | No access, XN |
 
 Higher region numbers override lower ones. The linker aligns the explicit
 unprivileged sections to MPU-compatible boundaries. `PRIVDEFENA` remains set
 for the privileged background map. Task privilege is selected by
-`JRT_TASK_FLAG_UNPRIVILEGED` and reapplied by PendSV. The QEMU Cortex-M3 target
-currently builds with `JRT_ARCH_HAS_MPU=0`; its stack guards therefore rely on
-the kernel's software bounds checks and do not validate hardware isolation.
+`JRT_TASK_FLAG_UNPRIVILEGED` and reapplied by PendSV. Region 15 is installed
+for the first task during MPU initialization and replaced with the selected
+task's 32-byte guard before every exception return. This makes task capacity
+independent of MPU region count. The QEMU Cortex-M3 target builds with
+`JRT_ARCH_HAS_MPU=0`; its stack bounds are checked in software and the dynamic
+guard transition is exposed diagnostically, but QEMU does not validate MPU
+enforcement.
 
 ## Kernel Services
 
@@ -233,6 +244,10 @@ Tests:
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
 - `race`: blocking, timeout, tick-wrap, timer start/stop/restart, and wake-up
   race coverage.
+- `task_capacity`: configured task-limit acceptance, maximum-plus-one
+  rejection, full-capacity scheduling, and dynamic guard transitions.
+- `stack_guard`: S32K312 expected-fault proof that the running task's dynamic
+  guard captures an unprivileged write.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and

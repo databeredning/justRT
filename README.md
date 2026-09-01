@@ -35,6 +35,8 @@ make -B TEST=mutex
 make -B TEST=fpu
 make -B TEST=race
 make -B TEST=timer_service
+make -B TEST=task_capacity
+make -B TEST=stack_guard
 ```
 
 Build the QEMU Cortex-M3 target with:
@@ -71,12 +73,13 @@ make auto-test
 
 Successful tests expose explicit `state`, `pass`, `fail`, and `done` fields.
 The runner also reports fault, invariant, scheduler, synchronization, timer,
-and race diagnostics. The continuous `simple` example is intentionally not
-part of the terminating test suite.
+race, task-capacity, and dynamic-guard diagnostics. The `stack_guard` profile
+passes by capturing its expected MemManage fault. The continuous `simple`
+example is intentionally not part of the terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
-`mutex`, `race`, and `timer_service` profiles, including result, fault,
-invariant, stack, scheduler, and tick diagnostics:
+`mutex`, `race`, `timer_service`, and `task_capacity` profiles, including
+result, fault, invariant, stack, scheduler, and tick diagnostics:
 
 ```sh
 make qemu-test

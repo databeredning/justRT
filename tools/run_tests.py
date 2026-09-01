@@ -48,6 +48,8 @@ class TestCase:
     build_name: str
     result_expr: str
     diagnostic_exprs: tuple[str, ...] = ()
+    expected_fault_type: int = 0
+    expected_fault_address_expr: str = ""
 
 
 TESTS = (
@@ -145,12 +147,42 @@ TESTS = (
             "g_test_timer_service.error_code",
         ),
     ),
+    TestCase(
+        "task_capacity",
+        "g_test_task_capacity.result",
+        (
+            "g_test_task_capacity.configured_limit",
+            "g_test_task_capacity.tasks_ran",
+            "g_test_task_capacity.maximum_accepted",
+            "g_test_task_capacity.maximum_plus_one_rejected",
+            "g_test_task_capacity.guard_updates",
+            "g_test_task_capacity.guard_base_matches",
+            "g_test_task_capacity.ready_scan_depth",
+            "g_test_task_capacity.scheduler_pass2_max",
+            "g_test_task_capacity.error_code",
+        ),
+    ),
+    TestCase(
+        "stack_guard",
+        "g_test_stack_guard.result",
+        (
+            "g_test_stack_guard.expected_guard_address",
+            "g_test_stack_guard.write_attempted",
+        ),
+        expected_fault_type=2,
+        expected_fault_address_expr=
+            "g_test_stack_guard.expected_guard_address",
+    ),
 )
 
 RESULT_RE = re.compile(
     r"JUSTRT_RESULT state=(\d+) runs=(\d+) pass=(\d+) fail=(\d+) done=(\d+)"
 )
 DIAG_RE = re.compile(r"JUSTRT_DIAG ([^=]+)=(\d+)")
+EXPECTED_FAULT_RE = re.compile(
+    r"JUSTRT_EXPECTED_FAULT type=(\d+) mmfar=(\d+) expected=(\d+) "
+    r"cfsr=(\d+) task=(\d+)"
+)
 
 KERNEL_DIAGNOSTICS = (
     "g_kernel_invariant_active",
@@ -165,6 +197,8 @@ KERNEL_DIAGNOSTICS = (
     "g_stack_fault_sp",
     "g_context_switches",
     "g_kernel_ticks",
+    "g_mpu_stack_guard_base",
+    "g_mpu_stack_guard_updates",
 )
 
 
@@ -293,17 +327,27 @@ def gdb_script(test: TestCase, verbose: bool) -> str:
         'printf "JUSTRT: target reset; continuing\\n"',
         "continue",
 
-        # If execution stops for some unrelated reason, report it clearly.
-        f"if {r}.done == 0",
-        '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
-        '  printf "JUSTRT_INVARIANT active=%u code=%u task=%u object=%u aux=%u tick=%u\\n", g_kernel_invariant_active, g_kernel_invariant_code, g_kernel_invariant_task, g_kernel_invariant_object, g_kernel_invariant_aux, g_kernel_invariant_tick',
-        '  printf "JUSTRT_FAULT active=%u\\n", g_fault_active',
-        "  x/i $pc",
-        "  info registers pc lr sp xpsr",
-        "  bt",
-        "else",
-        f'  printf "JUSTRT_RESULT state=%u runs=%u pass=%u fail=%u done=%u\\n", {r}.state, {r}.runs, {r}.pass, {r}.fail, {r}.done',
     ]
+    if test.expected_fault_type != 0:
+        lines.extend([
+            "if g_fault_active == 0",
+            '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
+            "else",
+            f'  printf "JUSTRT_EXPECTED_FAULT type=%u mmfar=%u expected=%u cfsr=%u task=%u\\n", g_fault_record.fault_type, g_fault_record.mmfar, {test.expected_fault_address_expr}, g_fault_record.cfsr, g_current_task_index',
+        ])
+    else:
+        lines.extend([
+            # If execution stops for some unrelated reason, report it clearly.
+            f"if {r}.done == 0",
+            '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
+            '  printf "JUSTRT_INVARIANT active=%u code=%u task=%u object=%u aux=%u tick=%u\\n", g_kernel_invariant_active, g_kernel_invariant_code, g_kernel_invariant_task, g_kernel_invariant_object, g_kernel_invariant_aux, g_kernel_invariant_tick',
+            '  printf "JUSTRT_FAULT active=%u\\n", g_fault_active',
+            "  x/i $pc",
+            "  info registers pc lr sp xpsr",
+            "  bt",
+            "else",
+            f'  printf "JUSTRT_RESULT state=%u runs=%u pass=%u fail=%u done=%u\\n", {r}.state, {r}.runs, {r}.pass, {r}.fail, {r}.done',
+        ])
     for expr in test.diagnostic_exprs + KERNEL_DIAGNOSTICS:
         lines.append(f'  printf "JUSTRT_DIAG {expr}=%u\\n", {expr}')
     lines.extend(["end", "monitor halt", "quit"])
@@ -400,6 +444,36 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             tail = "\n".join(output.strip().splitlines()[-30:])
             return False, f"GDB exited with code {gdb.returncode}\n{tail}", elapsed
 
+        diagnostics = [(name, int(value)) for name, value in DIAG_RE.findall(output)]
+        diagnostic_values = dict(diagnostics)
+        if test.expected_fault_type != 0:
+            fault_match = EXPECTED_FAULT_RE.search(output)
+            if not fault_match:
+                tail = "\n".join(output.strip().splitlines()[-40:])
+                return False, f"could not read expected fault result\n{tail}", elapsed
+            fault_type, mmfar, expected, cfsr, task_id = map(
+                int, fault_match.groups()
+            )
+            ok = (
+                fault_type == test.expected_fault_type
+                and mmfar == expected
+                and (cfsr & 0x82) == 0x82
+                and diagnostic_values.get(
+                    "g_test_stack_guard.write_attempted", 0
+                ) == 1
+                and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
+            )
+            summary = (
+                f"fault_type={fault_type} mmfar={mmfar} expected={expected} "
+                f"cfsr={cfsr} task={task_id}"
+            )
+            useful = ", ".join(
+                f"{name}={value}" for name, value in diagnostics if value != 0
+            )
+            if useful:
+                summary += " | " + useful
+            return ok, summary, elapsed
+
         match = RESULT_RE.search(output)
         if not match:
             tail = "\n".join(output.strip().splitlines()[-40:])
@@ -408,9 +482,6 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             return False, f"could not read JUSTRT_RESULT\n{tail}", elapsed
 
         state, runs, passed, failed, done = map(int, match.groups())
-        diagnostics = [(name, int(value)) for name, value in DIAG_RE.findall(output)]
-        diagnostic_values = dict(diagnostics)
-
         ok = (done != 0 and state == 2 and failed == 0
               and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
               and diagnostic_values.get("g_fault_active", 0) == 0

@@ -120,6 +120,21 @@ TESTS = (
             "g_test_timer_service.error_code",
         ),
     ),
+    TestCase(
+        "task_capacity",
+        "g_test_task_capacity.result",
+        (
+            "g_test_task_capacity.configured_limit",
+            "g_test_task_capacity.tasks_ran",
+            "g_test_task_capacity.maximum_accepted",
+            "g_test_task_capacity.maximum_plus_one_rejected",
+            "g_test_task_capacity.guard_updates",
+            "g_test_task_capacity.guard_base_matches",
+            "g_test_task_capacity.ready_scan_depth",
+            "g_test_task_capacity.scheduler_pass2_max",
+            "g_test_task_capacity.error_code",
+        ),
+    ),
 )
 
 KERNEL_DIAGNOSTICS = (
@@ -135,6 +150,8 @@ KERNEL_DIAGNOSTICS = (
     "g_stack_fault_sp",
     "g_context_switches",
     "g_kernel_ticks",
+    "g_mpu_stack_guard_base",
+    "g_mpu_stack_guard_updates",
 )
 
 RESULT_RE = re.compile(

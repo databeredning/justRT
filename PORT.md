@@ -33,14 +33,16 @@ The portable kernel uses these functions from
 | `arch_tick_init()` | Configure SysTick and exception priorities without starting interrupts. |
 | `arch_tick_start()` | Start the configured tick from protected first-task startup. |
 | `arch_yield()` | Enter the privileged yield path and reschedule. |
-| `arch_configure_mpu()` | Install target protection regions, or safely do nothing when MPU support is disabled. |
+| `arch_configure_mpu()` | Install static protection regions and the first task's dynamic stack guard. |
+| `arch_set_task_stack_guard()` | Replace the dynamic guard with the selected task's guard before exception return. |
 | `arch_start_first_task()` | Enter startup SVC and restore the first task context. |
 | `arch_wait_for_interrupt()` | Wait efficiently in the idle task. |
 
-The contract also defines `ARCH_MPU_GUARD_REGION_COUNT` and the CONTROL values
-`ARCH_LAUNCH_PRIVILEGED` and `ARCH_LAUNCH_UNPRIVILEGED`. The guard count still
-limits configured tasks when hardware MPU support is disabled because the
-kernel retains software stack-bound checks.
+The contract also defines the CONTROL values `ARCH_LAUNCH_PRIVILEGED` and
+`ARCH_LAUNCH_UNPRIVILEGED`. Scheduler capacity is independent of MPU region
+count: the port maintains one dynamic guard for the currently selected task,
+while the kernel retains software stack-bound checks on targets without MPU
+support.
 
 ## Exception and Context Rules
 
@@ -68,12 +70,13 @@ Cortex-M3 QEMU target with FPU and MPU features disabled.
 
 When `JRT_ARCH_HAS_MPU=1`, the target supplies linker-aligned regions for
 privileged flash and SRAM, unprivileged code, SVC wrappers, read-only data,
-task data, and 32-byte task stack guards. Higher-numbered Cortex-M MPU regions
-win overlaps, so guard regions must override the general SRAM mapping.
+task data, and a 32-byte dynamic task stack guard. Higher-numbered Cortex-M
+MPU regions win overlaps, so the guard region must override the general SRAM
+mapping.
 
-When `JRT_ARCH_HAS_MPU=0`, `arch_configure_mpu()` is a no-op. Stack bounds are
-still checked in software, but the target does not provide privilege-based
-memory isolation.
+When `JRT_ARCH_HAS_MPU=0`, MPU register programming is omitted. Stack bounds
+are still checked in software and dynamic guard ownership remains visible in
+diagnostics, but the target does not provide privilege-based memory isolation.
 
 The linker script must retain these sections:
 

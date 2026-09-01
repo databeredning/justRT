@@ -1,6 +1,92 @@
 # RTOS Roadmap
 
-## Completed milestone: kernel timer service task
+## Current milestone: per-task MPU data isolation
+
+Prevent one unprivileged application task from reading or writing another
+task's private data while preserving explicitly shared kernel objects and the
+existing stack-overflow protection.
+
+### Planned commit 1: decouple task capacity from MPU guard count
+
+- [x] Replace the current one-per-task MPU stack-guard allocation with a
+  dynamic guard for the currently running task.
+- [x] Program the first task's guard before entering Thread mode and replace it
+  during every context switch before exception return.
+- [x] Decouple scheduler table capacity and `JRT_MAX_APPLICATION_TASKS` from
+  the hardware MPU region count.
+- [x] Keep `JRT_MAX_APPLICATION_TASKS` configurable and choose a documented
+  default from static RAM cost and worst-case scheduler scan time rather than
+  MPU region count.
+- [x] Add boundary coverage for the configured maximum and maximum-plus-one
+  task counts.
+- [x] Verify dynamic stack guards still capture overflow on S32K312 and that
+  the complete QEMU and hardware suites remain green.
+
+Suggested commit: `arch: decouple task capacity from MPU guards`
+
+### Planned commit 2: define private-memory configuration
+
+- [ ] Define private, shared, and kernel-owned memory classes and their access
+  rules.
+- [ ] Define task ownership and the treatment of intentionally shared kernel
+  objects and buffers.
+- [ ] Extend the static task-definition API without breaking tasks that do not
+  request a private data region.
+- [ ] Store validated private-region base and size metadata in each task
+  control block.
+- [ ] Enforce alignment, size, power-of-two, overlap, and address-range rules
+  during `JRT_KernelInit()`.
+- [ ] Add QEMU-compatible configuration-validation tests for valid and invalid
+  private-region definitions.
+
+Suggested commit: `api: add task-private memory configuration`
+
+### Planned commit 3: enforce per-task MPU data isolation
+
+- [ ] Reserve an MPU region for the running task's private data without
+  weakening kernel, flash, peripheral, shared-RAM, or stack-guard protection.
+- [ ] Program the first task's private region before entering unprivileged
+  Thread mode.
+- [ ] Replace the outgoing private region with the incoming task's region on
+  every context switch before exception return.
+- [ ] Disable the dynamic private region for tasks that do not declare one and
+  keep privileged kernel tasks independent of application-private mappings.
+- [ ] Preserve explicit ownership rules so future suspend/resume or deletion
+  APIs cannot leave stale MPU access.
+
+Suggested commit: `arch: enforce task-private MPU regions`
+
+### Planned commit 4: add isolation and fault regressions
+
+- [ ] Add a terminating MPU-isolation hardware profile.
+- [ ] Verify a task can access its own private data and explicitly shared
+  objects.
+- [ ] Verify cross-task private reads and writes produce a captured MemManage
+  fault with useful address, task, and exception diagnostics.
+- [ ] Verify context switches revoke the outgoing task's private access.
+- [ ] Add the profile and its diagnostics to the S32K312 automated runner.
+
+Suggested commit: `test: add MPU isolation regression coverage`
+
+### Planned commit 5: document and validate MPU isolation
+
+- [ ] Document task-capacity policy, private/shared memory behavior, linker and
+  section placement, and Cortex-M MPU granularity limits.
+- [ ] Run the focused S32K312 stack-guard and MPU-isolation tests.
+- [ ] Run the complete S32K312 `make auto-test` hardware suite.
+- [ ] Run `make qemu-test` and confirm configuration and shared scheduler
+  behavior are unchanged.
+- [ ] Confirm no unexpected fault, invariant, stack, access-revocation, or
+  scheduler diagnostics.
+
+Suggested commit: `docs: document and validate MPU isolation`
+
+## Completed milestones
+
+<details>
+<summary>Kernel timer service task</summary>
+
+### Kernel timer service task
 
 Dispatch software-timer callbacks automatically from a kernel-owned task so
 applications no longer need to poll expirations or call
@@ -76,7 +162,12 @@ applications no longer need to poll expirations or call
    - [x] Run the complete S32K312 `make auto-test` hardware suite.
    - [x] Confirm no fault, invariant, stack, or lost-expiration diagnostics.
 
-## Completed milestone: QEMU regression target
+</details>
+
+<details>
+<summary>QEMU regression target</summary>
+
+### QEMU regression target
 
 Add a fast Cortex-M target for repeatable scheduler and kernel regression
 testing while retaining S32K312 hardware tests as the final acceptance gate.
@@ -100,7 +191,12 @@ testing while retaining S32K312 hardware tests as the final acceptance gate.
    - [x] Document supported QEMU tests and explicitly exclude the Cortex-M3
      `fpu` profile.
 
-## Completed milestone: concurrency hardening
+</details>
+
+<details>
+<summary>Concurrency hardening</summary>
+
+### Concurrency hardening
 
 Blocking, wake-up, timeout, and timer operations are race-hardened before
 further expansion of the kernel API.
@@ -148,11 +244,12 @@ further expansion of the kernel API.
      wait metadata.
    - [x] Record enough state for post-failure debugger inspection before stopping.
 
-## Follow-on milestones
+</details>
 
-1. Add per-task MPU data isolation.
-2. Consider task suspend/resume and other lifecycle APIs only after ownership
-   and cleanup rules are defined.
+## Later milestone
+
+Consider task suspend/resume and other lifecycle APIs only after ownership and
+cleanup rules are defined by the MPU-isolation milestone.
 
 ## Validation
 
