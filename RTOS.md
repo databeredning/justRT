@@ -382,6 +382,7 @@ directory and is reached from unprivileged tasks through the LED SVC gateway.
 ```sh
 make -B TEST=simple
 make -B TEST=boot
+make -B TEST=fatal_hook
 make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
@@ -431,6 +432,8 @@ Tests:
 
 - `simple`: continuous board-independent task switching example.
 - `boot`: unprivileged startup, MPU, SVC LED gateway, and privilege switching.
+- `fatal_hook`: configurable fatal-hook invocation, reason propagation,
+  interrupt masking, and application-selected non-returning handoff.
 - `sync`: ISR semaphore, queue, event-group, and notification paths.
 - `mutex`: recursive ownership, priority inheritance, and chained waiters.
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.

@@ -27,7 +27,9 @@ Suggested commit: `docs: define execution and interrupt safety contract`
   watchdog handoff policy.
 - [x] Ensure fatal paths mask interrupts, avoid scheduler re-entry, and cannot
   return accidentally.
-- [ ] Add focused hook and default-policy regression coverage.
+- [x] Add focused custom-hook regression coverage on QEMU and S32K312.
+- [ ] Add regression coverage proving a returning hook reaches the kernel's
+  default halt policy.
 
 Suggested commit: `kernel: add configurable fatal-error hooks`
 

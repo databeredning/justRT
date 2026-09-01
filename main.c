@@ -1,5 +1,6 @@
 #include "examples/simple.h"
 #include "tests/test_boot_and_privilege.h"
+#include "tests/test_fatal_hook.h"
 #include "tests/test_fpu.h"
 #include "tests/test_mutex.h"
 #include "tests/test_mpu_isolation.h"
@@ -15,6 +16,8 @@ int main(void)
 {
 #if defined(JUSTRT_TEST_BOOT)
     test_boot_and_privilege_start();
+#elif defined(JUSTRT_TEST_FATAL_HOOK)
+    test_fatal_hook_start();
 #elif defined(JUSTRT_TEST_SYNC)
     test_synchronization_start();
 #elif defined(JUSTRT_TEST_MUTEX)

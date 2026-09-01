@@ -52,6 +52,7 @@ class TestCase:
     expected_fault_address_expr: str = ""
     expected_fault_task: int = -1
     expected_fault_marker_expr: str = ""
+    expected_fatal_reason: int = 0
 
 
 TESTS = (
@@ -59,6 +60,17 @@ TESTS = (
         "boot",
         "g_test_boot_and_privilege",
         ("g_test_boot_argument",),
+    ),
+    TestCase(
+        "fatal_hook",
+        "g_test_fatal_hook.result",
+        (
+            "g_test_fatal_hook.hook_calls",
+            "g_test_fatal_hook.hook_reason",
+            "g_test_fatal_hook.interrupts_masked",
+            "g_test_fatal_hook.error_code",
+        ),
+        expected_fatal_reason=2,
     ),
     TestCase(
         "sync",
@@ -587,11 +599,20 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             return False, f"could not read JUSTRT_RESULT\n{tail}", elapsed
 
         state, runs, passed, failed, done = map(int, match.groups())
+        fatal_ok = (
+            diagnostic_values.get("g_fatal_active", 0) == 0
+            if test.expected_fatal_reason == 0
+            else (
+                diagnostic_values.get("g_fatal_active", 0) == 1
+                and diagnostic_values.get("g_fatal_reason", 0) == test.expected_fatal_reason
+                and diagnostic_values.get("g_fatal_hook_returned", 0) == 0
+            )
+        )
         ok = (done != 0 and state == 2 and failed == 0
               and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
               and diagnostic_values.get("g_fault_active", 0) == 0
               and diagnostic_values.get("g_stack_fault", 0) == 0
-              and diagnostic_values.get("g_fatal_active", 0) == 0)
+              and fatal_ok)
         summary = f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
 
         useful = ", ".join(f"{name}={value}" for name, value in diagnostics if value != 0)

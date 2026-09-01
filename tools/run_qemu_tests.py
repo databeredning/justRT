@@ -37,10 +37,22 @@ class TestCase:
     build_name: str
     result_expr: str
     diagnostic_exprs: tuple[str, ...] = ()
+    expected_fatal_reason: int = 0
 
 
 TESTS = (
     TestCase("boot", "g_test_boot_and_privilege", ("g_test_boot_argument",)),
+    TestCase(
+        "fatal_hook",
+        "g_test_fatal_hook.result",
+        (
+            "g_test_fatal_hook.hook_calls",
+            "g_test_fatal_hook.hook_reason",
+            "g_test_fatal_hook.interrupts_masked",
+            "g_test_fatal_hook.error_code",
+        ),
+        expected_fatal_reason=2,
+    ),
     TestCase(
         "sync",
         "g_test_synchronization.result",
@@ -444,6 +456,15 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
         state, runs, passed, failed, done = map(int, match.groups())
         diagnostics = [(name, int(value)) for name, value in DIAG_RE.findall(output)]
         values = dict(diagnostics)
+        fatal_ok = (
+            values.get("g_fatal_active", 0) == 0
+            if test.expected_fatal_reason == 0
+            else (
+                values.get("g_fatal_active", 0) == 1
+                and values.get("g_fatal_reason", 0) == test.expected_fatal_reason
+                and values.get("g_fatal_hook_returned", 0) == 0
+            )
+        )
         ok = (
             state == 2
             and passed == 1
@@ -452,7 +473,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             and values.get("g_kernel_invariant_active", 0) == 0
             and values.get("g_fault_active", 0) == 0
             and values.get("g_stack_fault", 0) == 0
-            and values.get("g_fatal_active", 0) == 0
+            and fatal_ok
         )
         summary = (
             f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
