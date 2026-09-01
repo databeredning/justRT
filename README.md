@@ -76,23 +76,24 @@ make auto-test
 
 Successful tests expose explicit `state`, `pass`, `fail`, and `done` fields.
 The runner also reports fault, invariant, scheduler, synchronization, timer,
-race, task-capacity, dynamic-guard, and private-data mapping diagnostics. The
-`stack_guard`, `mpu_isolation_read`, and `mpu_isolation_write` profiles pass by
-capturing their expected MemManage faults. The continuous `simple` example is
-intentionally not part of the terminating test suite.
+race, task-capacity, task-suspension, dynamic-guard, and private-data mapping
+diagnostics. The `stack_guard`, `mpu_isolation_read`, `mpu_isolation_write`,
+and `task_suspension_mpu` profiles pass by capturing their expected MemManage
+faults. The continuous `simple` example is intentionally not part of the
+terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
-`mutex`, `race`, `timer_service`, `task_capacity`, and `private_config`
-profiles, including result, fault, invariant, stack, scheduler, MPU-transition,
-and tick diagnostics:
+`mutex`, `race`, `timer_service`, `task_capacity`, `private_config`, and
+`task_suspension` profiles, including result, fault, invariant, stack,
+scheduler, MPU-transition, and tick diagnostics:
 
 ```sh
 make qemu-test
 ```
 
-The Cortex-M3 target does not support `TEST=fpu`, `TEST=stack_guard`, or the
-two `TEST=mpu_isolation_*` hardware profiles. See [TODO.md](TODO.md) for the
-remaining work.
+The Cortex-M3 target does not support `TEST=fpu`, `TEST=stack_guard`, the two
+`TEST=mpu_isolation_*` hardware profiles, or `TEST=task_suspension_mpu`. See
+[TODO.md](TODO.md) for the remaining work.
 
 ## Repository layout
 

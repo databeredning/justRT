@@ -100,6 +100,25 @@ explicit resume and is not ended by ticks, notifications, queues, semaphores,
 or events. Unprivileged calls use SVC 4 and 5; the privileged handlers validate
 the target and pend normal scheduler selection before exception return.
 
+The supported lifecycle transitions are:
+
+| Operation | Source | Destination | Notes |
+|---|---|---|---|
+| Scheduler selects task | `READY` | `RUNNING` | Highest priority, round-robin among equals |
+| Yield or preemption | `RUNNING` | `READY` | Saved execution context is retained |
+| Finite delay | `RUNNING` | `SLEEPING` | Tick expiry returns the task to `READY` |
+| Synchronization wait | `RUNNING` | `BLOCKED` | Signal or timeout returns the task to `READY` |
+| Suspend self | `RUNNING` | `SUSPENDED` | The call returns only after another task resumes it |
+| Suspend another task | `READY` | `SUSPENDED` | The target receives no CPU time while suspended |
+| Resume | `SUSPENDED` | `READY` | Original priority, stack, notification value, and private-data ownership are retained |
+
+Suspension does not cancel a delay or synchronization wait, so `SLEEPING` and
+`BLOCKED` tasks must first become `READY` through their normal wake-up path.
+Similarly, resume accepts neither `JRT_TASK_ID_SELF` nor a task that is already
+ready or running. When a suspended task is not selected, its private MPU region
+is not mapped. After resume, the region is restored only when the scheduler
+selects that task again.
+
 Each task supplies a statically allocated stack whose size is selected by the
 application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that
 do not need a custom size. `JRT_DECLARE_STATIC_TASK_STACK()` places an aligned
@@ -281,14 +300,17 @@ make -B TEST=private_config
 make -B TEST=stack_guard
 make -B TEST=mpu_isolation_read
 make -B TEST=mpu_isolation_write
+make -B TEST=task_suspension
+make -B TEST=task_suspension_mpu
 make auto-test
 ```
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
 the terminating boot, synchronization, mutex, FPU, race, timer-service,
 task-capacity, private-configuration, stack-guard, and MPU-isolation profiles
-on S32K312 hardware through J-Link/GDB. The stack-guard and isolation profiles
-pass by capturing and validating their expected MemManage faults. The runner
+plus the task-suspension profiles on S32K312 hardware through J-Link/GDB. The
+stack-guard, isolation, and suspension-MPU profiles pass by capturing and
+validating their expected MemManage faults. The runner
 suppresses nested build output while preserving test status and diagnostics.
 It also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
 `--test <name>` options.
@@ -307,10 +329,11 @@ To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
 press `X`.
 
 `make qemu-test` runs the terminating `boot`, `sync`, `mutex`, `race`,
-`timer_service`, `task_capacity`, and `private_config` profiles under QEMU/GDB
-and checks their results plus fault, invariant, stack, scheduler, MPU-transition,
-and tick diagnostics. The Cortex-M3 target rejects `fpu`, `stack_guard`, and
-both `mpu_isolation` profiles because it cannot enforce those hardware features.
+`timer_service`, `task_capacity`, `private_config`, and `task_suspension`
+profiles under QEMU/GDB and checks their results plus fault, invariant, stack,
+scheduler, MPU-transition, and tick diagnostics. The Cortex-M3 target rejects
+`fpu`, `stack_guard`, both `mpu_isolation` profiles, and
+`task_suspension_mpu` because it cannot enforce those hardware features.
 
 Tests:
 
@@ -332,6 +355,10 @@ Tests:
 - `mpu_isolation_read` and `mpu_isolation_write`: S32K312 expected-fault
   proofs that tasks retain own/shared access while a context switch revokes
   access to the outgoing task's private region.
+- `task_suspension`: self/other suspension, resume, invalid state and context,
+  saved task state, scheduler exclusion, and shared/private access behavior.
+- `task_suspension_mpu`: S32K312 expected-fault proof that another task cannot
+  access the private region belonging to a suspended task.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
@@ -343,8 +370,8 @@ auxiliary value, and tick before stopping with interrupts masked.
 
 ## Current Limitations
 
-- Static task configuration only; no task creation, deletion, suspend, or
-  resume API.
+- Static task configuration only; no task creation or deletion. Suspension is
+  limited to running or ready application tasks and does not cancel waits.
 - Unprivileged writable data is either explicitly shared or a single
   power-of-two private region owned by one task; a task cannot declare several
   disjoint private regions.

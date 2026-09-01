@@ -66,13 +66,13 @@ Suggested commit: `test: add task suspension regression coverage`
 
 ### Planned commit 5: document and validate task suspension
 
-- [ ] Document the lifecycle state machine, supported transitions, API
+- [x] Document the lifecycle state machine, supported transitions, API
   context rules, task-ID policy, and the intentionally rejected cases.
-- [ ] Run focused suspension and MPU-ownership tests on S32K312.
-- [ ] Run the complete S32K312 `make auto-test` hardware suite.
-- [ ] Run `make qemu-test` and confirm scheduler, synchronization, timer, task
+- [x] Run focused suspension and MPU-ownership tests on S32K312.
+- [x] Run the complete S32K312 `make auto-test` hardware suite.
+- [x] Run `make qemu-test` and confirm scheduler, synchronization, timer, task
   capacity, and private-memory configuration behavior remain unchanged.
-- [ ] Confirm no unexpected fault, invariant, stack, MPU, or scheduler
+- [x] Confirm no unexpected fault, invariant, stack, MPU, or scheduler
   diagnostics.
 
 Suggested commit: `docs: document and validate task suspension`
