@@ -211,6 +211,9 @@ KERNEL_DIAGNOSTICS = (
     "g_kernel_ticks",
     "g_mpu_stack_guard_base",
     "g_mpu_stack_guard_updates",
+    "g_mpu_private_data_base",
+    "g_mpu_private_data_size",
+    "g_mpu_private_data_updates",
 )
 
 

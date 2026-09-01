@@ -43,15 +43,15 @@ Suggested commit: `api: add task-private memory configuration`
 
 ### Planned commit 3: enforce per-task MPU data isolation
 
-- [ ] Reserve an MPU region for the running task's private data without
+- [x] Reserve an MPU region for the running task's private data without
   weakening kernel, flash, peripheral, shared-RAM, or stack-guard protection.
-- [ ] Program the first task's private region before entering unprivileged
+- [x] Program the first task's private region before entering unprivileged
   Thread mode.
-- [ ] Replace the outgoing private region with the incoming task's region on
+- [x] Replace the outgoing private region with the incoming task's region on
   every context switch before exception return.
-- [ ] Disable the dynamic private region for tasks that do not declare one and
+- [x] Disable the dynamic private region for tasks that do not declare one and
   keep privileged kernel tasks independent of application-private mappings.
-- [ ] Preserve explicit ownership rules so future suspend/resume or deletion
+- [x] Preserve explicit ownership rules so future suspend/resume or deletion
   APIs cannot leave stale MPU access.
 
 Suggested commit: `arch: enforce task-private MPU regions`

@@ -33,8 +33,9 @@ The portable kernel uses these functions from
 | `arch_tick_init()` | Configure SysTick and exception priorities without starting interrupts. |
 | `arch_tick_start()` | Start the configured tick from protected first-task startup. |
 | `arch_yield()` | Enter the privileged yield path and reschedule. |
-| `arch_configure_mpu()` | Install static protection regions and the first task's dynamic stack guard. |
+| `arch_configure_mpu()` | Install static protection regions and the first task's dynamic stack guard and private-data region. |
 | `arch_set_task_stack_guard()` | Replace the dynamic guard with the selected task's guard before exception return. |
+| `arch_set_task_private_data()` | Replace or disable the selected task's dynamic private-data region before exception return. |
 | `arch_start_first_task()` | Enter startup SVC and restore the first task context. |
 | `arch_wait_for_interrupt()` | Wait efficiently in the idle task. |
 
@@ -78,8 +79,11 @@ Task-private objects occupy a separate `.task_private_data` output section.
 The linker must define `__task_private_data_start` and
 `__task_private_data_end`, align the section to at least 32 bytes, and keep it
 outside the statically shared unprivileged data mapping. Each individual
-object has power-of-two size and matching alignment so a later dynamic MPU
-region can represent it exactly.
+object has power-of-two size and matching alignment so the dynamic MPU region
+can represent it exactly. The current Cortex-M allocation uses region 14 for
+private data and region 15 for the stack guard. Both are updated for the first
+task and on every selection; private region 14 is disabled when the selected
+task has no private object.
 
 When `JRT_ARCH_HAS_MPU=0`, MPU register programming is omitted. Stack bounds
 are still checked in software and dynamic guard ownership remains visible in

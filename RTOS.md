@@ -182,6 +182,7 @@ The S32K312 target enables the MPU and installs this static map:
 | 3 | `.unprivileged_svc` | Read/execute both privilege levels |
 | 4 | `.unprivileged_rodata` | Read-only, XN |
 | 5 | `.unprivileged_task_data` | Read/write, XN |
+| 14 | Running task's dynamic private data | Read/write, XN |
 | 15 | Running task's dynamic stack guard | No access, XN |
 
 Higher region numbers override lower ones. The linker aligns the explicit
@@ -196,8 +197,11 @@ guard transition is exposed diagnostically, but QEMU does not validate MPU
 enforcement.
 
 `.task_private_data` is deliberately absent from the static unprivileged map.
-Its validated task ownership metadata is reserved for a dynamic MPU region in
-the next implementation step.
+Region 14 exposes only the selected task's validated private region and is
+replaced before each exception return. It is disabled for tasks without
+private data, including the kernel-owned idle and timer-service tasks. Any
+future task suspend, resume, or deletion API must preserve this rule and must
+not leave a stale private mapping installed.
 
 ## Kernel Services
 

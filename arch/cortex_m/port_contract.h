@@ -21,9 +21,11 @@
  *   - arch_tick_init(): configure and start the periodic tick source.
  *   - arch_yield(): request an immediate reschedule via SVC.
  *   - arch_configure_mpu(): program the static MPU map and the first task's
- *     dynamic stack guard.
+ *     dynamic stack guard and private-data region.
  *   - arch_set_task_stack_guard(): replace the dynamic guard for the task
  *     selected by the scheduler.
+ *   - arch_set_task_private_data(): replace or disable the dynamic private
+ *     data region for the task selected by the scheduler.
  *   - arch_start_first_task(): drop to the first task's stack/privilege
  *     level and never return.
  *   - arch_wait_for_interrupt(): idle until the next interrupt (`wfi`).
@@ -53,8 +55,10 @@ int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_tick_start(void);
 void arch_yield(void);
-void arch_configure_mpu(void *guard_address);
+void arch_configure_mpu(void *guard_address, void *private_data_base,
+                        uint32_t private_data_size);
 void arch_set_task_stack_guard(void *guard_address);
+void arch_set_task_private_data(void *base, uint32_t size);
 void arch_start_first_task(void);
 void arch_wait_for_interrupt(void);
 

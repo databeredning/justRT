@@ -18,9 +18,10 @@ private_config_test_state_t g_test_private_config JRT_TASK_UNPRIVILEGED_DATA;
 
 static JRT_TASK_UNPRIVILEGED void private_config_task_a(void *argument)
 {
-    (void)argument;
+    private_config_region_t *region = (private_config_region_t *)argument;
 
-    g_test_private_config.task_a_value = 0xA11A11A1U;
+    region->words[0] = 0xA11A11A1U;
+    g_test_private_config.task_a_value = region->words[0];
     while (1)
     {
         if (g_test_private_config.task_b_value == 0xB22B22B2U)
@@ -48,9 +49,10 @@ static JRT_TASK_UNPRIVILEGED void private_config_task_a(void *argument)
 
 static JRT_TASK_UNPRIVILEGED void private_config_task_b(void *argument)
 {
-    (void)argument;
+    private_config_region_t *region = (private_config_region_t *)argument;
 
-    g_test_private_config.task_b_value = 0xB22B22B2U;
+    region->words[0] = 0xB22B22B2U;
+    g_test_private_config.task_b_value = region->words[0];
     while (1)
     {
         JRT_TaskDelay(1U);

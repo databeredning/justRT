@@ -80,6 +80,7 @@ enum
 #define MPU_UNPRIVILEGED_SVC_REGION 3U
 #define MPU_UNPRIVILEGED_RODATA_REGION 4U
 #define MPU_UNPRIVILEGED_DATA_REGION 5U
+#define MPU_TASK_PRIVATE_DATA_REGION 14U
 #define MPU_STACK_GUARD_REGION 15U
 
 extern uint8_t __unprivileged_functions_start[];
@@ -163,6 +164,48 @@ static void configure_memory_regions(void)
 
 volatile uint32_t g_mpu_stack_guard_base KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_mpu_stack_guard_updates KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_mpu_private_data_base KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_mpu_private_data_size KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_mpu_private_data_updates KERNEL_PRIVILEGED_DATA;
+
+void arch_set_task_private_data(void *private_data_base,
+                                uint32_t private_data_size)
+{
+    uint32_t base = (uint32_t)(uintptr_t)private_data_base;
+
+    if ((g_mpu_private_data_base == base)
+        && (g_mpu_private_data_size == private_data_size))
+    {
+        return;
+    }
+#if JRT_ARCH_HAS_MPU
+    MPU_RNR = MPU_TASK_PRIVATE_DATA_REGION;
+    if (private_data_size == 0U)
+    {
+        MPU_RBAR = 0U;
+        MPU_RASR = 0U;
+    }
+    else
+    {
+        uint32_t size_encoding = 4U;
+        uint32_t represented_size = 32U;
+
+        while (represented_size < private_data_size)
+        {
+            represented_size <<= 1U;
+            size_encoding++;
+        }
+        MPU_RBAR = base;
+        MPU_RASR = MPU_RASR_AP_READ_WRITE_BOTH | MPU_RASR_XN
+            | MPU_RASR_TEX_NORMAL | MPU_RASR_CACHEABLE | MPU_RASR_BUFFERABLE
+            | (size_encoding << 1U) | MPU_RASR_ENABLE;
+    }
+    __asm volatile ("dsb\nisb" : : : "memory");
+#endif
+    g_mpu_private_data_base = base;
+    g_mpu_private_data_size = private_data_size;
+    g_mpu_private_data_updates++;
+}
 
 void arch_set_task_stack_guard(void *guard_address)
 {
@@ -182,7 +225,8 @@ void arch_set_task_stack_guard(void *guard_address)
     g_mpu_stack_guard_updates++;
 }
 
-void arch_configure_mpu(void *guard_address)
+void arch_configure_mpu(void *guard_address, void *private_data_base,
+                        uint32_t private_data_size)
 {
 #if JRT_ARCH_HAS_MPU
     uint32_t index;
@@ -198,12 +242,20 @@ void arch_configure_mpu(void *guard_address)
     configure_memory_regions();
     g_mpu_stack_guard_base = 0U;
     g_mpu_stack_guard_updates = 0U;
+    g_mpu_private_data_base = 0U;
+    g_mpu_private_data_size = 0U;
+    g_mpu_private_data_updates = 0U;
+    arch_set_task_private_data(private_data_base, private_data_size);
     arch_set_task_stack_guard(guard_address);
     MPU_CTRL = MPU_CTRL_ENABLE | MPU_CTRL_PRIVDEFENA;
     __asm volatile ("dsb\nisb" : : : "memory");
 #else
     g_mpu_stack_guard_base = 0U;
     g_mpu_stack_guard_updates = 0U;
+    g_mpu_private_data_base = 0U;
+    g_mpu_private_data_size = 0U;
+    g_mpu_private_data_updates = 0U;
+    arch_set_task_private_data(private_data_base, private_data_size);
     arch_set_task_stack_guard(guard_address);
 #endif
 }

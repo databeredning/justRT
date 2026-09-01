@@ -1109,6 +1109,8 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     current_task = &tasks[g_current_task_index];
     current_task->state = JRT_TASK_STATE_RUNNING;
+    arch_set_task_private_data(current_task->private_data_base,
+                               current_task->private_data_size);
     arch_set_task_stack_guard(task_stack_guard(current_task));
     arch_critical_exit(saved_primask);
     return current_task->sp;
@@ -1293,7 +1295,9 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     g_kernel_invariant_object = 0U;
     g_kernel_invariant_aux = 0U;
     g_kernel_invariant_tick = 0U;
-    arch_configure_mpu(task_stack_guard(current_task));
+    arch_configure_mpu(task_stack_guard(current_task),
+                       current_task->private_data_base,
+                       current_task->private_data_size);
     current_task->state = JRT_TASK_STATE_RUNNING;
     kernel_initialized = 1U;
     return JRT_STATUS_OK;
