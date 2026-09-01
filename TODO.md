@@ -1,9 +1,5 @@
 # RTOS Roadmap
 
-## Next release action
-
-- [ ] Tag the validated production-readiness milestone.
-
 ## Completed milestones
 
 <details>
@@ -85,6 +81,8 @@ Suggested commit: `docs: publish supported release configuration`
 
 Acceptance: manual GitHub release validation passed; S32K312 hardware suites
 passed with 17 debug profiles and 6 optimized release profiles.
+
+Release: `v0.9.0-production-readiness`
 
 </details>
 
