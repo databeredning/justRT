@@ -147,6 +147,30 @@ TESTS = (
             "g_test_private_config.error_code",
         ),
     ),
+    TestCase(
+        "task_suspension",
+        "g_test_task_suspension.result",
+        (
+            "g_test_task_suspension.isr_status",
+            "g_test_task_suspension.self_suspend_entered",
+            "g_test_task_suspension.self_suspend_returned",
+            "g_test_task_suspension.suspend_again_rejected",
+            "g_test_task_suspension.resume_accepted",
+            "g_test_task_suspension.resume_again_rejected",
+            "g_test_task_suspension.suspend_other_accepted",
+            "g_test_task_suspension.suspended_progress_stable",
+            "g_test_task_suspension.sleeping_rejected",
+            "g_test_task_suspension.blocked_rejected",
+            "g_test_task_suspension.invalid_id_rejected",
+            "g_test_task_suspension.internal_id_rejected",
+            "g_test_task_suspension.resume_self_rejected",
+            "g_test_task_suspension.stack_state_preserved",
+            "g_test_task_suspension.private_state_restored",
+            "g_test_task_suspension.shared_accesses",
+            "g_test_task_suspension.worker_complete",
+            "g_test_task_suspension.error_code",
+        ),
+    ),
 )
 
 KERNEL_DIAGNOSTICS = (
@@ -167,6 +191,7 @@ KERNEL_DIAGNOSTICS = (
     "g_mpu_private_data_base",
     "g_mpu_private_data_size",
     "g_mpu_private_data_updates",
+    "g_svc_invalid_context",
 )
 
 RESULT_RE = re.compile(

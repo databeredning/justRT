@@ -190,6 +190,45 @@ TESTS = (
         expected_fault_marker_expr="g_test_stack_guard.write_attempted",
     ),
     TestCase(
+        "task_suspension",
+        "g_test_task_suspension.result",
+        (
+            "g_test_task_suspension.isr_status",
+            "g_test_task_suspension.self_suspend_entered",
+            "g_test_task_suspension.self_suspend_returned",
+            "g_test_task_suspension.suspend_again_rejected",
+            "g_test_task_suspension.resume_accepted",
+            "g_test_task_suspension.resume_again_rejected",
+            "g_test_task_suspension.suspend_other_accepted",
+            "g_test_task_suspension.suspended_progress_stable",
+            "g_test_task_suspension.sleeping_rejected",
+            "g_test_task_suspension.blocked_rejected",
+            "g_test_task_suspension.invalid_id_rejected",
+            "g_test_task_suspension.internal_id_rejected",
+            "g_test_task_suspension.resume_self_rejected",
+            "g_test_task_suspension.stack_state_preserved",
+            "g_test_task_suspension.private_state_restored",
+            "g_test_task_suspension.shared_accesses",
+            "g_test_task_suspension.worker_complete",
+            "g_test_task_suspension.error_code",
+        ),
+    ),
+    TestCase(
+        "task_suspension_mpu",
+        "g_test_task_suspension.result",
+        (
+            "g_test_task_suspension.expected_fault_address",
+            "g_test_task_suspension.self_suspend_entered",
+            "g_test_task_suspension.private_state_restored",
+            "g_test_task_suspension.cross_read_attempted",
+            "g_test_task_suspension.error_code",
+        ),
+        expected_fault_type=2,
+        expected_fault_address_expr="g_test_task_suspension.expected_fault_address",
+        expected_fault_task=1,
+        expected_fault_marker_expr="g_test_task_suspension.cross_read_attempted",
+    ),
+    TestCase(
         "mpu_isolation_read",
         "g_test_mpu_isolation.result",
         (
@@ -254,6 +293,7 @@ KERNEL_DIAGNOSTICS = (
     "g_mpu_private_data_base",
     "g_mpu_private_data_size",
     "g_mpu_private_data_updates",
+    "g_svc_invalid_context",
 )
 
 

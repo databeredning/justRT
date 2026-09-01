@@ -52,14 +52,14 @@ Suggested commit: `arch: add unprivileged task suspension gateways`
 
 ### Planned commit 4: add suspension regression coverage
 
-- [ ] Add terminating QEMU and S32K312 suspension profiles.
-- [ ] Verify self-suspend, suspend-other, resume, invalid IDs, repeated
+- [x] Add terminating QEMU and S32K312 suspension profiles.
+- [x] Verify self-suspend, suspend-other, resume, invalid IDs, repeated
   operations, and rejected sleeping or blocked targets.
-- [ ] Verify suspended tasks receive no CPU time and resume from their saved
+- [x] Verify suspended tasks receive no CPU time and resume from their saved
   stack context with their original priority and task-local state.
-- [ ] Verify private access is revoked while a task is suspended and restored
+- [x] Verify private access is revoked while a task is suspended and restored
   after it resumes, while explicitly shared data remains accessible.
-- [ ] Add result, state-transition, scheduler, misuse, and MPU diagnostics to
+- [x] Add result, state-transition, scheduler, misuse, and MPU diagnostics to
   both automated runners.
 
 Suggested commit: `test: add task suspension regression coverage`

@@ -8,6 +8,7 @@
 #include "tests/test_stack_guard.h"
 #include "tests/test_synchronization.h"
 #include "tests/test_task_capacity.h"
+#include "tests/test_task_suspension.h"
 #include "tests/test_timer_service.h"
 
 int main(void)
@@ -32,6 +33,8 @@ int main(void)
     test_private_config_start();
 #elif defined(JUSTRT_TEST_MPU_ISOLATION_READ) || defined(JUSTRT_TEST_MPU_ISOLATION_WRITE)
     test_mpu_isolation_start();
+#elif defined(JUSTRT_TEST_TASK_SUSPENSION) || defined(JUSTRT_TEST_TASK_SUSPENSION_MPU)
+    test_task_suspension_start();
 #else
     simple_example_start();
 #endif

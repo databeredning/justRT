@@ -72,12 +72,19 @@ ifneq ($(TARGET),s32k312)
 $(error TEST=mpu_isolation_write requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_MPU_ISOLATION_WRITE=1
+else ifeq ($(TEST),task_suspension)
+CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION=1
+else ifeq ($(TEST),task_suspension_mpu)
+ifneq ($(TARGET),s32k312)
+$(error TEST=task_suspension_mpu requires TARGET=s32k312)
+endif
+CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION_MPU=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, or TEST=mpu_isolation_write)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(DEBUGFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
 $(OBJS): JRTConfig.h
 
@@ -135,6 +142,9 @@ $(OBJDIR)/tests/test_private_config.o: tests/test_private_config.c tests/test_pr
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/tests/test_mpu_isolation.o: tests/test_mpu_isolation.c tests/test_mpu_isolation.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_task_suspension.o: tests/test_task_suspension.c tests/test_task_suspension.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/examples/simple.o: examples/simple.c examples/simple.h kernel/kernel.h | $(OBJDIR)/examples
