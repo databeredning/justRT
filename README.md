@@ -110,7 +110,7 @@ The Cortex-M3 target does not support `TEST=fpu`, `TEST=stack_guard`, the two
 
 ## Documentation
 
-- [Kernel and API reference](RTOS.md)
+- [Kernel, API, execution-context, and interrupt-safety reference](RTOS.md)
 - [Architecture and platform porting guide](PORT.md)
 - [Current roadmap](TODO.md)
 - [Example application guide](examples/README.md)

@@ -277,6 +277,73 @@ wraparound for every finite timeout value.
 `JRT_WAIT_FOREVER` selects an infinite wait. Synchronization APIs intended for
 tasks reject ISR use, while dedicated ISR APIs are non-blocking.
 
+## Execution Context and Interrupt Safety
+
+justRT distinguishes privileged initialization code, privileged application
+tasks, unprivileged application tasks, the kernel timer-service task, and
+exception context. An API is supported only in the contexts listed below;
+successful execution in another context is not part of the contract.
+
+| API group | Initialization | Privileged task | Unprivileged task | Timer callback | Maskable ISR |
+|---|---:|---:|---:|---:|---:|
+| `JRT_KernelInit()`, static object creation, `JRT_KernelStart()` | Yes | No | No | No | No |
+| Yield, delay, suspend, resume, and LED SVC | No | Yes | Yes | No | No |
+| `JRT_MillisecondsToTicks()` | Yes | Yes | Yes | Yes | Yes |
+| Task inspection and non-ISR synchronization, event, and memory-pool APIs | No | Yes | No | No | No |
+| `JRT_TaskNotify()` and timer start/stop/restart/configuration | No | Yes | No | Yes | No |
+| `JRT_KernelGetTickCount()`, `JRT_KernelTickReached()` | Yes | Yes | No | Yes | Yes |
+| `JRT_SemaphoreGiveFromISR()` | No | No | No | No | Yes |
+| `JRT_QueueSendFromISR()` | No | No | No | No | Yes |
+| `JRT_TaskNotifyFromISR()` | No | No | No | No | Yes |
+| `JRT_EventGroupSetBitsFromISR()` | No | No | No | No | Yes |
+
+“Unprivileged task” in this table means a task configured with
+`JRT_TASK_FLAG_UNPRIVILEGED` on an MPU-enabled target. Its supported kernel
+entry points reside in unprivileged code or use the SVC gateways. Other public
+kernel functions reside in privileged flash and are not callable directly by
+such a task. Applications needing those services from unprivileged tasks must
+use a privileged service task or add a separately reviewed SVC gateway; shared
+data placement alone does not grant execution access to privileged functions.
+
+Task-context synchronization calls detect ISR misuse and return failure or do
+nothing as appropriate. Suspend and resume return
+`JRT_STATUS_INVALID_CONTEXT`. The four `FromISR` functions reject Thread-mode
+use, never block, and request PendSV when their operation can make a task
+runnable. No other mutating kernel API is supported from an ISR, even if its
+current implementation happens to use a critical section.
+
+The Cortex-M port uses these exception priorities, where a lower numerical
+value has higher urgency:
+
+| Exception | Logical priority | Contract |
+|---|---:|---|
+| SVC | Reset priority 0 | Privileged gateway; must not be reprioritized by the application |
+| Application maskable IRQ | 0 through 13 | May use only the four `FromISR` gateways and bounded read-only helpers |
+| SysTick | 14 | Advances kernel time, processes expirations, invokes the optional tick hook, and pends PendSV |
+| PendSV | 15 | Lowest priority; performs deferred context switching after all higher-priority handlers return |
+
+Kernel critical sections save PRIMASK, disable every maskable interrupt, and
+restore the previous PRIMASK value. They are nestable only through correctly
+paired enter/exit calls and deliberately favor simple atomicity over selective
+priority masking. NMI and fault handlers are not masked by PRIMASK and must not
+call any kernel API. Application ISRs must be bounded: a long-running handler
+delays SysTick when it has priority 0 through 13 and always delays PendSV, so a
+woken higher-priority task cannot run until the handler chain completes.
+
+The optional kernel tick hook executes inside SysTick at priority 14. It is a
+diagnostic/test hook, must be bounded and non-blocking, and may use only the
+same APIs permitted to a maskable ISR. It must not call task APIs or perform
+application work that belongs in a task.
+
+Timer callbacks are different from interrupt callbacks: they execute serially
+in privileged Thread mode in the priority-1 timer-service task, outside the
+kernel critical section. They must still be bounded and must not block, delay,
+wait for synchronization, suspend, allocate/free memory-pool blocks, or call
+`JRT_TimerDispatch()`. They may start, stop, restart, or reconfigure timers and
+notify an application task. A callback that does not return prevents later
+timer callbacks from running, while higher-priority application tasks may
+still preempt it normally.
+
 ## Port Boundary
 
 Portable kernel code calls the contract in

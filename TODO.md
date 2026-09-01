@@ -1,83 +1,100 @@
 # RTOS Roadmap
 
-## Current milestone: static task suspension
+## Current milestone: production-readiness hardening
 
-Allow statically configured application tasks to be suspended and resumed
-without rebuilding their stack context, leaking wait-list state, or leaving
-their stack guard or private-data MPU region active.
+Turn the tested static kernel into a clearly bounded release configuration.
+This milestone prioritizes explicit safety contracts, deterministic failure
+handling, configuration validation, and reproducible validation over adding
+dynamic task lifecycle features.
 
-The first version deliberately supports only `READY` and `RUNNING` tasks.
-Suspending sleeping or synchronization-blocked tasks is rejected so the API
-does not yet need cancellation or preserved-timeout semantics. Kernel-owned
-idle and timer-service tasks are never valid application targets.
+### Planned commit 1: define execution and interrupt safety contract
 
-### Planned commit 1: define the suspension API contract
+- [x] Classify public APIs by initialization, privileged task, unprivileged
+  task, timer-callback, and ISR context.
+- [x] Document the supported ISR gateways and rejection behavior for context
+  misuse.
+- [x] Document SysTick, PendSV, SVC, application interrupt, and PRIMASK
+  critical-section behavior.
+- [x] State callback blocking, nesting, latency, and NMI/fault-handler rules.
 
-- [x] Add `JRT_TASK_STATE_SUSPENDED` and public suspend/resume status results.
-- [x] Define stable application task IDs and reject invalid or kernel-owned
-  task IDs.
-- [x] Define self-suspend, suspend-other, resume, repeated-operation, and API
-  context behavior.
-- [x] Preserve source and configuration compatibility for applications that
-  do not use suspension.
+Suggested commit: `docs: define execution and interrupt safety contract`
 
-Suggested commit: `api: define static task suspension semantics`
+### Planned commit 2: add configurable fatal-error hooks
 
-### Planned commit 2: implement suspension state transitions
+- [ ] Define application hooks for kernel invariants, stack overflow, and
+  processor faults while retaining debugger-visible fault records.
+- [ ] Provide deterministic default stop behavior and an optional reset or
+  watchdog handoff policy.
+- [ ] Ensure fatal paths mask interrupts, avoid scheduler re-entry, and cannot
+  return accidentally.
+- [ ] Add focused hook and default-policy regression coverage.
 
-- [x] Remove suspended tasks from scheduler selection without altering their
-  saved stack, priority, notification value, or private-memory ownership.
-- [x] Make self-suspension request an immediate context switch and prevent the
-  caller from running again until resumed.
-- [x] Suspend another `READY` task atomically and resume a suspended task as
-  `READY`.
-- [x] Reject sleeping, synchronization-blocked, already-suspended, and
-  kernel-owned targets according to the API contract.
-- [x] Extend kernel invariants so suspended tasks cannot retain active wait
-  metadata or appear as the current running task after a switch.
+Suggested commit: `kernel: add configurable fatal-error hooks`
 
-Suggested commit: `kernel: implement static task suspension`
+### Planned commit 3: validate release-time kernel settings
 
-### Planned commit 3: expose suspension to unprivileged tasks
+- [ ] Extend compile-time checks for clocks, tick conversion, task limits,
+  priorities, and all kernel-owned stack sizes.
+- [ ] Separate release diagnostics and test hooks from required production
+  behavior without weakening invariant checks.
+- [ ] Reject unsupported or ambiguous configurations with actionable errors.
+- [ ] Add positive and negative configuration-build tests.
 
-- [x] Add SVC services and wrappers for suspend and resume without allowing
-  unprivileged callers to bypass task-ID or state validation.
-- [x] Preserve exception-context restrictions and reject ISR misuse.
-- [x] Ensure self-suspension cannot return to unprivileged Thread mode before
-  PendSV selects a different runnable task.
-- [x] Confirm normal task selection replaces the suspended task's dynamic
-  stack guard and private-data MPU region before exception return.
+Suggested commit: `config: validate release-time kernel settings`
 
-Suggested commit: `arch: add unprivileged task suspension gateways`
+### Planned commit 4: add optimized and extended stress profiles
 
-### Planned commit 4: add suspension regression coverage
+- [ ] Run scheduler, synchronization, timer, suspension, and tick-wrap tests
+  in an optimized release build.
+- [ ] Add longer deterministic stress profiles with bounded completion and
+  reproducible seeds.
+- [ ] Record stack high-water, critical diagnostics, and binary size for
+  debug and release configurations.
+- [ ] Keep expected MPU faults distinct from unexpected fatal diagnostics.
 
-- [x] Add terminating QEMU and S32K312 suspension profiles.
-- [x] Verify self-suspend, suspend-other, resume, invalid IDs, repeated
-  operations, and rejected sleeping or blocked targets.
-- [x] Verify suspended tasks receive no CPU time and resume from their saved
-  stack context with their original priority and task-local state.
-- [x] Verify private access is revoked while a task is suspended and restored
-  after it resumes, while explicitly shared data remains accessible.
-- [x] Add result, state-transition, scheduler, misuse, and MPU diagnostics to
-  both automated runners.
+Suggested commit: `test: add optimized and extended stress profiles`
 
-Suggested commit: `test: add task suspension regression coverage`
+### Planned commit 5: automate QEMU release validation
 
-### Planned commit 5: document and validate task suspension
+- [ ] Add CI that builds both targets and runs the complete QEMU suite.
+- [ ] Archive release ELF, map, binary, test results, and size reports.
+- [ ] Pin and report compiler, Python, QEMU, and debugger versions.
+- [ ] Make CI failure output preserve the existing debugger diagnostics.
 
-- [x] Document the lifecycle state machine, supported transitions, API
-  context rules, task-ID policy, and the intentionally rejected cases.
-- [x] Run focused suspension and MPU-ownership tests on S32K312.
-- [x] Run the complete S32K312 `make auto-test` hardware suite.
-- [x] Run `make qemu-test` and confirm scheduler, synchronization, timer, task
-  capacity, and private-memory configuration behavior remain unchanged.
-- [x] Confirm no unexpected fault, invariant, stack, MPU, or scheduler
-  diagnostics.
+Suggested commit: `ci: automate qemu release validation`
 
-Suggested commit: `docs: document and validate task suspension`
+### Planned commit 6: publish the supported release configuration
+
+- [ ] Document the supported toolchain, targets, configuration envelope, and
+  application integration checklist.
+- [ ] Document residual risks and explicitly unsupported contexts/features.
+- [ ] Run complete QEMU and S32K312 acceptance suites from a clean checkout.
+- [ ] Tag the validated production-readiness milestone.
+
+Suggested commit: `docs: publish supported release configuration`
 
 ## Completed milestones
+
+<details>
+<summary>Static task suspension</summary>
+
+### Static task suspension
+
+Allow statically configured application tasks to be suspended and resumed
+without rebuilding their stack context or retaining a stale private-data MPU
+mapping. The first version accepts `RUNNING` and `READY` application tasks and
+deliberately rejects sleeping, blocked, internal, and invalid targets.
+
+- [x] Define stable application task IDs and suspension lifecycle semantics.
+- [x] Implement atomic self/other suspension and explicit resume.
+- [x] Add validated SVC gateways for unprivileged tasks.
+- [x] Verify saved stack/private state, scheduler exclusion, misuse handling,
+  and private-memory revocation on QEMU and S32K312.
+- [x] Document the state machine and validate the complete regression suites.
+
+Release: `v0.8.0-task-suspension`
+
+</details>
 
 <details>
 <summary>Per-task MPU data isolation</summary>
@@ -263,10 +280,11 @@ further expansion of the kernel API.
 
 </details>
 
-## Later milestone
+## Optional later milestone
 
-Consider task deletion or static-slot reactivation only after suspension is
-stable. Deletion must define mutex-owner handling, wait-list removal, timeout
+Consider task deletion or static-slot reactivation only when an application
+requires it; neither is required for a production-ready static kernel.
+Deletion must define mutex-owner handling, wait-list removal, timeout
 cancellation, stale task IDs, private-memory clearing, and MPU revocation
 without introducing heap allocation implicitly.
 
