@@ -26,8 +26,10 @@ static void test_synchronization_tick_hook(void)
     uint32_t value;
 
     test_isr_state.tick_count++;
+    /* Event bits do not count repeated sets; wait until the prior bit was consumed. */
     if ((test_isr_state.tick_count % TEST_SYNC_PERIOD_TICKS) != 0U
-        || test_isr_state.next_value >= TEST_SYNC_TARGET)
+        || test_isr_state.next_value >= TEST_SYNC_TARGET
+        || g_test_synchronization.event_received != test_isr_state.next_value)
     {
         return;
     }
