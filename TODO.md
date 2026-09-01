@@ -67,9 +67,9 @@ Suggested commit: `ci: automate qemu release validation`
 
 ### Planned commit 6: publish the supported release configuration
 
-- [ ] Document the supported toolchain, targets, configuration envelope, and
+- [x] Document the supported toolchain, targets, configuration envelope, and
   application integration checklist.
-- [ ] Document residual risks and explicitly unsupported contexts/features.
+- [x] Document residual risks and explicitly unsupported contexts/features.
 - [ ] Run complete QEMU and S32K312 acceptance suites from a clean checkout.
 - [ ] Tag the validated production-readiness milestone.
 

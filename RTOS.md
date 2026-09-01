@@ -444,12 +444,12 @@ To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
 press `X`.
 
 `make qemu-test` runs the terminating `boot`, `config_runtime`, `fatal_hook`,
-`fatal_hook_return`, `sync`, `mutex`, `race`, `timer_service`, `task_capacity`,
-`private_config`, and `task_suspension` profiles under QEMU/GDB and checks
-their results plus fault, invariant, stack, scheduler, MPU-transition, and
-tick diagnostics. The Cortex-M3 target rejects `fpu`, `stack_guard`, both
-`mpu_isolation` profiles, and `task_suspension_mpu` because it cannot enforce
-those hardware features.
+`fatal_hook_return`, `sync`, `mutex`, `race`, `stress`, `timer_service`,
+`task_capacity`, `private_config`, and `task_suspension` profiles under
+QEMU/GDB and checks their results plus fault, invariant, stack, scheduler,
+MPU-transition, and tick diagnostics. The Cortex-M3 target rejects `fpu`,
+`stack_guard`, both `mpu_isolation` profiles, and `task_suspension_mpu`
+because it cannot enforce those hardware features.
 
 Tests:
 
@@ -497,6 +497,10 @@ observed task-stack use. `g_critical_entries`, `g_critical_nesting`, and
 require the current nesting count to return to zero.
 
 ## Current Limitations
+
+The supported tool baseline, configuration envelope, application integration
+checklist, residual risks, and release acceptance procedure are maintained in
+[RELEASE.md](RELEASE.md).
 
 - Static task configuration only; no task creation or deletion. Suspension is
   limited to running or ready application tasks and does not cancel waits.
