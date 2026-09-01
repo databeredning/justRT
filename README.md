@@ -38,6 +38,8 @@ make -B TEST=timer_service
 make -B TEST=task_capacity
 make -B TEST=stack_guard
 make -B TEST=private_config
+make -B TEST=mpu_isolation_read
+make -B TEST=mpu_isolation_write
 ```
 
 Build the QEMU Cortex-M3 target with:

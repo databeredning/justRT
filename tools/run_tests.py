@@ -50,6 +50,8 @@ class TestCase:
     diagnostic_exprs: tuple[str, ...] = ()
     expected_fault_type: int = 0
     expected_fault_address_expr: str = ""
+    expected_fault_task: int = -1
+    expected_fault_marker_expr: str = ""
 
 
 TESTS = (
@@ -184,6 +186,44 @@ TESTS = (
         expected_fault_type=2,
         expected_fault_address_expr=
             "g_test_stack_guard.expected_guard_address",
+        expected_fault_task=0,
+        expected_fault_marker_expr="g_test_stack_guard.write_attempted",
+    ),
+    TestCase(
+        "mpu_isolation_read",
+        "g_test_mpu_isolation.result",
+        (
+            "g_test_mpu_isolation.expected_fault_address",
+            "g_test_mpu_isolation.task_a_private_access",
+            "g_test_mpu_isolation.task_b_private_access",
+            "g_test_mpu_isolation.shared_accesses",
+            "g_test_mpu_isolation.context_switch_revoked_access",
+            "g_test_mpu_isolation.cross_read_attempted",
+            "g_test_mpu_isolation.cross_write_attempted",
+            "g_test_mpu_isolation.error_code",
+        ),
+        expected_fault_type=2,
+        expected_fault_address_expr="g_test_mpu_isolation.expected_fault_address",
+        expected_fault_task=1,
+        expected_fault_marker_expr="g_test_mpu_isolation.cross_read_attempted",
+    ),
+    TestCase(
+        "mpu_isolation_write",
+        "g_test_mpu_isolation.result",
+        (
+            "g_test_mpu_isolation.expected_fault_address",
+            "g_test_mpu_isolation.task_a_private_access",
+            "g_test_mpu_isolation.task_b_private_access",
+            "g_test_mpu_isolation.shared_accesses",
+            "g_test_mpu_isolation.context_switch_revoked_access",
+            "g_test_mpu_isolation.cross_read_attempted",
+            "g_test_mpu_isolation.cross_write_attempted",
+            "g_test_mpu_isolation.error_code",
+        ),
+        expected_fault_type=2,
+        expected_fault_address_expr="g_test_mpu_isolation.expected_fault_address",
+        expected_fault_task=1,
+        expected_fault_marker_expr="g_test_mpu_isolation.cross_write_attempted",
     ),
 )
 
@@ -193,7 +233,7 @@ RESULT_RE = re.compile(
 DIAG_RE = re.compile(r"JUSTRT_DIAG ([^=]+)=(\d+)")
 EXPECTED_FAULT_RE = re.compile(
     r"JUSTRT_EXPECTED_FAULT type=(\d+) mmfar=(\d+) expected=(\d+) "
-    r"cfsr=(\d+) task=(\d+)"
+    r"cfsr=(\d+) task=(\d+) pc=(\d+) exc_return=(\d+)"
 )
 
 KERNEL_DIAGNOSTICS = (
@@ -348,7 +388,7 @@ def gdb_script(test: TestCase, verbose: bool) -> str:
             "if g_fault_active == 0",
             '  printf "JUSTRT_UNEXPECTED_STOP pc=%p\\n", $pc',
             "else",
-            f'  printf "JUSTRT_EXPECTED_FAULT type=%u mmfar=%u expected=%u cfsr=%u task=%u\\n", g_fault_record.fault_type, g_fault_record.mmfar, {test.expected_fault_address_expr}, g_fault_record.cfsr, g_current_task_index',
+            f'  printf "JUSTRT_EXPECTED_FAULT type=%u mmfar=%u expected=%u cfsr=%u task=%u pc=%u exc_return=%u\\n", g_fault_record.fault_type, g_fault_record.mmfar, {test.expected_fault_address_expr}, g_fault_record.cfsr, g_current_task_index, g_fault_record.pc, g_fault_record.exc_return',
         ])
     else:
         lines.extend([
@@ -466,21 +506,28 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             if not fault_match:
                 tail = "\n".join(output.strip().splitlines()[-40:])
                 return False, f"could not read expected fault result\n{tail}", elapsed
-            fault_type, mmfar, expected, cfsr, task_id = map(
+            fault_type, mmfar, expected, cfsr, task_id, fault_pc, exc_return = map(
                 int, fault_match.groups()
             )
+            marker_ok = (
+                test.expected_fault_marker_expr == ""
+                or diagnostic_values.get(test.expected_fault_marker_expr, 0) == 1
+            )
+            task_ok = test.expected_fault_task < 0 or task_id == test.expected_fault_task
             ok = (
                 fault_type == test.expected_fault_type
                 and mmfar == expected
                 and (cfsr & 0x82) == 0x82
-                and diagnostic_values.get(
-                    "g_test_stack_guard.write_attempted", 0
-                ) == 1
+                and task_ok
+                and marker_ok
+                and fault_pc != 0
+                and exc_return == 0xFFFFFFFD
                 and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
             )
             summary = (
                 f"fault_type={fault_type} mmfar={mmfar} expected={expected} "
-                f"cfsr={cfsr} task={task_id}"
+                f"cfsr={cfsr} task={task_id} pc={fault_pc} "
+                f"exc_return={exc_return}"
             )
             useful = ", ".join(
                 f"{name}={value}" for name, value in diagnostics if value != 0

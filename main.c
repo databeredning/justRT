@@ -2,6 +2,7 @@
 #include "tests/test_boot_and_privilege.h"
 #include "tests/test_fpu.h"
 #include "tests/test_mutex.h"
+#include "tests/test_mpu_isolation.h"
 #include "tests/test_private_config.h"
 #include "tests/test_race.h"
 #include "tests/test_stack_guard.h"
@@ -29,6 +30,8 @@ int main(void)
     test_stack_guard_start();
 #elif defined(JUSTRT_TEST_PRIVATE_CONFIG)
     test_private_config_start();
+#elif defined(JUSTRT_TEST_MPU_ISOLATION_READ) || defined(JUSTRT_TEST_MPU_ISOLATION_WRITE)
+    test_mpu_isolation_start();
 #else
     simple_example_start();
 #endif

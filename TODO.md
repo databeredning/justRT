@@ -58,13 +58,13 @@ Suggested commit: `arch: enforce task-private MPU regions`
 
 ### Planned commit 4: add isolation and fault regressions
 
-- [ ] Add a terminating MPU-isolation hardware profile.
-- [ ] Verify a task can access its own private data and explicitly shared
+- [x] Add a terminating MPU-isolation hardware profile.
+- [x] Verify a task can access its own private data and explicitly shared
   objects.
-- [ ] Verify cross-task private reads and writes produce a captured MemManage
+- [x] Verify cross-task private reads and writes produce a captured MemManage
   fault with useful address, task, and exception diagnostics.
-- [ ] Verify context switches revoke the outgoing task's private access.
-- [ ] Add the profile and its diagnostics to the S32K312 automated runner.
+- [x] Verify context switches revoke the outgoing task's private access.
+- [x] Add the profile and its diagnostics to the S32K312 automated runner.
 
 Suggested commit: `test: add MPU isolation regression coverage`
 

@@ -52,12 +52,13 @@ privileged data and are accessed only by privileged kernel code. Explicitly
 shared application objects use `JRT_TASK_UNPRIVILEGED_DATA` and are readable
 and writable by every unprivileged task. Task-private objects use
 `JRT_TASK_PRIVATE_DATA()` and may be owned by exactly one unprivileged task.
-The private size must be at least 32 bytes, a power of two, and equal to the
-object alignment; its range must remain inside `.task_private_data` and must
-not overlap a stack, internal kernel stack, or another private region.
+The private size must be at least 32 bytes and a power of two, and its base
+must be aligned to that size. Its range must remain inside
+`.task_private_data` and must not overlap a stack, internal kernel stack, or
+another private region.
 `JRT_TASK_DEFINITION()` remains valid and requests no private region. This
-commit records and validates ownership; the following MPU-enforcement step
-will make only the running task's private region accessible.
+metadata is validated during `JRT_KernelInit()`. On MPU-enabled targets, only
+the running task's private region is accessible to unprivileged Thread mode.
 
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
@@ -67,7 +68,7 @@ The default of seven application tasks is a conservative static-RAM and
 linear scheduler-scan policy, not an MPU limit. Applications may override
 `JRT_MAX_APPLICATION_TASKS`; the scheduler table grows with that setting and
 kernel initialization still rejects configurations above the selected limit.
-In the current 32-bit build each scheduler slot costs 96 bytes before the
+In the current 32-bit build each scheduler slot costs 104 bytes before the
 separately supplied task stack. Seven application tasks plus the two active
 internal tasks require at most nine entries in each scheduler selection pass;
 the table retains one additional reserved kernel slot. Selection is linear,
@@ -170,9 +171,8 @@ registers occupy the higher-address portion of an extended frame.
 
 ## MPU
 
-The S32K312 target enables the MPU and installs this static map:
-
-`arch_configure_mpu()` clears all region slots and installs this static map:
+The S32K312 target enables the MPU. `arch_configure_mpu()` clears all region
+slots and installs the following static and dynamic map:
 
 | Region | Contents | Access |
 |---:|---|---|
@@ -242,14 +242,23 @@ make -B TEST=sync
 make -B TEST=mutex
 make -B TEST=fpu
 make -B TEST=race
+make -B TEST=timer_service
+make -B TEST=task_capacity
+make -B TEST=private_config
+make -B TEST=stack_guard
+make -B TEST=mpu_isolation_read
+make -B TEST=mpu_isolation_write
 make auto-test
 ```
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
-the boot, synchronization, mutex, FPU, and race tests on S32K312 hardware
-through J-Link/GDB. It suppresses nested build output while preserving test
-status and diagnostics. The runner also accepts `--quiet-build`, `--verbose`,
-`--timeout`, and repeated `--test <name>` options.
+the terminating boot, synchronization, mutex, FPU, race, timer-service,
+task-capacity, private-configuration, stack-guard, and MPU-isolation profiles
+on S32K312 hardware through J-Link/GDB. The stack-guard and isolation profiles
+pass by capturing and validating their expected MemManage faults. The runner
+suppresses nested build output while preserving test status and diagnostics.
+It also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
+`--test <name>` options.
 
 Build and launch the QEMU target with:
 
@@ -264,10 +273,11 @@ QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
 To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
 press `X`.
 
-`make qemu-test` runs the terminating `boot`, `sync`, `mutex`, and `race`
-profiles under QEMU/GDB and checks their results plus fault, invariant, stack,
-scheduler, and tick diagnostics. `TEST=fpu` is intentionally unavailable for
-the Cortex-M3 CPU.
+`make qemu-test` runs the terminating `boot`, `sync`, `mutex`, `race`,
+`timer_service`, `task_capacity`, and `private_config` profiles under QEMU/GDB
+and checks their results plus fault, invariant, stack, scheduler, MPU-transition,
+and tick diagnostics. The Cortex-M3 target rejects `fpu`, `stack_guard`, and
+both `mpu_isolation` profiles because it cannot enforce those hardware features.
 
 Tests:
 
@@ -278,14 +288,23 @@ Tests:
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
 - `race`: blocking, timeout, tick-wrap, timer start/stop/restart, and wake-up
   race coverage.
+- `timer_service`: callback scheduling, periodic accumulation, callback-side
+  timer operations, restart behavior, and polling compatibility.
 - `task_capacity`: configured task-limit acceptance, maximum-plus-one
   rejection, full-capacity scheduling, and dynamic guard transitions.
+- `private_config`: valid private-region ownership plus invalid size,
+  alignment, range, privilege, and overlap configurations.
 - `stack_guard`: S32K312 expected-fault proof that the running task's dynamic
   guard captures an unprivileged write.
+- `mpu_isolation_read` and `mpu_isolation_write`: S32K312 expected-fault
+  proofs that tasks retain own/shared access while a context switch revokes
+  access to the outgoing task's private region.
 
 Useful diagnostics include `g_fault_record`, `g_fault_active`,
 `g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
-`g_svc_invalid_context`. Kernel invariant failures set
+`g_svc_invalid_context`. Dynamic MPU diagnostics report the currently selected
+stack guard and private-data base/size together with their update counts.
+Kernel invariant failures set
 `g_kernel_invariant_active` and record the invariant code, task, object,
 auxiliary value, and tick before stopping with interrupts masked.
 
@@ -293,9 +312,12 @@ auxiliary value, and tick before stopping with interrupts masked.
 
 - Static task configuration only; no task creation, deletion, suspend, or
   resume API.
-- Task data is shared between unprivileged tasks; per-task MPU isolation is not
-  implemented.
-- MPU regions are static and use power-of-two ranges.
+- Unprivileged writable data is either explicitly shared or a single
+  power-of-two private region owned by one task; a task cannot declare several
+  disjoint private regions.
+- MPU isolation is enforced only on MPU-enabled targets. Privileged code and
+  non-CPU bus masters such as DMA are outside the task-private access policy.
+- MPU ranges use power-of-two sizes and matching base alignment.
 - Fault handling records state and stops; it does not recover or reset.
 - Timer callbacks run serially in the priority-1 kernel timer-service task and
   must not block, delay, or wait for synchronization.
