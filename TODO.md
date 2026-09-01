@@ -1,87 +1,104 @@
 # RTOS Roadmap
 
-## Current milestone: per-task MPU data isolation
+## Current milestone: static task suspension
+
+Allow statically configured application tasks to be suspended and resumed
+without rebuilding their stack context, leaking wait-list state, or leaving
+their stack guard or private-data MPU region active.
+
+The first version deliberately supports only `READY` and `RUNNING` tasks.
+Suspending sleeping or synchronization-blocked tasks is rejected so the API
+does not yet need cancellation or preserved-timeout semantics. Kernel-owned
+idle and timer-service tasks are never valid application targets.
+
+### Planned commit 1: define the suspension API contract
+
+- [x] Add `JRT_TASK_STATE_SUSPENDED` and public suspend/resume status results.
+- [x] Define stable application task IDs and reject invalid or kernel-owned
+  task IDs.
+- [x] Define self-suspend, suspend-other, resume, repeated-operation, and API
+  context behavior.
+- [x] Preserve source and configuration compatibility for applications that
+  do not use suspension.
+
+Suggested commit: `api: define static task suspension semantics`
+
+### Planned commit 2: implement suspension state transitions
+
+- [ ] Remove suspended tasks from scheduler selection without altering their
+  saved stack, priority, notification value, or private-memory ownership.
+- [ ] Make self-suspension request an immediate context switch and prevent the
+  caller from running again until resumed.
+- [ ] Suspend another `READY` task atomically and resume a suspended task as
+  `READY`.
+- [ ] Reject sleeping, synchronization-blocked, already-suspended, and
+  kernel-owned targets according to the API contract.
+- [ ] Extend kernel invariants so suspended tasks cannot retain active wait
+  metadata or appear as the current running task after a switch.
+
+Suggested commit: `kernel: implement static task suspension`
+
+### Planned commit 3: expose suspension to unprivileged tasks
+
+- [ ] Add SVC services and wrappers for suspend and resume without allowing
+  unprivileged callers to bypass task-ID or state validation.
+- [ ] Preserve exception-context restrictions and reject ISR misuse.
+- [ ] Ensure self-suspension cannot return to unprivileged Thread mode before
+  PendSV selects a different runnable task.
+- [ ] Confirm normal task selection replaces the suspended task's dynamic
+  stack guard and private-data MPU region before exception return.
+
+Suggested commit: `arch: add unprivileged task suspension gateways`
+
+### Planned commit 4: add suspension regression coverage
+
+- [ ] Add terminating QEMU and S32K312 suspension profiles.
+- [ ] Verify self-suspend, suspend-other, resume, invalid IDs, repeated
+  operations, and rejected sleeping or blocked targets.
+- [ ] Verify suspended tasks receive no CPU time and resume from their saved
+  stack context with their original priority and task-local state.
+- [ ] Verify private access is revoked while a task is suspended and restored
+  after it resumes, while explicitly shared data remains accessible.
+- [ ] Add result, state-transition, scheduler, misuse, and MPU diagnostics to
+  both automated runners.
+
+Suggested commit: `test: add task suspension regression coverage`
+
+### Planned commit 5: document and validate task suspension
+
+- [ ] Document the lifecycle state machine, supported transitions, API
+  context rules, task-ID policy, and the intentionally rejected cases.
+- [ ] Run focused suspension and MPU-ownership tests on S32K312.
+- [ ] Run the complete S32K312 `make auto-test` hardware suite.
+- [ ] Run `make qemu-test` and confirm scheduler, synchronization, timer, task
+  capacity, and private-memory configuration behavior remain unchanged.
+- [ ] Confirm no unexpected fault, invariant, stack, MPU, or scheduler
+  diagnostics.
+
+Suggested commit: `docs: document and validate task suspension`
+
+## Completed milestones
+
+<details>
+<summary>Per-task MPU data isolation</summary>
+
+### Per-task MPU data isolation
 
 Prevent one unprivileged application task from reading or writing another
 task's private data while preserving explicitly shared kernel objects and the
 existing stack-overflow protection.
 
-### Planned commit 1: decouple task capacity from MPU guard count
+- [x] Decouple application-task capacity from MPU stack-guard region count.
+- [x] Define private, shared, and kernel-owned memory classes and ownership.
+- [x] Validate private-region size, alignment, range, privilege, and overlap.
+- [x] Dynamically replace the running task's stack guard and private-data MPU
+  mappings before exception return.
+- [x] Verify own and shared access plus cross-task read/write MemManage faults.
+- [x] Validate the complete S32K312 and QEMU regression suites.
 
-- [x] Replace the current one-per-task MPU stack-guard allocation with a
-  dynamic guard for the currently running task.
-- [x] Program the first task's guard before entering Thread mode and replace it
-  during every context switch before exception return.
-- [x] Decouple scheduler table capacity and `JRT_MAX_APPLICATION_TASKS` from
-  the hardware MPU region count.
-- [x] Keep `JRT_MAX_APPLICATION_TASKS` configurable and choose a documented
-  default from static RAM cost and worst-case scheduler scan time rather than
-  MPU region count.
-- [x] Add boundary coverage for the configured maximum and maximum-plus-one
-  task counts.
-- [x] Verify dynamic stack guards still capture overflow on S32K312 and that
-  the complete QEMU and hardware suites remain green.
+Release: `v0.7.0-mpu-isolation`
 
-Suggested commit: `arch: decouple task capacity from MPU guards`
-
-### Planned commit 2: define private-memory configuration
-
-- [x] Define private, shared, and kernel-owned memory classes and their access
-  rules.
-- [x] Define task ownership and the treatment of intentionally shared kernel
-  objects and buffers.
-- [x] Extend the static task-definition API without breaking tasks that do not
-  request a private data region.
-- [x] Store validated private-region base and size metadata in each task
-  control block.
-- [x] Enforce alignment, size, power-of-two, overlap, and address-range rules
-  during `JRT_KernelInit()`.
-- [x] Add QEMU-compatible configuration-validation tests for valid and invalid
-  private-region definitions.
-
-Suggested commit: `api: add task-private memory configuration`
-
-### Planned commit 3: enforce per-task MPU data isolation
-
-- [x] Reserve an MPU region for the running task's private data without
-  weakening kernel, flash, peripheral, shared-RAM, or stack-guard protection.
-- [x] Program the first task's private region before entering unprivileged
-  Thread mode.
-- [x] Replace the outgoing private region with the incoming task's region on
-  every context switch before exception return.
-- [x] Disable the dynamic private region for tasks that do not declare one and
-  keep privileged kernel tasks independent of application-private mappings.
-- [x] Preserve explicit ownership rules so future suspend/resume or deletion
-  APIs cannot leave stale MPU access.
-
-Suggested commit: `arch: enforce task-private MPU regions`
-
-### Planned commit 4: add isolation and fault regressions
-
-- [x] Add a terminating MPU-isolation hardware profile.
-- [x] Verify a task can access its own private data and explicitly shared
-  objects.
-- [x] Verify cross-task private reads and writes produce a captured MemManage
-  fault with useful address, task, and exception diagnostics.
-- [x] Verify context switches revoke the outgoing task's private access.
-- [x] Add the profile and its diagnostics to the S32K312 automated runner.
-
-Suggested commit: `test: add MPU isolation regression coverage`
-
-### Planned commit 5: document and validate MPU isolation
-
-- [x] Document task-capacity policy, private/shared memory behavior, linker and
-  section placement, and Cortex-M MPU granularity limits.
-- [x] Run the focused S32K312 stack-guard and MPU-isolation tests.
-- [x] Run the complete S32K312 `make auto-test` hardware suite.
-- [x] Run `make qemu-test` and confirm configuration and shared scheduler
-  behavior are unchanged.
-- [x] Confirm no unexpected fault, invariant, stack, access-revocation, or
-  scheduler diagnostics.
-
-Suggested commit: `docs: document and validate MPU isolation`
-
-## Completed milestones
+</details>
 
 <details>
 <summary>Kernel timer service task</summary>
@@ -248,8 +265,10 @@ further expansion of the kernel API.
 
 ## Later milestone
 
-Consider task suspend/resume and other lifecycle APIs only after ownership and
-cleanup rules are defined by the MPU-isolation milestone.
+Consider task deletion or static-slot reactivation only after suspension is
+stable. Deletion must define mutex-owner handling, wait-list removal, timeout
+cancellation, stale task IDs, private-memory clearing, and MPU revocation
+without introducing heap allocation implicitly.
 
 ## Validation
 

@@ -42,6 +42,7 @@
 #error "JRT_IDLE_STACK_WORDS is below the architecture minimum"
 #endif
 #define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
+#define JRT_TASK_ID_SELF UINT32_MAX
 #define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))
 #define KERNEL_PRIVILEGED_DATA __attribute__((section(".privileged_data")))
 #define JRT_TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
@@ -122,7 +123,9 @@ typedef enum
 	JRT_STATUS_INVALID_STACK,
 	JRT_STATUS_INVALID_MEMORY_REGION,
 	JRT_STATUS_NOT_INITIALIZED,
-	JRT_STATUS_INVALID_TASK
+	JRT_STATUS_INVALID_TASK,
+	JRT_STATUS_INVALID_STATE,
+	JRT_STATUS_INVALID_CONTEXT
 } JRT_Status_t;
 
 typedef enum
@@ -130,7 +133,8 @@ typedef enum
 	JRT_TASK_STATE_READY = 0U,
 	JRT_TASK_STATE_RUNNING,
 	JRT_TASK_STATE_SLEEPING,
-	JRT_TASK_STATE_BLOCKED
+	JRT_TASK_STATE_BLOCKED,
+	JRT_TASK_STATE_SUSPENDED
 } JRT_TaskState_t;
 
 typedef struct
@@ -186,6 +190,8 @@ JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state) KERNEL_P
 JRT_Status_t JRT_TaskGetStackInfo(uint32_t task_id, JRT_TaskStackInfo_t *info) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetName(uint32_t task_id, const char **name) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_TaskSuspend(uint32_t task_id);
+JRT_Status_t JRT_TaskResume(uint32_t task_id);
 void JRT_TaskYield(void);
 void JRT_TaskDelay(uint32_t ticks);
 void JRT_BoardLedToggle(void);

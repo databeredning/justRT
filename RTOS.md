@@ -78,8 +78,27 @@ separately supplied task stack. Seven application tasks plus the two active
 internal tasks require at most nine entries in each scheduler selection pass;
 the table retains one additional reserved kernel slot. Selection is linear,
 with one priority-discovery pass and at most one full tie-breaking pass.
-States are `READY`, `RUNNING`, `SLEEPING`, and `BLOCKED`. Higher numeric
-priorities run first; equal priorities are selected round-robin.
+States are `READY`, `RUNNING`, `SLEEPING`, `BLOCKED`, and `SUSPENDED`. Higher
+numeric priorities run first; equal priorities are selected round-robin.
+
+Application task IDs are the stable zero-based positions in the task array
+passed to the successful `JRT_KernelInit()` call. They remain valid for that
+static kernel configuration. Internal idle and timer-service indices are not
+application task IDs and lifecycle APIs reject them. `JRT_TASK_ID_SELF` may be
+passed to `JRT_TaskSuspend()` to identify the calling task without hard-coding
+its configured index.
+
+The suspension API contract is intentionally narrow. `JRT_TaskSuspend()` and
+`JRT_TaskResume()` are task-context operations; ISR calls return
+`JRT_STATUS_INVALID_CONTEXT`, and calls before successful initialization
+return `JRT_STATUS_NOT_INITIALIZED`. Suspend accepts the calling `RUNNING`
+task or another `READY` application task. Sleeping, blocked, or already
+suspended targets return `JRT_STATUS_INVALID_STATE`. Resume accepts only a
+suspended application task and makes it ready; it does not restore or invent a
+previous wait. Invalid and kernel-owned IDs return `JRT_STATUS_INVALID_TASK`.
+Suspension requires an explicit resume and is not ended by ticks, notifications,
+queues, semaphores, or events. The scheduler and SVC implementation of this
+contract are delivered by the following milestone commits.
 
 Each task supplies a statically allocated stack whose size is selected by the
 application. `JRT_DEFAULT_TASK_STACK_WORDS` is 128 words for applications that
