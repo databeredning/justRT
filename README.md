@@ -44,7 +44,18 @@ make -B TEST=mpu_isolation_read
 make -B TEST=mpu_isolation_write
 make -B TEST=config_runtime
 make config-test
+make qemu-release-test
+make auto-release-test
 ```
+
+`BUILD=debug` uses `-Og`; `BUILD=release` uses `-O2 -DNDEBUG`. Their objects
+and output images are kept in separate directories so changing optimization
+cannot reuse stale objects. The two release-test targets run the
+optimization-sensitive synchronization, extended stress/tick-wrap,
+timer-service, and task-suspension profiles on QEMU or S32K312. The hardware
+target also verifies expected stack-guard and suspended-private-data MPU
+faults separately from unexpected fatal diagnostics. Release runs print ELF
+text, data, BSS, and total sizes.
 
 Build the QEMU Cortex-M3 target with:
 
@@ -81,13 +92,14 @@ make auto-test
 Successful tests expose explicit `state`, `pass`, `fail`, and `done` fields.
 The runner also reports fault, invariant, scheduler, synchronization, timer,
 race, task-capacity, task-suspension, dynamic-guard, and private-data mapping
-diagnostics. The `stack_guard`, `mpu_isolation_read`, `mpu_isolation_write`,
+diagnostics, including stack high-water and critical-section counts. The
+`stack_guard`, `mpu_isolation_read`, `mpu_isolation_write`,
 and `task_suspension_mpu` profiles pass by capturing their expected MemManage
 faults. The continuous `simple` example is intentionally not part of the
 terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`,
-`config_runtime`, `fatal_hook`, `fatal_hook_return`, `sync`, `mutex`, `race`,
+`config_runtime`, `fatal_hook`, `fatal_hook_return`, `sync`, `mutex`, `race`, `stress`,
 `timer_service`, `task_capacity`, `private_config`, and `task_suspension`
 profiles, including result, fault, invariant, stack, scheduler,
 MPU-transition, and tick diagnostics:

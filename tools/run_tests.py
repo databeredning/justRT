@@ -37,6 +37,7 @@ DEFAULT_JLINK = "C:/Program Files/SEGGER/JLink/JLinkGDBServerCL.exe"
 MAKE = os.environ.get("JUSTRT_MAKE")
 if not MAKE:
     MAKE = shutil.which("make") or shutil.which("mingw32-make") or "make"
+SIZE = os.environ.get("JUSTRT_SIZE", shutil.which("arm-none-eabi-size") or "arm-none-eabi-size")
 GDB = os.environ.get("JUSTRT_GDB", DEFAULT_GDB)
 JLINK = os.environ.get("JUSTRT_JLINK_SERVER", DEFAULT_JLINK)
 GDB_PORT = int(os.environ.get("JUSTRT_GDB_PORT", "2331"))
@@ -164,6 +165,20 @@ TESTS = (
             "g_test_race.wrap_start_tick",
             "g_test_race.wrap_end_tick",
             "g_test_race.wrap_elapsed_ticks",
+            "g_test_race.wrap_timeouts",
+            "g_test_race.error_code",
+        ),
+    ),
+    TestCase(
+        "stress",
+        "g_test_race.result",
+        (
+            "g_test_race.stress_seed",
+            "g_test_race.signals",
+            "g_test_race.queue_signals",
+            "g_test_race.queue_sends",
+            "g_test_race.mutex_unlocks",
+            "g_test_race.timer_callbacks",
             "g_test_race.wrap_timeouts",
             "g_test_race.error_code",
         ),
@@ -323,6 +338,11 @@ KERNEL_DIAGNOSTICS = (
     "g_stack_fault",
     "g_stack_fault_task",
     "g_stack_fault_sp",
+    "g_stack_high_water_words",
+    "g_stack_high_water_task",
+    "g_critical_entries",
+    "g_critical_nesting",
+    "g_critical_nesting_max",
     "g_fatal_active",
     "g_fatal_reason",
     "g_fatal_hook_returned",
@@ -365,15 +385,18 @@ def stream_process(proc, prefix: str, verbose: bool, lines: list[str]) -> thread
     return t
 
 
-def run_build(test: TestCase, verbose: bool, quiet_build: bool) -> None:
+def run_build(test: TestCase, verbose: bool, quiet_build: bool, build: str) -> None:
     cmd = [MAKE, "-B"]
     if quiet_build:
         cmd.append("-s")
-    cmd.append(f"TEST={test.build_name}")
+    cmd.extend((f"BUILD={build}", f"TEST={test.build_name}"))
     print(f"[BUILD] {test.build_name}", flush=True)
     if verbose:
         print(f"[BUILD CMD] {display_command(cmd)}", flush=True)
     subprocess.run(cmd, cwd=ROOT, check=True)
+    if build == "release":
+        fields = subprocess.check_output([SIZE, str(ELF)], text=True).splitlines()[1].split()
+        print(f"[SIZE]  {test.build_name} text={fields[0]} data={fields[1]} bss={fields[2]} total={fields[3]}")
 
 
 def wait_for_port(proc: subprocess.Popen[str], port: int, timeout: float = 5.0) -> None:
@@ -604,6 +627,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
                 and fault_pc != 0
                 and exc_return == 0xFFFFFFFD
                 and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
+                and diagnostic_values.get("g_critical_nesting", 0) == 0
             )
             summary = (
                 f"fault_type={fault_type} mmfar={mmfar} expected={expected} "
@@ -638,6 +662,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
               and diagnostic_values.get("g_kernel_invariant_active", 0) == 0
               and diagnostic_values.get("g_fault_active", 0) == 0
               and diagnostic_values.get("g_stack_fault", 0) == 0
+              and diagnostic_values.get("g_critical_nesting", 0) == 0
               and fatal_ok)
         summary = f"state={state} runs={runs} pass={passed} fail={failed} done={done}"
 
@@ -666,13 +691,18 @@ def parse_args():
                         help=f"per-test timeout in seconds (default: {TEST_TIMEOUT:g})")
     parser.add_argument("--quiet-build", action="store_true",
                         help="suppress nested make build output")
+    parser.add_argument("--build", choices=("debug", "release"), default="debug",
+                        help="select debug or optimized release artifacts")
     parser.add_argument("--test", choices=[t.build_name for t in TESTS],
                         action="append",
                         help="run only selected test; may be repeated")
     return parser.parse_args()
 
 def main() -> int:
+    global ELF
+
     args = parse_args()
+    ELF = ROOT / "bin" / ("release" if args.build == "release" else "") / "justrt.elf"
     if not executable_exists(MAKE):
         print(f"ERROR: Make not found: {MAKE}", file=sys.stderr)
         print("Set JUSTRT_MAKE to make.exe or mingw32-make.exe.", file=sys.stderr)
@@ -684,6 +714,9 @@ def main() -> int:
     if not executable_exists(JLINK):
         print(f"ERROR: J-Link GDB server not found: {JLINK}", file=sys.stderr)
         print("Set JUSTRT_JLINK_SERVER to JLinkGDBServerCL.exe.", file=sys.stderr)
+        return 2
+    if not executable_exists(SIZE):
+        print(f"ERROR: Size tool not found: {SIZE}", file=sys.stderr)
         return 2
 
     print("JustRT automated target tests")
@@ -698,7 +731,7 @@ def main() -> int:
 
     for test in selected:
         try:
-            run_build(test, args.verbose, args.quiet_build)
+            run_build(test, args.verbose, args.quiet_build, args.build)
             ok, details, elapsed = run_target(test, args.verbose, args.timeout)
         except subprocess.CalledProcessError as exc:
             ok, details, elapsed = False, f"build/tool failed with exit code {exc.returncode}", 0.0

@@ -3,11 +3,21 @@
 #include "test_race.h"
 #include "timer.h"
 
+#if defined(JUSTRT_TEST_STRESS)
+#define TEST_RACE_SEMAPHORE_ITERATIONS 8192U
+#define TEST_RACE_QUEUE_ITERATIONS 2048U
+#define TEST_RACE_QUEUE_SEND_ITERATIONS 1024U
+#define TEST_RACE_MUTEX_ITERATIONS 1024U
+#define TEST_RACE_TIMER_ITERATIONS 256U
+#define TEST_RACE_SEED 0x6D2B79F5U
+#else
 #define TEST_RACE_SEMAPHORE_ITERATIONS 4096U
 #define TEST_RACE_QUEUE_ITERATIONS 1024U
 #define TEST_RACE_QUEUE_SEND_ITERATIONS 512U
 #define TEST_RACE_MUTEX_ITERATIONS 512U
 #define TEST_RACE_TIMER_ITERATIONS 128U
+#define TEST_RACE_SEED 0U
+#endif
 #define TEST_RACE_TIMEOUT_TICKS 5U
 #define TEST_RACE_WRAP_TIMEOUT_TICKS 5U
 #define TEST_RACE_SIGNAL_SEMAPHORE 1U
@@ -29,6 +39,11 @@ static volatile uint32_t test_race_signal_armed;
 static volatile uint32_t test_race_signal_kind;
 
 race_test_state_t g_test_race;
+
+static int test_race_fast_mutex_iteration(uint32_t iteration)
+{
+    return (((iteration ^ TEST_RACE_SEED) & 1U) == 0U) ? 1 : 0;
+}
 
 static void test_race_timer_callback(void *argument)
 {
@@ -59,7 +74,7 @@ static void test_race_mutex_owner_task(void *argument)
          * after it. This exercises both ownership handoff and removal of a
          * timed-out waiter from the inheritance chain without relying on
          * target-specific scheduling at the exact boundary tick. */
-        JRT_TaskDelay(((iteration & 1U) == 0U) ? 1U : 7U);
+        JRT_TaskDelay((test_race_fast_mutex_iteration(iteration) != 0) ? 1U : 7U);
         if (JRT_MutexUnlock(&test_race_mutex) == 0)
         {
             g_test_race.error_code = 14U;
@@ -335,7 +350,7 @@ static void test_race_waiter_task(void *argument)
 
             g_test_race.mutex_acquisitions++;
             unlock_result = (uint32_t)JRT_MutexUnlock(&test_race_mutex);
-            if (((iteration & 1U) != 0U) || (unlock_result == 0U))
+            if ((test_race_fast_mutex_iteration(iteration) == 0) || (unlock_result == 0U))
             {
                 g_test_race.error_code = 16U;
             }
@@ -343,7 +358,7 @@ static void test_race_waiter_task(void *argument)
         else
         {
             g_test_race.mutex_timeouts++;
-            if ((iteration & 1U) == 0U)
+            if (test_race_fast_mutex_iteration(iteration) != 0)
             {
                 g_test_race.error_code = 17U;
             }
@@ -354,7 +369,7 @@ static void test_race_waiter_task(void *argument)
         {
             g_test_race.error_code = 18U;
         }
-        if ((iteration & 1U) != 0U)
+        if (test_race_fast_mutex_iteration(iteration) == 0)
         {
             if (JRT_MutexLock(&test_race_mutex, 0U) == 0)
             {
@@ -468,6 +483,7 @@ void test_race_start(void)
     g_test_race.wrap_end_tick = 0U;
     g_test_race.wrap_elapsed_ticks = 0U;
     g_test_race.wrap_timeouts = 0U;
+    g_test_race.stress_seed = TEST_RACE_SEED;
     g_test_race.error_code = 0U;
     test_race_signal_armed = 0U;
     test_race_signal_kind = 0U;

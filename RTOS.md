@@ -404,8 +404,21 @@ make -B TEST=task_suspension
 make -B TEST=task_suspension_mpu
 make -B TEST=config_runtime
 make config-test
+make qemu-release-test
+make auto-release-test
 make auto-test
 ```
+
+Debug artifacts use `-Og -g3` and the existing `obj/` and `bin/` paths.
+`BUILD=release` uses `-O2 -g3 -DNDEBUG` and writes to separate `release/`
+subdirectories. Debug information remains available for automated GDB result
+and diagnostic collection; `NDEBUG` does not remove justRT fault capture or
+kernel-invariant checks. `make qemu-release-test` and
+`make auto-release-test` run the optimization-sensitive synchronization,
+extended stress/tick-wrap, timer-service, and task-suspension profiles. The
+hardware release set additionally runs the expected stack-guard and suspended
+private-data MPU faults. Release builds report ELF text, data, BSS, and total
+sizes before execution.
 
 `make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
 the terminating boot, configuration, fatal-hook, synchronization, mutex, FPU,
@@ -451,6 +464,8 @@ Tests:
 - `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
 - `race`: blocking, timeout, tick-wrap, timer start/stop/restart, and wake-up
   race coverage.
+- `stress`: fixed-seed, doubled race workloads with bounded completion under
+  optimized QEMU and S32K312 builds.
 - `timer_service`: callback scheduling, periodic accumulation, callback-side
   timer operations, restart behavior, and polling compatibility.
 - `task_capacity`: configured task-limit acceptance, maximum-plus-one
@@ -476,6 +491,10 @@ stack guard and private-data base/size together with their update counts.
 Kernel invariant failures set
 `g_kernel_invariant_active` and record the invariant code, task, object,
 auxiliary value, and tick before stopping with interrupts masked.
+`g_stack_high_water_words` and `g_stack_high_water_task` identify the largest
+observed task-stack use. `g_critical_entries`, `g_critical_nesting`, and
+`g_critical_nesting_max` expose critical-section activity; terminating tests
+require the current nesting count to return to zero.
 
 ## Current Limitations
 

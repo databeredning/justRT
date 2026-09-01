@@ -27,6 +27,7 @@ DEFAULT_QEMU = "C:/devtools/qemu/qemu-system-arm.exe"
 MAKE = os.environ.get("JUSTRT_MAKE")
 if not MAKE:
     MAKE = shutil.which("make") or shutil.which("mingw32-make") or "make"
+SIZE = os.environ.get("JUSTRT_SIZE", shutil.which("arm-none-eabi-size") or "arm-none-eabi-size")
 GDB = os.environ.get("JUSTRT_GDB", DEFAULT_GDB)
 QEMU = os.environ.get("JUSTRT_QEMU", DEFAULT_QEMU)
 TEST_TIMEOUT = float(os.environ.get("JUSTRT_TEST_TIMEOUT", "20"))
@@ -140,6 +141,20 @@ TESTS = (
         ),
     ),
     TestCase(
+        "stress",
+        "g_test_race.result",
+        (
+            "g_test_race.stress_seed",
+            "g_test_race.signals",
+            "g_test_race.queue_signals",
+            "g_test_race.queue_sends",
+            "g_test_race.mutex_unlocks",
+            "g_test_race.timer_callbacks",
+            "g_test_race.wrap_timeouts",
+            "g_test_race.error_code",
+        ),
+    ),
+    TestCase(
         "timer_service",
         "g_test_timer_service.result",
         (
@@ -221,6 +236,11 @@ KERNEL_DIAGNOSTICS = (
     "g_stack_fault",
     "g_stack_fault_task",
     "g_stack_fault_sp",
+    "g_stack_high_water_words",
+    "g_stack_high_water_task",
+    "g_critical_entries",
+    "g_critical_nesting",
+    "g_critical_nesting_max",
     "g_fatal_active",
     "g_fatal_reason",
     "g_fatal_hook_returned",
@@ -288,15 +308,18 @@ def allocate_gdb_port() -> int:
         return int(listener.getsockname()[1])
 
 
-def run_build(test: TestCase, verbose: bool, quiet_build: bool) -> None:
+def run_build(test: TestCase, verbose: bool, quiet_build: bool, build: str) -> None:
     command = [MAKE, "-B"]
     if quiet_build:
         command.append("-s")
-    command.extend((f"TARGET={TARGET}", f"TEST={test.build_name}"))
+    command.extend((f"TARGET={TARGET}", f"BUILD={build}", f"TEST={test.build_name}"))
     print(f"[BUILD] {test.build_name}", flush=True)
     if verbose:
         print(f"[BUILD CMD] {display_command(command)}", flush=True)
     subprocess.run(command, cwd=ROOT, check=True)
+    if build == "release":
+        fields = subprocess.check_output([SIZE, str(ELF)], text=True).splitlines()[1].split()
+        print(f"[SIZE]  {test.build_name} text={fields[0]} data={fields[1]} bss={fields[2]} total={fields[3]}")
 
 
 def make_gdb_script(test: TestCase, port: int) -> str:
@@ -499,6 +522,7 @@ def run_target(test: TestCase, verbose: bool, timeout: float) -> tuple[bool, str
             and values.get("g_kernel_invariant_active", 0) == 0
             and values.get("g_fault_active", 0) == 0
             and values.get("g_stack_fault", 0) == 0
+            and values.get("g_critical_nesting", 0) == 0
             and fatal_ok
         )
         summary = (
@@ -525,6 +549,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--quiet-build", action="store_true")
+    parser.add_argument("--build", choices=("debug", "release"), default="debug")
     parser.add_argument("--timeout", type=float, default=TEST_TIMEOUT)
     parser.add_argument(
         "--test",
@@ -536,8 +561,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    global ELF
+
     args = parse_args()
-    for name, command in (("Make", MAKE), ("GDB", GDB), ("QEMU", QEMU)):
+    ELF = ROOT / "bin" / TARGET / ("release" if args.build == "release" else "") / "justrt.elf"
+    for name, command in (("Make", MAKE), ("GDB", GDB), ("QEMU", QEMU), ("Size", SIZE)):
         if not executable_exists(command):
             print(f"ERROR: {name} not found: {command}", file=sys.stderr)
             return 2
@@ -552,7 +580,7 @@ def main() -> int:
     print("=" * 56)
     for test in selected:
         try:
-            run_build(test, args.verbose, args.quiet_build)
+            run_build(test, args.verbose, args.quiet_build, args.build)
             ok, details, elapsed = run_target(test, args.verbose, args.timeout)
         except subprocess.CalledProcessError as error:
             ok, details, elapsed = (

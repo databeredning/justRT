@@ -77,6 +77,8 @@ volatile uint32_t g_wait_timeout_mutex KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_task KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_stack_fault_sp KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_stack_high_water_words KERNEL_PRIVILEGED_DATA = 0U;
+volatile uint32_t g_stack_high_water_task KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_ticks KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_active KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_code KERNEL_PRIVILEGED_DATA = 0U;
@@ -481,11 +483,16 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
     }
 
     word = task->stack_bottom;
-    while ((word < task->stack_top) && (*word != JRT_TASK_STACK_FILL))
+    while ((word < task->stack_top) && (*word == JRT_TASK_STACK_FILL))
     {
         word++;
     }
     task->high_water_words = (uint32_t)(task->stack_top - word);
+    if (task->high_water_words > g_stack_high_water_words)
+    {
+        g_stack_high_water_words = task->high_water_words;
+        g_stack_high_water_task = g_current_task_index;
+    }
 }
 
 /* Shared wait/wake transitions. Callers must hold a critical section. */
@@ -1360,6 +1367,8 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
     g_wait_timeout_queue_send = 0U;
     g_wait_timeout_queue_receive = 0U;
     g_wait_timeout_mutex = 0U;
+    g_stack_high_water_words = 0U;
+    g_stack_high_water_task = 0U;
     g_kernel_invariant_active = 0U;
     g_kernel_invariant_code = JRT_INVARIANT_NONE;
     g_kernel_invariant_task = 0U;

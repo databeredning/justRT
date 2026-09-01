@@ -46,13 +46,13 @@ Suggested commit: `config: validate release-time kernel settings`
 
 ### Planned commit 4: add optimized and extended stress profiles
 
-- [ ] Run scheduler, synchronization, timer, suspension, and tick-wrap tests
+- [x] Run scheduler, synchronization, timer, suspension, and tick-wrap tests
   in an optimized release build.
-- [ ] Add longer deterministic stress profiles with bounded completion and
+- [x] Add longer deterministic stress profiles with bounded completion and
   reproducible seeds.
-- [ ] Record stack high-water, critical diagnostics, and binary size for
+- [x] Record stack high-water, critical diagnostics, and binary size for
   debug and release configurations.
-- [ ] Keep expected MPU faults distinct from unexpected fatal diagnostics.
+- [x] Keep expected MPU faults distinct from unexpected fatal diagnostics.
 
 Suggested commit: `test: add optimized and extended stress profiles`
 

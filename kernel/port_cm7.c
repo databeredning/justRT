@@ -6,6 +6,9 @@
 
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_critical_entries KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_critical_nesting KERNEL_PRIVILEGED_DATA;
+volatile uint32_t g_critical_nesting_max KERNEL_PRIVILEGED_DATA;
 
 #if JRT_ENABLE_TEST_HOOKS
 static JRT_KernelTickHook_t tick_hook KERNEL_PRIVILEGED_DATA;
@@ -327,11 +330,22 @@ uint32_t critical_enter(void)
         :
         : "memory");
 
+    g_critical_entries++;
+    g_critical_nesting++;
+    if (g_critical_nesting > g_critical_nesting_max)
+    {
+        g_critical_nesting_max = g_critical_nesting;
+    }
+
     return saved_primask;
 }
 
 void critical_exit(uint32_t saved_primask)
 {
+    if (g_critical_nesting != 0U)
+    {
+        g_critical_nesting--;
+    }
     __asm volatile (
         "msr primask, %0\n"
         :
