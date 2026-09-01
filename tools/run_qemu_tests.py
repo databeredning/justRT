@@ -135,6 +135,18 @@ TESTS = (
             "g_test_task_capacity.error_code",
         ),
     ),
+    TestCase(
+        "private_config",
+        "g_test_private_config.result",
+        (
+            "g_test_private_config.invalid_cases_rejected",
+            "g_test_private_config.valid_config_accepted",
+            "g_test_private_config.tasks_ran",
+            "g_test_private_config.task_a_value",
+            "g_test_private_config.task_b_value",
+            "g_test_private_config.error_code",
+        ),
+    ),
 )
 
 KERNEL_DIAGNOSTICS = (

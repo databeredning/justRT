@@ -47,6 +47,8 @@
 #define JRT_TASK_UNPRIVILEGED __attribute__((section(".unprivileged_functions")))
 #define JRT_TASK_UNPRIVILEGED_DATA __attribute__((section(".unprivileged_task_data")))
 #define JRT_TASK_UNPRIVILEGED_RODATA __attribute__((section(".unprivileged_rodata")))
+#define JRT_TASK_PRIVATE_DATA(region_size) \
+	__attribute__((section(".task_private_data"), aligned(region_size)))
 
 typedef void (*JRT_TaskEntry_t)(void *argument);
 
@@ -71,7 +73,24 @@ typedef void (*JRT_TaskEntry_t)(void *argument);
 		.stack_guard = JRT_TASK_STACK_GUARD(stack_name),                       \
 		.priority = (task_priority),                                           \
 		.name = (task_name),                                                   \
-		.flags = (task_flags)                                                  \
+		.flags = (task_flags),                                                 \
+		.private_data_base = 0U,                                               \
+		.private_data_size = 0U                                                \
+	}
+
+#define JRT_TASK_DEFINITION_WITH_PRIVATE_DATA(entry_function, task_argument, \
+		stack_name, task_priority, task_name, task_flags, private_object)        \
+	{                                                                        \
+		.entry = (entry_function),                                             \
+		.argument = (task_argument),                                           \
+		.stack_buffer = JRT_TASK_STACK_BUFFER(stack_name),                     \
+		.stack_words = JRT_TASK_STACK_WORD_COUNT(stack_name),                  \
+		.stack_guard = JRT_TASK_STACK_GUARD(stack_name),                       \
+		.priority = (task_priority),                                           \
+		.name = (task_name),                                                   \
+		.flags = (task_flags),                                                 \
+		.private_data_base = (void *)&(private_object),                        \
+		.private_data_size = (uint32_t)sizeof(private_object)                  \
 	}
 
 typedef struct
@@ -84,6 +103,8 @@ typedef struct
 	uint32_t priority;
 	const char *name;
 	uint32_t flags;
+	void *private_data_base;
+	uint32_t private_data_size;
 } JRT_TaskDefinition_t;
 
 typedef struct
@@ -99,6 +120,7 @@ typedef enum
 	JRT_STATUS_TOO_MANY_TASKS,
 	JRT_STATUS_INVALID_ENTRY,
 	JRT_STATUS_INVALID_STACK,
+	JRT_STATUS_INVALID_MEMORY_REGION,
 	JRT_STATUS_NOT_INITIALIZED,
 	JRT_STATUS_INVALID_TASK
 } JRT_Status_t;

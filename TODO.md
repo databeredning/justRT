@@ -26,17 +26,17 @@ Suggested commit: `arch: decouple task capacity from MPU guards`
 
 ### Planned commit 2: define private-memory configuration
 
-- [ ] Define private, shared, and kernel-owned memory classes and their access
+- [x] Define private, shared, and kernel-owned memory classes and their access
   rules.
-- [ ] Define task ownership and the treatment of intentionally shared kernel
+- [x] Define task ownership and the treatment of intentionally shared kernel
   objects and buffers.
-- [ ] Extend the static task-definition API without breaking tasks that do not
+- [x] Extend the static task-definition API without breaking tasks that do not
   request a private data region.
-- [ ] Store validated private-region base and size metadata in each task
+- [x] Store validated private-region base and size metadata in each task
   control block.
-- [ ] Enforce alignment, size, power-of-two, overlap, and address-range rules
+- [x] Enforce alignment, size, power-of-two, overlap, and address-range rules
   during `JRT_KernelInit()`.
-- [ ] Add QEMU-compatible configuration-validation tests for valid and invalid
+- [x] Add QEMU-compatible configuration-validation tests for valid and invalid
   private-region definitions.
 
 Suggested commit: `api: add task-private memory configuration`

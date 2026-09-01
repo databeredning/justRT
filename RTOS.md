@@ -33,6 +33,32 @@ static const JRT_TaskDefinition_t tasks[] = {
 };
 ```
 
+Tasks that need an isolated writable object declare an MPU-compatible region
+and attach it to the task definition:
+
+```c
+typedef struct { uint32_t words[8]; } worker_private_t;
+static worker_private_t worker_private JRT_TASK_PRIVATE_DATA(32U);
+
+static const JRT_TaskDefinition_t tasks[] = {
+    JRT_TASK_DEFINITION_WITH_PRIVATE_DATA(
+        entry, &worker_private, worker_stack, priority, "worker",
+        JRT_TASK_FLAG_UNPRIVILEGED, worker_private)
+};
+```
+
+Writable memory has three ownership classes. Kernel-owned objects remain in
+privileged data and are accessed only by privileged kernel code. Explicitly
+shared application objects use `JRT_TASK_UNPRIVILEGED_DATA` and are readable
+and writable by every unprivileged task. Task-private objects use
+`JRT_TASK_PRIVATE_DATA()` and may be owned by exactly one unprivileged task.
+The private size must be at least 32 bytes, a power of two, and equal to the
+object alignment; its range must remain inside `.task_private_data` and must
+not overlap a stack, internal kernel stack, or another private region.
+`JRT_TASK_DEFINITION()` remains valid and requests no private region. This
+commit records and validates ownership; the following MPU-enforcement step
+will make only the running task's private region accessible.
+
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
 slots for kernel-owned tasks. The idle and timer-service tasks are created
@@ -168,6 +194,10 @@ independent of MPU region count. The QEMU Cortex-M3 target builds with
 `JRT_ARCH_HAS_MPU=0`; its stack bounds are checked in software and the dynamic
 guard transition is exposed diagnostically, but QEMU does not validate MPU
 enforcement.
+
+`.task_private_data` is deliberately absent from the static unprivileged map.
+Its validated task ownership metadata is reserved for a dynamic MPU region in
+the next implementation step.
 
 ## Kernel Services
 

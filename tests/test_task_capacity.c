@@ -112,6 +112,8 @@ static void prepare_definitions(void)
         definition->priority = 1U;
         definition->name = "test-task-capacity";
         definition->flags = 0U;
+        definition->private_data_base = 0U;
+        definition->private_data_size = 0U;
     }
 }
 

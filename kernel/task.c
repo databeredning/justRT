@@ -40,6 +40,8 @@ typedef struct
     uint32_t base_priority;
     const char *name;
     uint32_t flags;
+    void *private_data_base;
+    uint32_t private_data_size;
     void *wait_object;
     task_wait_kind_t wait_kind;
     uint32_t wait_start;
@@ -94,6 +96,9 @@ static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
 static uint32_t task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t kernel_initialized KERNEL_PRIVILEGED_DATA;
 static uint32_t timer_service_task_index KERNEL_PRIVILEGED_DATA;
+
+extern uint8_t __task_private_data_start[];
+extern uint8_t __task_private_data_end[];
 
 static void *task_stack_guard(const task_t *task)
 {
@@ -502,6 +507,8 @@ static void prepare_task(uint32_t index, const JRT_TaskDefinition_t *definition)
     tasks[index].base_priority = definition->priority;
     tasks[index].name = definition->name;
     tasks[index].flags = definition->flags;
+    tasks[index].private_data_base = definition->private_data_base;
+    tasks[index].private_data_size = definition->private_data_size;
     task_wait_reset(&tasks[index]);
 }
 
@@ -525,6 +532,8 @@ static void prepare_idle_task(void)
     tasks[idle_index].base_priority = 0U;
     tasks[idle_index].name = "idle";
     tasks[idle_index].flags = 0U;
+    tasks[idle_index].private_data_base = 0U;
+    tasks[idle_index].private_data_size = 0U;
     task_wait_reset(&tasks[idle_index]);
 }
 
@@ -547,6 +556,8 @@ static void prepare_timer_service_task(uint32_t index)
     task->base_priority = JRT_TIMER_SERVICE_PRIORITY;
     task->name = "timer-service";
     task->flags = 0U;
+    task->private_data_base = 0U;
+    task->private_data_size = 0U;
     task_wait_reset(task);
     task_wait_begin(task, &timer_service_wait_object, TASK_WAIT_TIMER_SERVICE,
                     JRT_WAIT_FOREVER);
@@ -1146,6 +1157,78 @@ static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config,
     return JRT_STATUS_OK;
 }
 
+static int ranges_overlap(uintptr_t first_start, uintptr_t first_end,
+                          uintptr_t second_start, uintptr_t second_end)
+{
+    return ((first_start < second_end) && (second_start < first_end)) ? 1 : 0;
+}
+
+static JRT_Status_t validate_private_region(const JRT_KernelConfig_t *config,
+                                            uint32_t index)
+{
+    const JRT_TaskDefinition_t *definition = &config->tasks[index];
+    uintptr_t base = (uintptr_t)definition->private_data_base;
+    uintptr_t size = (uintptr_t)definition->private_data_size;
+    uintptr_t end;
+    uint32_t other;
+
+    if ((base == 0U) && (size == 0U))
+    {
+        return JRT_STATUS_OK;
+    }
+    if ((base == 0U) || (size < 32U) || ((size & (size - 1U)) != 0U)
+        || ((base & (size - 1U)) != 0U)
+        || ((definition->flags & JRT_TASK_FLAG_UNPRIVILEGED) == 0U))
+    {
+        return JRT_STATUS_INVALID_MEMORY_REGION;
+    }
+    end = base + size;
+    if ((end < base)
+        || (base < (uintptr_t)__task_private_data_start)
+        || (end > (uintptr_t)__task_private_data_end))
+    {
+        return JRT_STATUS_INVALID_MEMORY_REGION;
+    }
+
+    for (other = 0U; other < config->task_count; other++)
+    {
+        const JRT_TaskDefinition_t *other_definition = &config->tasks[other];
+        uintptr_t stack_start = (uintptr_t)other_definition->stack_guard;
+        uintptr_t stack_end = (uintptr_t)other_definition->stack_buffer
+            + ((uintptr_t)other_definition->stack_words * sizeof(uint32_t));
+
+        if (ranges_overlap(base, end, stack_start, stack_end) != 0)
+        {
+            return JRT_STATUS_INVALID_MEMORY_REGION;
+        }
+        if (other < index)
+        {
+            uintptr_t other_base =
+                (uintptr_t)other_definition->private_data_base;
+            uintptr_t other_end = other_base
+                + (uintptr_t)other_definition->private_data_size;
+
+            if ((other_base != 0U)
+                && (ranges_overlap(base, end, other_base, other_end) != 0))
+            {
+                return JRT_STATUS_INVALID_MEMORY_REGION;
+            }
+        }
+    }
+    if (ranges_overlap(base, end,
+                       (uintptr_t)&timer_service_task_storage.guard[0],
+                       (uintptr_t)&timer_service_task_storage
+                           .stack[JRT_TIMER_SERVICE_STACK_WORDS]) != 0
+        || ranges_overlap(base, end,
+                          (uintptr_t)&idle_task_storage.guard[0],
+                          (uintptr_t)&idle_task_storage
+                              .stack[JRT_IDLE_STACK_WORDS]) != 0)
+    {
+        return JRT_STATUS_INVALID_MEMORY_REGION;
+    }
+    return JRT_STATUS_OK;
+}
+
 JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 {
     uint32_t configured_total_task_count;
@@ -1175,6 +1258,14 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
         if (validate_task_stack(config, index) != JRT_STATUS_OK)
         {
             return JRT_STATUS_INVALID_STACK;
+        }
+    }
+
+    for (index = 0U; index < config->task_count; index++)
+    {
+        if (validate_private_region(config, index) != JRT_STATUS_OK)
+        {
+            return JRT_STATUS_INVALID_MEMORY_REGION;
         }
     }
 

@@ -2,6 +2,7 @@
 #include "tests/test_boot_and_privilege.h"
 #include "tests/test_fpu.h"
 #include "tests/test_mutex.h"
+#include "tests/test_private_config.h"
 #include "tests/test_race.h"
 #include "tests/test_stack_guard.h"
 #include "tests/test_synchronization.h"
@@ -26,6 +27,8 @@ int main(void)
     test_task_capacity_start();
 #elif defined(JUSTRT_TEST_STACK_GUARD)
     test_stack_guard_start();
+#elif defined(JUSTRT_TEST_PRIVATE_CONFIG)
+    test_private_config_start();
 #else
     simple_example_start();
 #endif

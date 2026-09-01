@@ -74,6 +74,13 @@ task data, and a 32-byte dynamic task stack guard. Higher-numbered Cortex-M
 MPU regions win overlaps, so the guard region must override the general SRAM
 mapping.
 
+Task-private objects occupy a separate `.task_private_data` output section.
+The linker must define `__task_private_data_start` and
+`__task_private_data_end`, align the section to at least 32 bytes, and keep it
+outside the statically shared unprivileged data mapping. Each individual
+object has power-of-two size and matching alignment so a later dynamic MPU
+region can represent it exactly.
+
 When `JRT_ARCH_HAS_MPU=0`, MPU register programming is omitted. Stack bounds
 are still checked in software and dynamic guard ownership remains visible in
 diagnostics, but the target does not provide privilege-based memory isolation.
@@ -87,11 +94,13 @@ The linker script must retain these sections:
 | `JRT_TASK_UNPRIVILEGED` | `.unprivileged_functions` |
 | `JRT_TASK_UNPRIVILEGED_RODATA` | `.unprivileged_rodata` |
 | `JRT_TASK_UNPRIVILEGED_DATA` | `.unprivileged_task_data` |
+| `JRT_TASK_PRIVATE_DATA(size)` | `.task_private_data` |
 | Unprivileged SVC wrappers | `.unprivileged_svc` |
 
 The SVC handler itself remains privileged. MPU-enabled ports must also define
-`__unprivileged_task_data_start` and `__unprivileged_task_data_end`. Startup
-must provide whatever symbols its `.data` copy and `.bss` clear implementation
+`__unprivileged_task_data_start`, `__unprivileged_task_data_end`,
+`__task_private_data_start`, and `__task_private_data_end`. Startup must
+provide whatever symbols its `.data` copy and `.bss` clear implementation
 uses.
 
 ## Board Contract

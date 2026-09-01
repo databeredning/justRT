@@ -37,6 +37,7 @@ make -B TEST=race
 make -B TEST=timer_service
 make -B TEST=task_capacity
 make -B TEST=stack_guard
+make -B TEST=private_config
 ```
 
 Build the QEMU Cortex-M3 target with:
@@ -78,7 +79,8 @@ passes by capturing its expected MemManage fault. The continuous `simple`
 example is intentionally not part of the terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
-`mutex`, `race`, `timer_service`, and `task_capacity` profiles, including
+`mutex`, `race`, `timer_service`, `task_capacity`, and `private_config`
+profiles, including
 result, fault, invariant, stack, scheduler, and tick diagnostics:
 
 ```sh

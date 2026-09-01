@@ -77,6 +77,15 @@ SECTIONS
         __unprivileged_task_data_end = .;
     } > sram
 
+    .task_private_data (NOLOAD) :
+    {
+        . = ALIGN(32);
+        __task_private_data_start = .;
+        *(.task_private_data .task_private_data.*)
+        . = ALIGN(32);
+        __task_private_data_end = .;
+    } > sram
+
     .bss (NOLOAD) :
     {
         . = ALIGN(8);

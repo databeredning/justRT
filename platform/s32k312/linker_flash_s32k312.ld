@@ -129,6 +129,15 @@ SECTIONS
         __unprivileged_task_data_end = .;
     } > int_sram
 
+    .task_private_data (NOLOAD) :
+    {
+        . = ALIGN(32);
+        __task_private_data_start = .;
+        *(.task_private_data .task_private_data.*)
+        . = ALIGN(32);
+        __task_private_data_end = .;
+    } > int_sram
+
     /* Initialized writable data is loaded immediately after flash content. */
     .sram_data : AT(LOADADDR(.privileged_data) + SIZEOF(.privileged_data))
     {
