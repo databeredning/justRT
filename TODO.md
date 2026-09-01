@@ -70,13 +70,13 @@ Suggested commit: `test: add MPU isolation regression coverage`
 
 ### Planned commit 5: document and validate MPU isolation
 
-- [ ] Document task-capacity policy, private/shared memory behavior, linker and
+- [x] Document task-capacity policy, private/shared memory behavior, linker and
   section placement, and Cortex-M MPU granularity limits.
-- [ ] Run the focused S32K312 stack-guard and MPU-isolation tests.
-- [ ] Run the complete S32K312 `make auto-test` hardware suite.
-- [ ] Run `make qemu-test` and confirm configuration and shared scheduler
+- [x] Run the focused S32K312 stack-guard and MPU-isolation tests.
+- [x] Run the complete S32K312 `make auto-test` hardware suite.
+- [x] Run `make qemu-test` and confirm configuration and shared scheduler
   behavior are unchanged.
-- [ ] Confirm no unexpected fault, invariant, stack, access-revocation, or
+- [x] Confirm no unexpected fault, invariant, stack, access-revocation, or
   scheduler diagnostics.
 
 Suggested commit: `docs: document and validate MPU isolation`

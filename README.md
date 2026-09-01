@@ -15,7 +15,7 @@ diagnostic state for post-failure inspection.
 ## Targets
 
 - NXP S32K312 Cortex-M7 hardware, including MPU stack guards and optional
-  unprivileged task execution.
+  unprivileged task execution with per-task private-data isolation.
 - QEMU MPS2-AN385 Cortex-M3 for fast scheduler and kernel regression work.
 
 The Cortex-M exception path uses PSP for tasks and MSP for kernel and exception
@@ -76,21 +76,23 @@ make auto-test
 
 Successful tests expose explicit `state`, `pass`, `fail`, and `done` fields.
 The runner also reports fault, invariant, scheduler, synchronization, timer,
-race, task-capacity, and dynamic-guard diagnostics. The `stack_guard` profile
-passes by capturing its expected MemManage fault. The continuous `simple`
-example is intentionally not part of the terminating test suite.
+race, task-capacity, dynamic-guard, and private-data mapping diagnostics. The
+`stack_guard`, `mpu_isolation_read`, and `mpu_isolation_write` profiles pass by
+capturing their expected MemManage faults. The continuous `simple` example is
+intentionally not part of the terminating test suite.
 
 The automated QEMU runner builds and verifies the terminating `boot`, `sync`,
 `mutex`, `race`, `timer_service`, `task_capacity`, and `private_config`
-profiles, including
-result, fault, invariant, stack, scheduler, and tick diagnostics:
+profiles, including result, fault, invariant, stack, scheduler, MPU-transition,
+and tick diagnostics:
 
 ```sh
 make qemu-test
 ```
 
-The Cortex-M3 target does not support `TEST=fpu`. See [TODO.md](TODO.md) for
-the remaining cross-target validation work.
+The Cortex-M3 target does not support `TEST=fpu`, `TEST=stack_guard`, or the
+two `TEST=mpu_isolation_*` hardware profiles. See [TODO.md](TODO.md) for the
+remaining work.
 
 ## Repository layout
 

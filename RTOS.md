@@ -59,6 +59,11 @@ another private region.
 `JRT_TASK_DEFINITION()` remains valid and requests no private region. This
 metadata is validated during `JRT_KernelInit()`. On MPU-enabled targets, only
 the running task's private region is accessible to unprivileged Thread mode.
+Put all private state needed by one task into a single aggregate whose total
+size is an MPU-compatible power of two. Do not place intentionally shared
+queues, synchronization objects, or exchange buffers in that aggregate; place
+those in `JRT_TASK_UNPRIVILEGED_DATA` and treat them as accessible to every
+unprivileged task.
 
 The public configuration supports up to `JRT_MAX_APPLICATION_TASKS` (seven)
 application tasks. Scheduler storage privately reserves three additional
@@ -202,6 +207,13 @@ replaced before each exception return. It is disabled for tasks without
 private data, including the kernel-owned idle and timer-service tasks. Any
 future task suspend, resume, or deletion API must preserve this rule and must
 not leave a stale private mapping installed.
+
+The Cortex-M MPU represents a region with a power-of-two size and a base
+aligned to that size; 32 bytes is the architectural minimum used here. A
+33-byte private aggregate therefore needs a 64-byte enclosing object aligned
+to 64 bytes. The kernel does not round or widen application declarations,
+because doing so could unintentionally grant access to adjacent data. It
+rejects configurations that cannot be represented exactly instead.
 
 ## Kernel Services
 

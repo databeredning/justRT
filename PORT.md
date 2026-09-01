@@ -85,6 +85,15 @@ private data and region 15 for the stack guard. Both are updated for the first
 task and on every selection; private region 14 is disabled when the selected
 task has no private object.
 
+The minimum supported private region is 32 bytes. Cortex-M region sizes are
+powers of two and the base must be aligned to the selected size. Ports must
+not silently round a private range outward: that could expose a neighboring
+object. Keep explicitly shared writable objects in `.unprivileged_task_data`,
+keep task-owned aggregates in `.task_private_data`, and reject any private
+definition that cannot be mapped exactly or overlaps another owned range.
+Dynamic region use is constant regardless of configured task count: one slot
+represents the selected task's private data and one represents its guard.
+
 When `JRT_ARCH_HAS_MPU=0`, MPU register programming is omitted. Stack bounds
 are still checked in software and dynamic guard ownership remains visible in
 diagnostics, but the target does not provide privilege-based memory isolation.
