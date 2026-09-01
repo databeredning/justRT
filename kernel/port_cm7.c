@@ -94,8 +94,7 @@ extern uint8_t __unprivileged_rodata_end[];
 extern uint8_t __unprivileged_task_data_start[];
 extern uint8_t __unprivileged_task_data_end[];
 
-static void configure_region_range(uint32_t region, uintptr_t start,
-                                   uintptr_t end, uint32_t attributes)
+static void configure_region_range(uint32_t region, uintptr_t start, uintptr_t end, uint32_t attributes)
 {
     uintptr_t base;
     uintptr_t size = 32U;
@@ -170,8 +169,7 @@ volatile uint32_t g_mpu_private_data_base KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_mpu_private_data_size KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_mpu_private_data_updates KERNEL_PRIVILEGED_DATA;
 
-void arch_set_task_private_data(void *private_data_base,
-                                uint32_t private_data_size)
+void arch_set_task_private_data(void *private_data_base, uint32_t private_data_size)
 {
     uint32_t base = (uint32_t)(uintptr_t)private_data_base;
 
@@ -227,8 +225,7 @@ void arch_set_task_stack_guard(void *guard_address)
     g_mpu_stack_guard_updates++;
 }
 
-void arch_configure_mpu(void *guard_address, void *private_data_base,
-                        uint32_t private_data_size)
+void arch_configure_mpu(void *guard_address, void *private_data_base, uint32_t private_data_size)
 {
 #if JRT_ARCH_HAS_MPU
     uint32_t index;

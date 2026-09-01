@@ -22,8 +22,7 @@ void JRT_TimerCreateStatic(JRT_Timer_t *timer);
 void JRT_TimerStart(JRT_Timer_t *timer, uint32_t delay_ticks);
 void JRT_TimerStartPeriodic(JRT_Timer_t *timer, uint32_t period_ticks);
 void JRT_TimerRestart(JRT_Timer_t *timer);
-void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
-                          void *argument);
+void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback, void *argument);
 void JRT_TimerStop(JRT_Timer_t *timer);
 uint32_t JRT_TimerTakeExpirations(JRT_Timer_t *timer);
 /* Compatibility API: executes claimed callbacks in the calling context. */

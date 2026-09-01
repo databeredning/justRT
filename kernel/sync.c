@@ -49,8 +49,7 @@ static void count_context_misuse(volatile uint32_t *counter)
     g_sync_context_misuse++;
 }
 
-void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore,
-                                     uint32_t initially_available)
+void JRT_SemaphoreCreateBinaryStatic(JRT_Semaphore_t *semaphore, uint32_t initially_available)
 {
     uint32_t saved_primask = arch_critical_enter();
 
@@ -138,8 +137,7 @@ void JRT_MutexCreateRecursiveStatic(JRT_Mutex_t *mutex)
     arch_critical_exit(saved_primask);
 }
 
-uint32_t sync_invariant_check(uint32_t configured_task_count,
-                              uintptr_t *object)
+uint32_t sync_invariant_check(uint32_t configured_task_count, uintptr_t *object)
 {
     JRT_Mutex_t *slow = mutex_list;
     JRT_Mutex_t *fast = mutex_list;
@@ -269,8 +267,7 @@ int JRT_MutexUnlock(JRT_Mutex_t *mutex)
     return 1;
 }
 
-void JRT_QueueCreateStatic(JRT_Queue_t *queue, void *storage,
-                           uint32_t capacity, uint32_t item_size)
+void JRT_QueueCreateStatic(JRT_Queue_t *queue, void *storage, uint32_t capacity, uint32_t item_size)
 {
     uint32_t saved_primask = arch_critical_enter();
 

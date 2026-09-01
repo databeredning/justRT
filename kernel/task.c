@@ -88,8 +88,7 @@ volatile uint32_t g_kernel_invariant_object KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_aux KERNEL_PRIVILEGED_DATA = 0U;
 volatile uint32_t g_kernel_invariant_tick KERNEL_PRIVILEGED_DATA = 0U;
 static idle_task_storage_t idle_task_storage JRT_TASK_UNPRIVILEGED_DATA;
-static timer_service_task_storage_t timer_service_task_storage
-    JRT_TASK_UNPRIVILEGED_DATA;
+static timer_service_task_storage_t timer_service_task_storage JRT_TASK_UNPRIVILEGED_DATA;
 static uint32_t timer_service_wait_object KERNEL_PRIVILEGED_DATA;
 static task_t tasks[JRT_MAX_SCHEDULER_TASKS] KERNEL_PRIVILEGED_DATA = { 0U };
 static task_t *current_task KERNEL_PRIVILEGED_DATA = &tasks[0];
@@ -112,9 +111,7 @@ static JRT_Status_t validate_task_id(uint32_t task_id)
     return (task_id < task_count) ? JRT_STATUS_OK : JRT_STATUS_INVALID_TASK;
 }
 
-static JRT_Status_t resolve_application_task_id(uint32_t requested_task_id,
-                                                int allow_self,
-                                                uint32_t *resolved_task_id)
+static JRT_Status_t resolve_application_task_id(uint32_t requested_task_id, int allow_self, uint32_t *resolved_task_id)
 {
     uint32_t task_id = requested_task_id;
 
@@ -425,8 +422,7 @@ static void task_exit_trap(void)
     }
 }
 
-static uint32_t *build_initial_stack(uint32_t *stack_top, JRT_TaskEntry_t entry,
-                                     void *argument)
+static uint32_t *build_initial_stack(uint32_t *stack_top, JRT_TaskEntry_t entry, void *argument)
 {
     uint32_t *stack = stack_top;
 
@@ -498,8 +494,7 @@ static void update_stack_usage(task_t *task, uint32_t *current_sp)
 }
 
 /* Shared wait/wake transitions. Callers must hold a critical section. */
-static void task_wait_begin(task_t *task, void *object,
-                            task_wait_kind_t wait_kind, uint32_t timeout_ticks)
+static void task_wait_begin(task_t *task, void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
 {
     task_wait_deadline_t deadline;
 
@@ -515,9 +510,7 @@ static void task_wait_begin(task_t *task, void *object,
     task->state = JRT_TASK_STATE_BLOCKED;
 }
 
-static void task_wait_begin_until(task_t *task, void *object,
-                                  task_wait_kind_t wait_kind,
-                                  task_wait_deadline_t deadline)
+static void task_wait_begin_until(task_t *task, void *object, task_wait_kind_t wait_kind, task_wait_deadline_t deadline)
 {
     task->wait_object = object;
     task->wait_kind = wait_kind;
@@ -688,8 +681,7 @@ void JRT_EventGroupCreateStatic(JRT_EventGroup_t *group)
     }
 }
 
-static uint32_t event_group_set_bits_common(JRT_EventGroup_t *group,
-                                            uint32_t bits, int from_isr)
+static uint32_t event_group_set_bits_common(JRT_EventGroup_t *group, uint32_t bits, int from_isr)
 {
     uint32_t saved_primask;
     uint32_t index;
@@ -749,9 +741,7 @@ uint32_t JRT_EventGroupSetBitsFromISR(JRT_EventGroup_t *group, uint32_t bits)
     return event_group_set_bits_common(group, bits, 1);
 }
 
-uint32_t JRT_EventGroupWaitBits(JRT_EventGroup_t *group, uint32_t bits,
-                               int wait_all, int clear_on_exit,
-                               uint32_t timeout_ticks)
+uint32_t JRT_EventGroupWaitBits(JRT_EventGroup_t *group, uint32_t bits, int wait_all, int clear_on_exit, uint32_t timeout_ticks)
 {
     uint32_t saved_primask;
     uint32_t result;
@@ -924,8 +914,7 @@ int task_block(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks)
     return (int)current_task->wait_result;
 }
 
-int task_block_locked(void *object, task_wait_kind_t wait_kind,
-                      uint32_t timeout_ticks, uint32_t saved_critical)
+int task_block_locked(void *object, task_wait_kind_t wait_kind, uint32_t timeout_ticks, uint32_t saved_critical)
 {
     task_wait_begin(current_task, object, wait_kind, timeout_ticks);
     arch_critical_exit(saved_critical);
@@ -977,9 +966,7 @@ task_wait_deadline_t task_wait_deadline(uint32_t timeout_ticks)
     return deadline;
 }
 
-int task_block_until_locked(void *object, task_wait_kind_t wait_kind,
-                            task_wait_deadline_t deadline,
-                            uint32_t saved_critical)
+int task_block_until_locked(void *object, task_wait_kind_t wait_kind, task_wait_deadline_t deadline, uint32_t saved_critical)
 {
     if ((deadline.forever == 0U)
         && ((uint32_t)(g_kernel_ticks - deadline.start)
@@ -1000,8 +987,7 @@ int task_wake(void *object, task_wait_kind_t wait_kind)
     return (task_wake_get_id(object, wait_kind) != UINT32_MAX) ? 1 : 0;
 }
 
-static void kernel_invariant_fail(uint32_t code, uint32_t task_id,
-                                  uintptr_t object, uint32_t aux)
+static void kernel_invariant_fail(uint32_t code, uint32_t task_id, uintptr_t object, uint32_t aux)
 {
     g_kernel_invariant_code = code;
     g_kernel_invariant_task = task_id;
@@ -1206,8 +1192,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
     return current_task->sp;
 }
 
-static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config,
-                                        uint32_t index)
+static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config, uint32_t index)
 {
     const JRT_TaskDefinition_t *definition = &config->tasks[index];
     uintptr_t guard = (uintptr_t)definition->stack_guard;
@@ -1249,14 +1234,12 @@ static JRT_Status_t validate_task_stack(const JRT_KernelConfig_t *config,
     return JRT_STATUS_OK;
 }
 
-static int ranges_overlap(uintptr_t first_start, uintptr_t first_end,
-                          uintptr_t second_start, uintptr_t second_end)
+static int ranges_overlap(uintptr_t first_start, uintptr_t first_end, uintptr_t second_start, uintptr_t second_end)
 {
     return ((first_start < second_end) && (second_start < first_end)) ? 1 : 0;
 }
 
-static JRT_Status_t validate_private_region(const JRT_KernelConfig_t *config,
-                                            uint32_t index)
+static JRT_Status_t validate_private_region(const JRT_KernelConfig_t *config, uint32_t index)
 {
     const JRT_TaskDefinition_t *definition = &config->tasks[index];
     uintptr_t base = (uintptr_t)definition->private_data_base;

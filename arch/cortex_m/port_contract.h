@@ -55,8 +55,7 @@ int arch_in_isr(void);
 void arch_tick_init(void);
 void arch_tick_start(void);
 void arch_yield(void);
-void arch_configure_mpu(void *guard_address, void *private_data_base,
-                        uint32_t private_data_size);
+void arch_configure_mpu(void *guard_address, void *private_data_base, uint32_t private_data_size);
 void arch_set_task_stack_guard(void *guard_address);
 void arch_set_task_private_data(void *base, uint32_t size);
 void arch_start_first_task(void);

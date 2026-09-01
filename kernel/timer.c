@@ -60,8 +60,7 @@ void JRT_TimerCreateStatic(JRT_Timer_t *timer)
     arch_critical_exit(saved_primask);
 }
 
-void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback,
-                          void *argument)
+void JRT_TimerSetCallback(JRT_Timer_t *timer, JRT_TimerCallback_t callback, void *argument)
 {
     if (timer != 0U)
     {

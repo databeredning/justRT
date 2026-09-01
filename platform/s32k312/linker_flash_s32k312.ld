@@ -1,10 +1,9 @@
 /*
- * justrt linker script for the NXP S32K312 CM7_0.
+ * justRT linker script for the S32K312 Cortex-M7 core 0 target.
  *
  * This image is a freestanding, single-core firmware. It contains the
  * startup code, vector table, native RTOS kernel, and native PTB18 GPIO
- * board layer. No AUTOSAR, RTD, heap, data-flash, or flash-driver sections
- * are required.
+ * board layer. No heap, data-flash, or flash-driver sections are required.
  */
 
 ENTRY(Reset_Handler)
