@@ -58,10 +58,10 @@ Suggested commit: `test: add optimized and extended stress profiles`
 
 ### Planned commit 5: automate QEMU release validation
 
-- [ ] Add CI that builds both targets and runs the complete QEMU suite.
-- [ ] Archive release ELF, map, binary, test results, and size reports.
-- [ ] Pin and report compiler, Python, QEMU, and debugger versions.
-- [ ] Make CI failure output preserve the existing debugger diagnostics.
+- [x] Add CI that builds both targets and runs the complete QEMU suite.
+- [x] Archive release ELF, map, binary, test results, and size reports.
+- [x] Pin and report compiler, Python, QEMU, and debugger versions.
+- [x] Make CI failure output preserve the existing debugger diagnostics.
 
 Suggested commit: `ci: automate qemu release validation`
 
