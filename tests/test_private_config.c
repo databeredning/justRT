@@ -9,10 +9,8 @@ typedef struct
     volatile uint32_t words[PRIVATE_CONFIG_REGION_SIZE / sizeof(uint32_t)];
 } private_config_region_t;
 
-static private_config_region_t private_config_region_a
-    JRT_TASK_PRIVATE_DATA(PRIVATE_CONFIG_REGION_SIZE);
-static private_config_region_t private_config_region_b
-    JRT_TASK_PRIVATE_DATA(PRIVATE_CONFIG_REGION_SIZE);
+static private_config_region_t private_config_region_a JRT_TASK_PRIVATE_DATA(PRIVATE_CONFIG_REGION_SIZE);
+static private_config_region_t private_config_region_b JRT_TASK_PRIVATE_DATA(PRIVATE_CONFIG_REGION_SIZE);
 
 private_config_test_state_t g_test_private_config JRT_TASK_UNPRIVILEGED_DATA;
 

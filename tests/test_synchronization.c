@@ -167,9 +167,7 @@ void test_synchronization_start(void)
     test_isr_state.next_value = 0U;
 
     JRT_SemaphoreCreateBinaryStatic(&test_semaphore, 0U);
-    JRT_QueueCreateStatic(&test_queue, test_queue_storage,
-                          TEST_SYNC_QUEUE_CAPACITY,
-                          sizeof(test_queue_storage[0]));
+    JRT_QueueCreateStatic(&test_queue, test_queue_storage, TEST_SYNC_QUEUE_CAPACITY, sizeof(test_queue_storage[0]));
     JRT_EventGroupCreateStatic(&test_event_group);
     JRT_KernelSetTickHook(test_synchronization_tick_hook);
 

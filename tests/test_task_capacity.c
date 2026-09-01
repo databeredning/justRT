@@ -9,10 +9,8 @@ typedef struct __attribute__((aligned(32)))
     uint32_t stack[JRT_TASK_STACK_WORDS];
 } task_capacity_storage_t;
 
-static task_capacity_storage_t
-    task_capacity_storage[JRT_MAX_APPLICATION_TASKS + 1U];
-static JRT_TaskDefinition_t
-    task_capacity_definitions[JRT_MAX_APPLICATION_TASKS + 1U];
+static task_capacity_storage_t task_capacity_storage[JRT_MAX_APPLICATION_TASKS + 1U];
+static JRT_TaskDefinition_t task_capacity_definitions[JRT_MAX_APPLICATION_TASKS + 1U];
 static uint32_t task_capacity_indices[JRT_MAX_APPLICATION_TASKS];
 static volatile uint32_t task_capacity_ran[JRT_MAX_APPLICATION_TASKS];
 

@@ -21,8 +21,7 @@ static JRT_TASK_UNPRIVILEGED void test_stack_guard_task(void *argument)
     }
 }
 
-static const JRT_TaskDefinition_t test_stack_guard_tasks[]
-    JRT_TASK_UNPRIVILEGED_RODATA = {
+static const JRT_TaskDefinition_t test_stack_guard_tasks[] JRT_TASK_UNPRIVILEGED_RODATA = {
     JRT_TASK_DEFINITION(test_stack_guard_task,
                         JRT_TASK_STACK_GUARD(test_stack_guard_stack),
                         test_stack_guard_stack, 1U, "test-stack-guard",

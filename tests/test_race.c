@@ -415,10 +415,8 @@ static void test_race_waiter_task(void *argument)
 }
 
 JRT_DECLARE_STATIC_TASK_STACK(test_race_waiter_stack, JRT_TASK_STACK_WORDS);
-JRT_DECLARE_STATIC_TASK_STACK(test_race_queue_drainer_stack,
-                              JRT_TASK_STACK_WORDS);
-JRT_DECLARE_STATIC_TASK_STACK(test_race_mutex_owner_stack,
-                              JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_race_queue_drainer_stack, JRT_TASK_STACK_WORDS);
+JRT_DECLARE_STATIC_TASK_STACK(test_race_mutex_owner_stack, JRT_TASK_STACK_WORDS);
 
 static const JRT_TaskDefinition_t test_race_tasks[] = {
     JRT_TASK_DEFINITION(test_race_mutex_owner_task, 0U,
