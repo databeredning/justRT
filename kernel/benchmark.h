@@ -24,6 +24,9 @@ typedef struct
 void task_benchmark_init(uint32_t task_count,
                          const JRT_TaskDefinition_t *definitions,
                          uint32_t application_task_count);
+void task_benchmark_release_locked(uint32_t task_id, int coalesced);
+void task_benchmark_start_locked(uint32_t task_id);
+void task_benchmark_complete_locked(uint32_t task_id);
 
 #else
 
@@ -35,6 +38,22 @@ static inline void task_benchmark_init(
     (void)task_count;
     (void)definitions;
     (void)application_task_count;
+}
+
+static inline void task_benchmark_release_locked(uint32_t task_id, int coalesced)
+{
+    (void)task_id;
+    (void)coalesced;
+}
+
+static inline void task_benchmark_start_locked(uint32_t task_id)
+{
+    (void)task_id;
+}
+
+static inline void task_benchmark_complete_locked(uint32_t task_id)
+{
+    (void)task_id;
 }
 
 #endif

@@ -219,6 +219,10 @@ JRT_Status_t kernel_task_suspend(uint32_t requested_task_id)
         return JRT_STATUS_INVALID_STATE;
     }
 
+    if (tasks[task_id].state == JRT_TASK_STATE_RUNNING)
+    {
+        task_benchmark_complete_locked(task_id);
+    }
     tasks[task_id].state = JRT_TASK_STATE_SUSPENDED;
     arch_critical_exit(saved_primask);
     return JRT_STATUS_OK;
@@ -253,6 +257,7 @@ JRT_Status_t kernel_task_resume(uint32_t requested_task_id)
         return JRT_STATUS_INVALID_STATE;
     }
 
+    task_benchmark_release_locked(task_id, 0);
     tasks[task_id].state = JRT_TASK_STATE_READY;
     arch_critical_exit(saved_primask);
     return JRT_STATUS_OK;
@@ -501,6 +506,7 @@ static void task_wait_begin(task_t *task, void *object, task_wait_kind_t wait_ki
 {
     task_wait_deadline_t deadline;
 
+    task_benchmark_complete_locked((uint32_t)(task - tasks));
     deadline.start = g_kernel_ticks;
     deadline.tick = deadline.start + timeout_ticks;
     deadline.forever = (timeout_ticks == JRT_WAIT_FOREVER) ? 1U : 0U;
@@ -515,6 +521,7 @@ static void task_wait_begin(task_t *task, void *object, task_wait_kind_t wait_ki
 
 static void task_wait_begin_until(task_t *task, void *object, task_wait_kind_t wait_kind, task_wait_deadline_t deadline)
 {
+    task_benchmark_complete_locked((uint32_t)(task - tasks));
     task->wait_object = object;
     task->wait_kind = wait_kind;
     task->wait_start = deadline.start;
@@ -524,8 +531,9 @@ static void task_wait_begin_until(task_t *task, void *object, task_wait_kind_t w
     task->state = JRT_TASK_STATE_BLOCKED;
 }
 
-static void task_wait_end(task_t *task, uint32_t result)
+static void task_wait_end(task_t *task, uint32_t result, int coalesced)
 {
+    task_benchmark_release_locked((uint32_t)(task - tasks), coalesced);
     task->state = JRT_TASK_STATE_READY;
     task->wait_result = result;
     task->wait_object = 0U;
@@ -658,7 +666,7 @@ void task_timer_service_wake_locked(void)
         && (task->wait_object == &timer_service_wait_object)
         && (task->wait_kind == TASK_WAIT_TIMER_SERVICE))
     {
-        task_wait_end(task, 1U);
+        task_wait_end(task, 1U, 0);
     }
 }
 
@@ -707,7 +715,7 @@ static uint32_t event_group_set_bits_common(JRT_EventGroup_t *group, uint32_t bi
             && event_condition(group->bits, tasks[index].event_wait_bits,
                                tasks[index].event_wait_all))
         {
-            task_wait_end(&tasks[index], 1U);
+            task_wait_end(&tasks[index], 1U, 0);
         }
     }
     arch_critical_exit(saved_primask);
@@ -790,6 +798,7 @@ uint32_t JRT_EventGroupWaitBits(JRT_EventGroup_t *group, uint32_t bits, int wait
 static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
 {
     uint32_t saved_primask;
+    int coalesced;
 
     if ((from_isr != 0) ? (arch_in_isr() == 0) : (arch_in_isr() != 0))
     {
@@ -801,11 +810,13 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
     }
 
     saved_primask = arch_critical_enter();
+    coalesced = ((value != 0U)
+                 && (tasks[task_id].notification_value != 0U)) ? 1 : 0;
     tasks[task_id].notification_value += value;
     if ((tasks[task_id].state == JRT_TASK_STATE_BLOCKED)
         && (tasks[task_id].wait_kind == TASK_WAIT_NOTIFICATION))
     {
-        task_wait_end(&tasks[task_id], 1U);
+        task_wait_end(&tasks[task_id], 1U, coalesced);
     }
     arch_critical_exit(saved_primask);
     arch_request_switch();
@@ -863,6 +874,10 @@ void sleep_current(uint32_t ticks)
 {
     uint32_t saved_primask = arch_critical_enter();
 
+    if (ticks != 0U)
+    {
+        task_benchmark_complete_locked(g_current_task_index);
+    }
     current_task->sleep_ticks = ticks;
     current_task->state = (ticks == 0U) ? JRT_TASK_STATE_READY : JRT_TASK_STATE_SLEEPING;
     arch_critical_exit(saved_primask);
@@ -950,7 +965,7 @@ uint32_t task_wake_get_id(void *object, task_wait_kind_t wait_kind)
 
     if (selected_index != task_count)
     {
-        task_wait_end(&tasks[selected_index], 1U);
+            task_wait_end(&tasks[selected_index], 1U, 0);
     }
 
     arch_critical_exit(saved_primask);
@@ -1071,6 +1086,7 @@ void tick_tasks(void)
             tasks[index].sleep_ticks--;
             if (tasks[index].sleep_ticks == 0U)
             {
+                task_benchmark_release_locked(index, 0);
                 tasks[index].state = JRT_TASK_STATE_READY;
             }
         }
@@ -1094,7 +1110,7 @@ void tick_tasks(void)
                     }
                 }
 
-                task_wait_end(&tasks[index], 0U);
+                task_wait_end(&tasks[index], 0U, 0);
 
                 if (wait_kind == TASK_WAIT_SEMAPHORE)
                 {
@@ -1186,6 +1202,7 @@ uint32_t *pendsv_switch(uint32_t *current_sp)
 
     current_task = &tasks[g_current_task_index];
     current_task->state = JRT_TASK_STATE_RUNNING;
+    task_benchmark_start_locked(g_current_task_index);
     arch_set_task_private_data(current_task->private_data_base,
                                current_task->private_data_size);
     arch_set_task_stack_guard(task_stack_guard(current_task));

@@ -467,17 +467,17 @@ task_benchmark_start_locked(task_id, now);
 task_benchmark_complete_locked(task_id, now);
 ```
 
-- [ ] Call the release helper at every state transition that makes a task
+- [x] Call the release helper at every state transition that makes a task
   READY from BLOCKED, SLEEPING, or SUSPENDED. Centralize this in existing
   transition helpers such as `task_wait_end()` where possible so individual
   semaphore, queue, mutex, event, notification, and timeout paths cannot drift.
-- [ ] Instrument delay expiry in the SysTick task-state update path.
-- [ ] Instrument explicit task resume and the internal timer-service wake.
-- [ ] In `task_notify_common()`, count a coalesced release when notification
+- [x] Instrument delay expiry in the SysTick task-state update path.
+- [x] Instrument explicit task resume and the internal timer-service wake.
+- [x] In `task_notify_common()`, count a coalesced release when notification
   data arrives while an earlier notification remains pending. Do not treat
   integer notification values as release counts unless that is already the
   documented API semantic.
-- [ ] Save `release_cycle` only for the oldest outstanding activation. A later
+- [x] Save `release_cycle` only for the oldest outstanding activation. A later
   coalesced release must not overwrite it and hide the true latency.
 - [ ] Saturate the derived Pending value at zero in snapshots so counter wrap
   or an in-progress transition cannot produce a misleading large value.
@@ -486,13 +486,13 @@ Suggested commit: `kernel: account task releases and coalescing`
 
 ### Step 6: measure activation start and completion
 
-- [ ] In the scheduler, when a released task is selected for its first run,
+- [x] In the scheduler, when a released task is selected for its first run,
   calculate `now - release_cycle`, update
   `max_release_latency_cycles`, save `activation_start_cycle`, and mark the
   activation active.
-- [ ] Do not restart the activation timestamp when the same task resumes after
+- [x] Do not restart the activation timestamp when the same task resumes after
   ordinary preemption or round-robin scheduling.
-- [ ] Immediately before a running task changes to BLOCKED, SLEEPING, or
+- [x] Immediately before a running task changes to BLOCKED, SLEEPING, or
   SUSPENDED, calculate `now - activation_start_cycle`, update
   `max_activation_cycles`, increment `completion_count`, and clear the active
   flags.
