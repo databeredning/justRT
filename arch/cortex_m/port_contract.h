@@ -60,5 +60,10 @@ void arch_set_task_stack_guard(void *guard_address);
 void arch_set_task_private_data(void *base, uint32_t size);
 void arch_start_first_task(void);
 void arch_wait_for_interrupt(void);
+#if JRT_ENABLE_TASK_BENCHMARK
+void arch_cycle_counter_init(void);
+int arch_cycle_counter_available(void);
+uint32_t arch_cycle_counter_read(void);
+#endif
 
 #endif

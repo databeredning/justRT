@@ -439,10 +439,13 @@ Suggested commit: `kernel: add per-task benchmark records`
 
 ### Step 4: provide a portable cycle-counter boundary
 
-- [ ] Add `arch_cycle_counter_init()`, `arch_cycle_counter_available()`, and
+- [x] Add `arch_cycle_counter_init()`, `arch_cycle_counter_available()`, and
   `arch_cycle_counter_read()` to the port contract.
-- [ ] Implement the Cortex-M version with DWT `CYCCNT`, enabling trace and the
+- [x] Implement the Cortex-M version with DWT `CYCCNT`, enabling trace and the
   counter once during kernel initialization rather than in application code.
+- [x] Preserve any existing DWT counter values and unrelated control bits:
+  initialization may only OR the required enable bits and must never clear,
+  reset, or reload `DWT->CYCCNT`.
 - [ ] Record the cycle frequency used for conversion in benchmark metadata.
 - [ ] Keep raw values in cycles inside the kernel. Convert to microseconds,
   milliseconds, and percentages in the host runner to avoid floating-point

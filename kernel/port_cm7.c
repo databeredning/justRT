@@ -31,6 +31,9 @@ void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 #define SYST_CVR (*(volatile uint32_t *)0xE000E018U)
 #define SCB_ICSR (*(volatile uint32_t *)0xE000ED04U)
 #define SCB_SHPR3 (*(volatile uint32_t *)0xE000ED20U)
+#define COREDEBUG_DEMCR (*(volatile uint32_t *)0xE000EDFCU)
+#define DWT_CTRL (*(volatile uint32_t *)0xE0001000U)
+#define DWT_CYCCNT (*(volatile uint32_t *)0xE0001004U)
 #if JRT_ARCH_FPU_CONTEXT
 #define SCB_CPACR (*(volatile uint32_t *)0xE000ED88U)
 #define FPU_FPCCR (*(volatile uint32_t *)0xE000EF34U)
@@ -40,6 +43,9 @@ void JRT_KernelSetTickHook(JRT_KernelTickHook_t hook)
 #define SYST_CSR_TICKINT (1UL << 1)
 #define SYST_CSR_CLKSOURCE (1UL << 2)
 #define SCB_ICSR_PENDSVSET (1UL << 28)
+#define COREDEBUG_DEMCR_TRCENA (1UL << 24)
+#define DWT_CTRL_CYCCNTENA (1UL << 0)
+#define DWT_CTRL_NOCYCCNT (1UL << 25)
 #define SCB_SHPR3_PENDSV_SHIFT 16U
 #define SCB_SHPR3_SYSTICK_SHIFT 24U
 #if JRT_ARCH_FPU_CONTEXT
@@ -267,6 +273,28 @@ void arch_configure_mpu(void *guard_address, void *private_data_base, uint32_t p
     arch_set_task_stack_guard(guard_address);
 #endif
 }
+
+#if JRT_ENABLE_TASK_BENCHMARK
+void arch_cycle_counter_init(void)
+{
+    if (arch_cycle_counter_available() == 0)
+    {
+        return;
+    }
+    COREDEBUG_DEMCR |= COREDEBUG_DEMCR_TRCENA;
+    DWT_CTRL |= DWT_CTRL_CYCCNTENA;
+}
+
+int arch_cycle_counter_available(void)
+{
+    return ((DWT_CTRL & DWT_CTRL_NOCYCCNT) == 0U) ? 1 : 0;
+}
+
+uint32_t arch_cycle_counter_read(void)
+{
+    return DWT_CYCCNT;
+}
+#endif
 
 void tick_init(void)
 {

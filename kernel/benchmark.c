@@ -1,4 +1,5 @@
 #include "benchmark.h"
+#include "cortex_m/port_contract.h"
 
 #if JRT_ENABLE_TASK_BENCHMARK
 
@@ -23,6 +24,7 @@ void task_benchmark_init(uint32_t task_count,
 {
     uint32_t index;
 
+    arch_cycle_counter_init();
     for (index = 0U; index < task_count; index++)
     {
         benchmark_records[index] = (JRT_TaskBenchmarkRecord_t){ 0U };
