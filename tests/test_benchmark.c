@@ -42,6 +42,7 @@ static void benchmark_controller(void *argument)
 {
     JRT_BenchmarkInfo_t benchmark_info;
     JRT_TaskBenchmarkInfo_t task_info;
+    JRT_TaskStackInfo_t stack_info;
     const char *name;
     uint32_t index;
     uint32_t valid = 1U;
@@ -55,6 +56,13 @@ static void benchmark_controller(void *argument)
     else
     {
         g_test_benchmark.reset_checked = 1U;
+    }
+    if ((JRT_BenchmarkGetTask(0U, &task_info) != JRT_STATUS_OK)
+        || (task_info.release_count != 0U)
+        || (task_info.completion_count != 0U)
+        || (task_info.max_activation_cycles != 0U))
+    {
+        valid = 0U;
     }
     JRT_TaskDelay(20U);
     if ((JRT_BenchmarkGetInfo(&benchmark_info) != JRT_STATUS_OK)
@@ -75,6 +83,10 @@ static void benchmark_controller(void *argument)
             || (JRT_BenchmarkGetTask(index, &task_info) != JRT_STATUS_OK)
             || (task_info.flags != 0U)
             || (task_info.stack_words == 0U)
+            || (task_info.used_stack_words > task_info.stack_words)
+            || (JRT_TaskGetStackInfo(index, &stack_info) != JRT_STATUS_OK)
+            || (task_info.stack_words != stack_info.stack_words)
+            || (task_info.used_stack_words != stack_info.used_words)
             || ((index < 3U) && (task_info.period_cycles == 0U))
             || ((index >= 3U) && (task_info.period_cycles != 0U)))
         {

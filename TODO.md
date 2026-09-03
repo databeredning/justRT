@@ -621,7 +621,7 @@ Suggested commit: `test: validate kernel task benchmarking`
   implementation boundary. Application code shall need only the optional task
   period configuration; it shall not call start/stop timing hooks around task
   bodies.
-- [ ] Provide a minimal example configuration with periodic, event-driven, and
+- [x] Provide a minimal example configuration with periodic, event-driven, and
   internal tasks to demonstrate dynamic enumeration and `N/A` Budget handling.
 - [x] Document the kernel-defined activation boundaries and remove any metric
   whose semantics cannot be made stable across supported task wait types.

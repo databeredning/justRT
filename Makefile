@@ -230,7 +230,7 @@ qemu-release-test:
 	$(PYTHON) tools/run_qemu_tests.py --quiet-build --build release --timeout 45 --test sync --test stress --test timer_service --test task_suspension
 
 auto-release-test:
-	$(PYTHON) tools/run_tests.py --quiet-build --build release --timeout 20 --test sync --test stress --test timer_service --test task_suspension --test stack_guard --test task_suspension_mpu
+	$(PYTHON) tools/run_tests.py --quiet-build --build release --timeout 20 --test benchmark --test sync --test stress --test timer_service --test task_suspension --test stack_guard --test task_suspension_mpu
 
 config-test:
 	$(PYTHON) tools/test_config_builds.py

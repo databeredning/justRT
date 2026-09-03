@@ -11,7 +11,10 @@ import tempfile
 import time
 from pathlib import Path
 
-import run_tests
+try:
+    from . import run_tests
+except ImportError:
+    import run_tests
 
 
 INFO_RE = re.compile(
@@ -34,9 +37,8 @@ def make_script(duration_ticks: int) -> str:
         f"target remote 127.0.0.1:{run_tests.GDB_PORT}",
         "load",
         "monitor reset",
-        f"set $benchmark_stop_tick = g_kernel_ticks + {duration_ticks}",
-        "watch g_kernel_ticks",
-        "condition $bpnum g_kernel_ticks >= $benchmark_stop_tick",
+        "break tick_tasks",
+        f"ignore $bpnum {duration_ticks - 1}",
         "continue",
         'printf "JRT_BENCHMARK_INFO enabled=%u tasks=%u frequency=%u\\n", benchmark_cycle_counter_available, benchmark_task_count, benchmark_cycle_frequency_hz',
         "set $benchmark_index = 0",
