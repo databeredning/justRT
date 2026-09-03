@@ -224,7 +224,7 @@ auto-test:
 	$(PYTHON) tools/run_tests.py --quiet-build --timeout 20
 
 qemu-test:
-	$(PYTHON) tools/run_qemu_tests.py --quiet-build
+	$(PYTHON) tools/run_qemu_tests.py --quiet-build --timeout 45
 
 qemu-release-test:
 	$(PYTHON) tools/run_qemu_tests.py --quiet-build --build release --timeout 45 --test sync --test stress --test timer_service --test task_suspension
