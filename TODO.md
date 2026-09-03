@@ -369,6 +369,8 @@ across applications:
 - [ ] Compile all counters, timestamps, cycle-counter setup, and public
   benchmark APIs out when the feature is disabled.
 - [x] Add configuration validation that accepts only `0` or `1`.
+- [x] Reject benchmark enablement unless the selected target declares a
+  supported cycle counter.
 - [ ] Confirm the disabled build has no task-structure growth, cycle reads, or
   scheduler hot-path branches after optimization.
 

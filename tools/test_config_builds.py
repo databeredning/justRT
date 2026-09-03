@@ -85,6 +85,11 @@ CASES = (
         ("JRT_ENABLE_TASK_BENCHMARK=2U",),
         "must be 0 or 1",
     ),
+    ConfigCase(
+        "benchmark_unsupported_target",
+        ("JRT_ENABLE_TASK_BENCHMARK=1U", "JRT_ARCH_HAS_DWT_CYCCNT=0U"),
+        "requires a supported cycle counter",
+    ),
 )
 
 
@@ -95,6 +100,7 @@ def run_case(case: ConfigCase) -> tuple[bool, str]:
         "-mthumb",
         "-DJRT_ARCH_FPU_CONTEXT=1",
         "-DJRT_ARCH_HAS_MPU=1",
+        "-DJRT_ARCH_HAS_DWT_CYCCNT=1",
         "-ffreestanding",
         "-fsyntax-only",
         "-x",

@@ -6,6 +6,10 @@
 #include "JRTConfig.h"
 #include "sync.h"
 
+#ifndef JRT_ARCH_HAS_DWT_CYCCNT
+#define JRT_ARCH_HAS_DWT_CYCCNT 0U
+#endif
+
 #if JRT_CORE_CLOCK_HZ == 0UL
 #error "JRT_CORE_CLOCK_HZ must be greater than zero"
 #endif
@@ -91,6 +95,12 @@
 #endif
 #if (JRT_ENABLE_TASK_BENCHMARK != 0U) && (JRT_ENABLE_TASK_BENCHMARK != 1U)
 #error "JRT_ENABLE_TASK_BENCHMARK must be 0 or 1"
+#endif
+#if (JRT_ARCH_HAS_DWT_CYCCNT != 0U) && (JRT_ARCH_HAS_DWT_CYCCNT != 1U)
+#error "JRT_ARCH_HAS_DWT_CYCCNT must be 0 or 1"
+#endif
+#if JRT_ENABLE_TASK_BENCHMARK && !JRT_ARCH_HAS_DWT_CYCCNT
+#error "JRT_ENABLE_TASK_BENCHMARK requires a supported cycle counter"
 #endif
 #define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define JRT_TASK_ID_SELF UINT32_MAX
