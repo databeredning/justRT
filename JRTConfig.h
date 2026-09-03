@@ -39,4 +39,8 @@
 #define JRT_ENABLE_TEST_HOOKS 0U
 #endif
 
+#ifndef JRT_ENABLE_TASK_BENCHMARK
+#define JRT_ENABLE_TASK_BENCHMARK 0U
+#endif
+
 #endif

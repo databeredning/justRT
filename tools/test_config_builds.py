@@ -76,6 +76,15 @@ CASES = (
         "exceeds JRT_MAX_TASK_PRIORITY",
     ),
     ConfigCase("invalid_test_hook_setting", ("JRT_ENABLE_TEST_HOOKS=2U",), "must be 0 or 1"),
+    ConfigCase(
+        "benchmark_enabled",
+        ("JRT_ENABLE_TASK_BENCHMARK=1U",),
+    ),
+    ConfigCase(
+        "invalid_benchmark_setting",
+        ("JRT_ENABLE_TASK_BENCHMARK=2U",),
+        "must be 0 or 1",
+    ),
 )
 
 

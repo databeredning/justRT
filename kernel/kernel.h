@@ -89,6 +89,9 @@
 #if (JRT_ENABLE_TEST_HOOKS != 0U) && (JRT_ENABLE_TEST_HOOKS != 1U)
 #error "JRT_ENABLE_TEST_HOOKS must be 0 or 1"
 #endif
+#if (JRT_ENABLE_TASK_BENCHMARK != 0U) && (JRT_ENABLE_TASK_BENCHMARK != 1U)
+#error "JRT_ENABLE_TASK_BENCHMARK must be 0 or 1"
+#endif
 #define JRT_TASK_FLAG_UNPRIVILEGED (1UL << 0)
 #define JRT_TASK_ID_SELF UINT32_MAX
 #define KERNEL_PRIVILEGED __attribute__((section(".privileged_functions")))

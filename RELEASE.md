@@ -42,6 +42,7 @@ are summarized below; the default values are the release reference values.
 | `JRT_MAX_TASK_PRIORITY` | 31 | Nonzero and fits `uint32_t` |
 | `JRT_TIMER_SERVICE_PRIORITY` | 1 | Above idle priority and no greater than the configured maximum |
 | `JRT_ENABLE_TEST_HOOKS` | 0 | Either 0 or 1; production release uses 0 |
+| `JRT_ENABLE_TASK_BENCHMARK` | 0 | Either 0 or 1; production release uses 0 |
 
 Passing compile-time checks proves that a value is representable, not that it
 is suitable for a particular application. The application must size every
