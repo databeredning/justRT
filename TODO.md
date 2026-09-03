@@ -291,6 +291,356 @@ further expansion of the kernel API.
 
 </details>
 
+## Planned milestone: kernel task benchmarking
+
+Implement task benchmarking as a standalone optional justRT kernel module so
+every configured task is represented automatically and an external runner can
+produce one consistent per-task timing grid. Keep the first version
+deliberately small; it should answer whether a task keeps up with its releases
+and how much of its configured period it consumes, without becoming a general
+tracing system or requiring application-specific instrumentation.
+
+Current status: the feature gate is complete and task period configuration is
+in progress. Runtime benchmark storage, cycle measurement, accounting, APIs,
+reporting, and regression coverage have not started.
+
+### First-version result
+
+The kernel shall expose one stable snapshot entry for every configured
+application task, plus the kernel timer-service task when enabled. Task names
+and the number of rows shall come from the active `JRT_KernelConfig_t`; no
+application-specific task table or fixed task-name list shall be required by
+the benchmark runner.
+
+The first report grid should contain only:
+
+| Column | Kernel value or calculation | Purpose |
+|---|---|---|
+| Task | Configured task name | Identifies the row. |
+| Releases | `release_count` | Number of benchmarked activations made ready. |
+| Runs | `completion_count` | Number of activations that subsequently completed by blocking, sleeping, or suspending. |
+| Pending | `release_count - completion_count - coalesced_count`, saturated at zero | Shows work released but not completed at snapshot time. |
+| Coalesced | `coalesced_count` | Shows releases merged into an already-pending notification or activation. |
+| Release max | `max_release_latency_cycles` converted to time | Worst delay from release to first execution. |
+| Execution max | `max_activation_cycles` converted to time | Worst elapsed activation time from first execution until the task blocks again, including preemption. |
+| Budget | `max_activation_cycles / period_cycles * 100` | Shows the worst observed use of the task's configured time slot. |
+| Stack max | `used_stack_words / stack_words * 100` | Shows the maximum observed stack usage and remaining stack margin. Display used/configured words and percentage. |
+| Result | Derived by the runner | `PASS` when there is no coalescing and maximum activation time is below the configured period; otherwise `CHECK`. |
+
+Do not initially add averages, histograms, per-ISR attribution, dispatch phase,
+callback duration, standard deviation, or CPU-load percentages. Those can be
+added later only when a concrete diagnostic need exists.
+
+### Measurement semantics
+
+Define the semantics before adding counters so the same numbers remain useful
+across applications:
+
+1. A release occurs when a blocked or sleeping task becomes ready because of
+   a notification, synchronization object, timeout, delay expiry, resume, or
+   internal timer-service wake-up.
+2. Release latency starts at that blocked-to-ready transition and ends the
+   first time the released task is selected to run.
+3. An activation starts at that first selection and completes when the task
+   next blocks, sleeps, or is suspended. Ordinary preemption does not complete
+   the activation.
+4. Activation elapsed time includes time spent preempted. This is intentional:
+   it measures consumption of the scheduling slot represented by
+   `Execution max` and `Budget`. Pure CPU execution time is not part of the
+   first version.
+5. A notification added while the task already has an unconsumed notification
+   is a coalesced release. Preserve the notification API's existing arithmetic
+   and count the condition without changing scheduling behavior.
+6. A task that is READY at kernel start has no timed release. Begin measuring
+   it only after its first block and subsequent wake. Idle is excluded from
+   the first report because it has no application period or activation model.
+7. Period usage is available only for tasks with a nonzero benchmark period.
+   A task without a configured period still reports counts and times, while
+   its Budget and deadline Result are shown as `N/A`.
+8. Stack max uses the kernel's existing stack-fill high-water measurement. It
+   is the greatest observed stack usage, not the stack depth at snapshot time.
+   Report both used/configured words and percentage; do not add a second stack
+   scanner or duplicate the existing high-water accounting.
+
+### Step 1: add a compile-time feature gate
+
+- [x] Add `JRT_ENABLE_TASK_BENCHMARK` to `JRTConfig.h`, defaulting to `0`.
+- [ ] Compile all counters, timestamps, cycle-counter setup, and public
+  benchmark APIs out when the feature is disabled.
+- [x] Add configuration validation that accepts only `0` or `1`.
+- [ ] Confirm the disabled build has no task-structure growth, cycle reads, or
+  scheduler hot-path branches after optimization.
+
+Suggested commit: `config: add optional task benchmark feature`
+
+### Step 2: configure each task's time slot
+
+The kernel cannot derive an intended period from task priority, notification
+traffic, or `JRT_TaskDelayUntil()` calls. Add one optional benchmark-only field
+to `JRT_TaskDefinition_t`, expressed in kernel ticks:
+
+```c
+uint32_t benchmark_period_ticks;
+```
+
+- [x] Extend the task-definition macros so existing definitions default the
+  field to zero and remain source-compatible.
+- [x] Allow applications that want Budget reporting to specify the period
+  explicitly, preferably through a named initializer or an additional task
+  definition macro rather than positional initialization.
+- [ ] Convert the period to cycles when the kernel initializes benchmarking:
+  `period_cycles = benchmark_period_ticks * core_clock_hz / JRT_TICK_RATE_HZ`.
+- [ ] Use 64-bit intermediate arithmetic and reject or mark unavailable any
+  period that cannot be represented safely.
+- [ ] Give the internal timer-service task a zero period initially. Its timing
+  may still be reported, but it has no single application scheduling slot.
+
+Suggested commit: `kernel: configure optional task benchmark periods`
+
+### Step 3: add a minimal kernel-owned record
+
+Add a benchmark record indexed by scheduler task ID. Prefer a separate array
+over enlarging `task_t`, because the feature can then disappear completely
+from production builds:
+
+```c
+typedef struct
+{
+    uint32_t release_count;
+    uint32_t completion_count;
+    uint32_t coalesced_count;
+    uint32_t release_cycle;
+    uint32_t activation_start_cycle;
+    uint32_t max_release_latency_cycles;
+    uint32_t max_activation_cycles;
+    uint32_t period_cycles;
+    uint8_t release_pending;
+    uint8_t activation_active;
+} JRT_TaskBenchmarkRecord_t;
+```
+
+- [ ] Allocate `JRT_MAX_SCHEDULER_TASKS` records statically in privileged
+  kernel data; do not allocate memory dynamically.
+- [ ] Initialize only the active `task_count` entries during
+  `JRT_KernelInit()` and clear all timestamps and maxima deterministically.
+- [ ] Keep task name, priority, and state in their existing owners. The public
+  snapshot API can combine those values with the benchmark record instead of
+  duplicating them.
+- [ ] Reuse `task_t.high_water_words` and the configured stack size for the
+  basic stack benchmark. Do not add stack fields to the benchmark record or
+  perform an additional stack scan.
+- [ ] Define all 32-bit counters as wrapping diagnostic counters. Timing
+  differences must use unsigned subtraction so a single DWT wrap is handled.
+- [ ] State that one measured activation must be shorter than one full
+  32-bit-cycle-counter wrap; reject benchmarking at initialization if no
+  supported cycle source is available.
+
+Suggested commit: `kernel: add per-task benchmark records`
+
+### Step 4: provide a portable cycle-counter boundary
+
+- [ ] Add `arch_cycle_counter_init()`, `arch_cycle_counter_available()`, and
+  `arch_cycle_counter_read()` to the port contract.
+- [ ] Implement the Cortex-M version with DWT `CYCCNT`, enabling trace and the
+  counter once during kernel initialization rather than in application code.
+- [ ] Record the cycle frequency used for conversion in benchmark metadata.
+- [ ] Keep raw values in cycles inside the kernel. Convert to microseconds,
+  milliseconds, and percentages in the host runner to avoid floating-point
+  work in the target.
+- [ ] Define QEMU behavior explicitly: use DWT if the selected machine models
+  it reliably; otherwise return unavailable and test counter logic with a
+  deterministic fake cycle source in a unit profile.
+
+Suggested commit: `port: expose benchmark cycle counter`
+
+### Step 5: centralize release accounting
+
+Create small internal helpers called only while the kernel critical section is
+held:
+
+```c
+task_benchmark_release_locked(task_id, now, coalesced);
+task_benchmark_start_locked(task_id, now);
+task_benchmark_complete_locked(task_id, now);
+```
+
+- [ ] Call the release helper at every state transition that makes a task
+  READY from BLOCKED, SLEEPING, or SUSPENDED. Centralize this in existing
+  transition helpers such as `task_wait_end()` where possible so individual
+  semaphore, queue, mutex, event, notification, and timeout paths cannot drift.
+- [ ] Instrument delay expiry in the SysTick task-state update path.
+- [ ] Instrument explicit task resume and the internal timer-service wake.
+- [ ] In `task_notify_common()`, count a coalesced release when notification
+  data arrives while an earlier notification remains pending. Do not treat
+  integer notification values as release counts unless that is already the
+  documented API semantic.
+- [ ] Save `release_cycle` only for the oldest outstanding activation. A later
+  coalesced release must not overwrite it and hide the true latency.
+- [ ] Saturate the derived Pending value at zero in snapshots so counter wrap
+  or an in-progress transition cannot produce a misleading large value.
+
+Suggested commit: `kernel: account task releases and coalescing`
+
+### Step 6: measure activation start and completion
+
+- [ ] In the scheduler, when a released task is selected for its first run,
+  calculate `now - release_cycle`, update
+  `max_release_latency_cycles`, save `activation_start_cycle`, and mark the
+  activation active.
+- [ ] Do not restart the activation timestamp when the same task resumes after
+  ordinary preemption or round-robin scheduling.
+- [ ] Immediately before a running task changes to BLOCKED, SLEEPING, or
+  SUSPENDED, calculate `now - activation_start_cycle`, update
+  `max_activation_cycles`, increment `completion_count`, and clear the active
+  flags.
+- [ ] Audit every task state assignment in `task.c` and route relevant
+  transitions through common helpers. Document exclusions such as fatal stop
+  and kernel shutdown.
+- [ ] Ensure timestamp reads and record updates occur inside the existing
+  critical section and do not introduce an additional scheduler lock.
+- [ ] Measure and record the added scheduler overhead in a dedicated test, but
+  do not add that overhead measurement to the normal per-task grid.
+
+Suggested commit: `scheduler: measure task activation latency and duration`
+
+### Step 7: expose dynamic snapshot APIs
+
+Add public read-only APIs rather than requiring applications or runners to
+depend on private `task_t` layout:
+
+```c
+typedef struct
+{
+    uint32_t release_count;
+    uint32_t completion_count;
+    uint32_t pending_count;
+    uint32_t coalesced_count;
+    uint32_t max_release_latency_cycles;
+    uint32_t max_activation_cycles;
+    uint32_t period_cycles;
+    uint32_t stack_words;
+    uint32_t used_stack_words;
+} JRT_TaskBenchmarkInfo_t;
+
+typedef struct
+{
+    uint32_t enabled;
+    uint32_t task_count;
+    uint32_t cycle_frequency_hz;
+} JRT_BenchmarkInfo_t;
+
+JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info);
+JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id, JRT_TaskBenchmarkInfo_t *info);
+JRT_Status_t JRT_BenchmarkReset(void);
+```
+
+- [ ] Make `task_count` dynamic and return entries by task ID. The runner shall
+  iterate from zero to `task_count - 1` and obtain names with
+  `JRT_TaskGetName()` or a combined snapshot API.
+- [ ] Copy a snapshot inside one short critical section. Never expose a
+  writable pointer to kernel-owned records.
+- [ ] Populate `stack_words` and `used_stack_words` from the same task stack
+  metadata used by `JRT_TaskGetStackInfo()` so the benchmark snapshot is
+  internally consistent and requires only one task query per report row.
+- [ ] Define whether internal tasks are included. Recommended: include the
+  timer-service task, exclude idle, and expose flags so the runner can label
+  application versus internal rows.
+- [ ] Restrict reset to privileged task context. Reset counters and maxima
+  atomically while preserving an active release/activation timestamp so the
+  next completion cannot use a timestamp from before the reset.
+- [ ] Keep debugger-visible metadata and the record array in named globals if
+  practical, allowing a halted debugger to inspect them even when the target
+  application does not call the APIs.
+
+Suggested commit: `api: expose dynamic task benchmark snapshots`
+
+### Step 8: create one generic report runner
+
+- [ ] Extend the existing justRT GDB automation with a benchmark mode rather
+  than adding an application-specific parser to the kernel repository.
+- [ ] Reset the benchmark, run for a configured duration, halt once, read
+  benchmark metadata, iterate the reported task count, and resolve every task
+  name dynamically.
+- [ ] Generate the compact grid defined above. Convert cycles using
+  `cycle_frequency_hz`:
+  `microseconds = cycles * 1000000 / cycle_frequency_hz` and
+  `milliseconds = cycles * 1000 / cycle_frequency_hz`.
+- [ ] Calculate Budget only when `period_cycles != 0`:
+  `budget_percent = max_activation_cycles * 100 / period_cycles`.
+- [ ] Calculate Stack max when `stack_words != 0`:
+  `stack_percent = used_stack_words * 100 / stack_words`, using 64-bit
+  intermediate arithmetic. Display `used_stack_words/stack_words` and the
+  percentage so a small stack is not hidden by percentage rounding.
+- [ ] Mark `CHECK` for nonzero coalescing or Budget at or above 100%. Show a
+  pending activation separately, because stopping between release and run is
+  not automatically a failure.
+- [ ] Write both console output and a stable Markdown result. Keep raw cycle
+  values accessible in verbose output for debugging and reproducibility.
+- [ ] Keep target details outside the benchmark parser. Supply ELF path,
+  debugger server, device/interface, runtime, and output path through command
+  line options or a small target configuration.
+
+Suggested commit: `tools: report dynamic per-task benchmark results`
+
+### Step 9: regression coverage
+
+- [ ] Add a deterministic profile with at least three application tasks using
+  different periods and priorities.
+- [ ] Verify task enumeration, names, configured periods, and exclusion of
+  unused static task slots.
+- [ ] Verify release and completion counts for delay, notification,
+  synchronization wake, timeout, resume, and timer-service wake paths.
+- [ ] Force one notification coalescence and prove the oldest release
+  timestamp is retained.
+- [ ] Force known release latency and activation duration with a fake cycle
+  counter, including unsigned subtraction across counter wrap.
+- [ ] Halt with one task pending and prove Pending is reported without a false
+  coalescing failure.
+- [ ] Verify reset during idle, pending release, and active activation.
+- [ ] Exercise known stack depths and verify Stack max is monotonic, agrees
+  with `JRT_TaskGetStackInfo()`, and never exceeds the configured stack size.
+- [ ] Verify benchmark reset clears timing/counter maxima but does not erase
+  the kernel's lifetime stack high-water value.
+- [ ] Run disabled-build size and scheduler-overhead comparisons.
+- [ ] Run the QEMU suite and then the complete S32K312 hardware suite, checking
+  the generated dynamic report against the deterministic task-profile
+  expectations.
+
+Suggested commit: `test: validate kernel task benchmarking`
+
+### Step 10: standalone integration and documentation
+
+- [ ] Keep the module self-contained behind a benchmark header and internal
+  implementation boundary. Application code shall need only the optional task
+  period configuration; it shall not call start/stop timing hooks around task
+  bodies.
+- [ ] Provide a minimal example configuration with periodic, event-driven, and
+  internal tasks to demonstrate dynamic enumeration and `N/A` Budget handling.
+- [ ] Document the kernel-defined activation boundaries and remove any metric
+  whose semantics cannot be made stable across supported task wait types.
+- [ ] Document configuration, timing semantics, overhead, counter-wrap limit,
+  debugger usage, snapshot API usage, and interpretation of Pending,
+  Coalesced, Execution max, Budget, and Stack max.
+- [ ] Publish the generic runner independently of any product build system;
+  board repositories may wrap it in their own make targets without changing
+  the justRT benchmark module or report parser.
+
+Acceptance criteria:
+
+1. Adding or removing an application task changes the report automatically;
+   no runner source change is needed.
+2. Every configured application task appears by name, and unused task slots do
+   not appear.
+3. The grid identifies missed/coalesced activations and shows maximum slot and
+   stack usage with no application-side timing calls.
+4. Feature-disabled production builds have no benchmark storage or scheduler
+   overhead.
+5. QEMU and S32K312 regression suites pass, and repeated fixed-duration runs
+   produce counts and timing bounds consistent with the deterministic test
+   profiles.
+
+Suggested release: `v0.10.0-task-benchmarking`
+
 ## Optional later milestone
 
 Consider task deletion or static-slot reactivation only when an application

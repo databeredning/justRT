@@ -115,6 +115,12 @@ typedef void (*JRT_TaskEntry_t)(void *argument);
 #define JRT_TASK_STACK_WORD_COUNT(name) \
 	((uint32_t)(sizeof((name).words) / sizeof((name).words[0])))
 #define JRT_TASK_STACK_GUARD(name) ((void *)&(name).guard[0])
+#if JRT_ENABLE_TASK_BENCHMARK
+#define JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(period_ticks) \
+	.benchmark_period_ticks = (period_ticks),
+#else
+#define JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(period_ticks)
+#endif
 #define JRT_TASK_DEFINITION(entry_function, task_argument, stack_name,       \
 		task_priority, task_name, task_flags)                                  \
 	{                                                                        \
@@ -127,7 +133,24 @@ typedef void (*JRT_TaskEntry_t)(void *argument);
 		.name = (task_name),                                                   \
 		.flags = (task_flags),                                                 \
 		.private_data_base = 0U,                                               \
-		.private_data_size = 0U                                                \
+		.private_data_size = 0U,                                               \
+		JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(0U)                              \
+	}
+
+#define JRT_TASK_DEFINITION_WITH_PERIOD(entry_function, task_argument,      \
+		stack_name, task_priority, task_name, task_flags, period_ticks)         \
+	{                                                                        \
+		.entry = (entry_function),                                             \
+		.argument = (task_argument),                                           \
+		.stack_buffer = JRT_TASK_STACK_BUFFER(stack_name),                     \
+		.stack_words = JRT_TASK_STACK_WORD_COUNT(stack_name),                  \
+		.stack_guard = JRT_TASK_STACK_GUARD(stack_name),                       \
+		.priority = (task_priority),                                           \
+		.name = (task_name),                                                   \
+		.flags = (task_flags),                                                 \
+		.private_data_base = 0U,                                               \
+		.private_data_size = 0U,                                               \
+		JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(period_ticks)                    \
 	}
 
 #define JRT_TASK_DEFINITION_WITH_PRIVATE_DATA(entry_function, task_argument, \
@@ -142,7 +165,25 @@ typedef void (*JRT_TaskEntry_t)(void *argument);
 		.name = (task_name),                                                   \
 		.flags = (task_flags),                                                 \
 		.private_data_base = (void *)&(private_object),                        \
-		.private_data_size = (uint32_t)sizeof(private_object)                  \
+		.private_data_size = (uint32_t)sizeof(private_object),                  \
+		JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(0U)                              \
+	}
+
+#define JRT_TASK_DEFINITION_WITH_PRIVATE_DATA_AND_PERIOD(                   \
+		entry_function, task_argument, stack_name, task_priority, task_name,   \
+		task_flags, private_object, period_ticks)                               \
+	{                                                                        \
+		.entry = (entry_function),                                             \
+		.argument = (task_argument),                                           \
+		.stack_buffer = JRT_TASK_STACK_BUFFER(stack_name),                     \
+		.stack_words = JRT_TASK_STACK_WORD_COUNT(stack_name),                  \
+		.stack_guard = JRT_TASK_STACK_GUARD(stack_name),                       \
+		.priority = (task_priority),                                           \
+		.name = (task_name),                                                   \
+		.flags = (task_flags),                                                 \
+		.private_data_base = (void *)&(private_object),                        \
+		.private_data_size = (uint32_t)sizeof(private_object),                  \
+		JRT_TASK_BENCHMARK_PERIOD_INITIALIZER(period_ticks)                    \
 	}
 
 typedef struct
@@ -157,6 +198,9 @@ typedef struct
 	uint32_t flags;
 	void *private_data_base;
 	uint32_t private_data_size;
+#if JRT_ENABLE_TASK_BENCHMARK
+	uint32_t benchmark_period_ticks;
+#endif
 } JRT_TaskDefinition_t;
 
 typedef struct
