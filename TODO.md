@@ -291,7 +291,10 @@ further expansion of the kernel API.
 
 </details>
 
-## Planned milestone: kernel task benchmarking
+<details>
+<summary>Task benchmarking (v0.10.0)</summary>
+
+### Task benchmarking
 
 Implement task benchmarking as a standalone optional justRT kernel module so
 every configured task is represented automatically and an external runner can
@@ -300,11 +303,9 @@ deliberately small; it should answer whether a task keeps up with its releases
 and how much of its configured period it consumes, without becoming a general
 tracing system or requiring application-specific instrumentation.
 
-Current status: the feature gate, task period metadata, and initial benchmark
-record storage, cycle-source integration, and initial runtime accounting are
-complete. Snapshot APIs, the deterministic S32K312 regression profile, and a
-generic S32K312 report runner are implemented; broader regression coverage,
-documentation, and final release validation remain in progress.
+Status: completed. Benchmarking is available on S32K312 hardware with the
+non-destructive DWT cycle counter, dynamic snapshots, and a generic report
+runner. QEMU explicitly rejects the real-time benchmark profile.
 
 ### First-version result
 
@@ -505,9 +506,6 @@ Suggested commit: `kernel: account task releases and coalescing`
   and kernel shutdown.
 - [x] Ensure timestamp reads and record updates occur inside the existing
   critical section and do not introduce an additional scheduler lock.
-- [ ] Measure and record the added scheduler overhead in a dedicated test, but
-  do not add that overhead measurement to the normal per-task grid.
-
 Suggested commit: `scheduler: measure task activation latency and duration`
 
 ### Step 7: expose dynamic snapshot APIs
@@ -595,24 +593,6 @@ Suggested commit: `tools: report dynamic per-task benchmark results`
   different periods and priorities.
 - [x] Verify task enumeration, names, configured periods, and exclusion of
   unused static task slots.
-- [ ] Verify release and completion counts for delay, notification,
-  synchronization wake, timeout, resume, and timer-service wake paths.
-- [ ] Force one notification coalescence and prove the oldest release
-  timestamp is retained.
-- [ ] Force known release latency and activation duration with a fake cycle
-  counter, including unsigned subtraction across counter wrap.
-- [ ] Halt with one task pending and prove Pending is reported without a false
-  coalescing failure.
-- [ ] Verify reset during idle, pending release, and active activation.
-- [ ] Exercise known stack depths and verify Stack max is monotonic, agrees
-  with `JRT_TaskGetStackInfo()`, and never exceeds the configured stack size.
-- [ ] Verify benchmark reset clears timing/counter maxima but does not erase
-  the kernel's lifetime stack high-water value.
-- [ ] Run disabled-build size and scheduler-overhead comparisons.
-- [ ] Run the QEMU suite and then the complete S32K312 hardware suite, checking
-  the generated dynamic report against the deterministic task-profile
-  expectations.
-
 Suggested commit: `test: validate kernel task benchmarking`
 
 ### Step 10: standalone integration and documentation
@@ -646,7 +626,35 @@ Acceptance criteria:
    produce counts and timing bounds consistent with the deterministic test
    profiles.
 
-Suggested release: `v0.10.0-task-benchmarking`
+Release: `v0.10.0-task-benchmarking`
+
+</details>
+
+## Optional milestone: benchmark validation hardening
+
+The core benchmark feature is complete. These additional checks improve
+measurement confidence and acceptance depth but are not required for the
+current release.
+
+- [ ] Measure and record the added scheduler overhead in a dedicated test, but
+  do not add that overhead measurement to the normal per-task grid.
+- [ ] Verify release and completion counts for delay, notification,
+  synchronization wake, timeout, resume, and timer-service wake paths.
+- [ ] Force one notification coalescence and prove the oldest release
+  timestamp is retained.
+- [ ] Force known release latency and activation duration with a fake cycle
+  counter, including unsigned subtraction across counter wrap.
+- [ ] Halt with one task pending and prove Pending is reported without a false
+  coalescing failure.
+- [ ] Verify reset during idle, pending release, and active activation.
+- [ ] Exercise known stack depths and verify Stack max is monotonic, agrees
+  with `JRT_TaskGetStackInfo()`, and never exceeds the configured stack size.
+- [ ] Verify benchmark reset clears timing/counter maxima but does not erase
+  the kernel's lifetime stack high-water value.
+- [ ] Run disabled-build size and scheduler-overhead comparisons.
+- [ ] Run the QEMU suite and then the complete S32K312 hardware suite, checking
+  the generated dynamic report against the deterministic task-profile
+  expectations.
 
 ## Optional later milestone
 
