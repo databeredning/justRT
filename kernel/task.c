@@ -278,6 +278,18 @@ uint32_t *task_current_sp(void)
     return current_task->sp;
 }
 
+#if JRT_ENABLE_TASK_BENCHMARK
+uint32_t task_benchmark_get_task_flags(uint32_t task_id)
+{
+    return tasks[task_id].flags;
+}
+
+int task_benchmark_is_task_context(void)
+{
+    return (kernel_started != 0U) && (arch_in_isr() == 0);
+}
+#endif
+
 uint32_t task_current_control(void)
 {
     return ((current_task->flags & JRT_TASK_FLAG_UNPRIVILEGED) != 0U)

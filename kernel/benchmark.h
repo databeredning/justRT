@@ -30,6 +30,9 @@ void task_benchmark_complete_locked(uint32_t task_id);
 JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info);
 JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
                                   JRT_TaskBenchmarkInfo_t *info);
+JRT_Status_t JRT_BenchmarkReset(void);
+uint32_t task_benchmark_get_task_flags(uint32_t task_id);
+int task_benchmark_is_task_context(void);
 
 #else
 

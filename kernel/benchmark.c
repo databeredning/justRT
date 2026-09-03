@@ -166,6 +166,7 @@ JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
     info->max_release_latency_cycles = record.max_release_latency_cycles;
     info->max_activation_cycles = record.max_activation_cycles;
     info->period_cycles = record.period_cycles;
+    info->flags = task_benchmark_get_task_flags(task_id);
     if (JRT_TaskGetStackInfo(task_id, &stack_info) != JRT_STATUS_OK)
     {
         arch_critical_exit(saved_primask);
@@ -173,6 +174,40 @@ JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
     }
     info->stack_words = stack_info.stack_words;
     info->used_stack_words = stack_info.used_words;
+    arch_critical_exit(saved_primask);
+    return JRT_STATUS_OK;
+}
+
+JRT_Status_t JRT_BenchmarkReset(void)
+{
+    uint32_t saved_primask;
+    uint32_t index;
+    uint32_t now;
+
+    if (task_benchmark_is_task_context() == 0)
+    {
+        return JRT_STATUS_INVALID_CONTEXT;
+    }
+    saved_primask = arch_critical_enter();
+    now = arch_cycle_counter_read();
+    for (index = 0U; index < benchmark_task_count; index++)
+    {
+        JRT_TaskBenchmarkRecord_t *record = &benchmark_records[index];
+
+        record->release_count = 0U;
+        record->completion_count = 0U;
+        record->coalesced_count = 0U;
+        record->max_release_latency_cycles = 0U;
+        record->max_activation_cycles = 0U;
+        if (record->release_pending != 0U)
+        {
+            record->release_cycle = now;
+        }
+        if (record->activation_active != 0U)
+        {
+            record->activation_start_cycle = now;
+        }
+    }
     arch_critical_exit(saved_primask);
     return JRT_STATUS_OK;
 }

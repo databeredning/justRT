@@ -261,6 +261,7 @@ typedef struct
 	uint32_t max_release_latency_cycles;
 	uint32_t max_activation_cycles;
 	uint32_t period_cycles;
+	uint32_t flags;
 	uint32_t stack_words;
 	uint32_t used_stack_words;
 } JRT_TaskBenchmarkInfo_t;
@@ -349,6 +350,7 @@ JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority) KERNEL_PR
 JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
 	JRT_TaskBenchmarkInfo_t *info) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_BenchmarkReset(void) KERNEL_PRIVILEGED;
 #endif
 JRT_Status_t JRT_TaskSuspend(uint32_t task_id);
 JRT_Status_t JRT_TaskResume(uint32_t task_id);

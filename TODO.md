@@ -302,8 +302,8 @@ tracing system or requiring application-specific instrumentation.
 
 Current status: the feature gate, task period metadata, and initial benchmark
 record storage, cycle-source integration, and initial runtime accounting are
-complete. Snapshot reset semantics, reporting, and regression coverage remain
-in progress.
+complete. Snapshot reset semantics are implemented; reporting and regression
+coverage remain in progress.
 
 ### First-version result
 
@@ -548,10 +548,10 @@ JRT_Status_t JRT_BenchmarkReset(void);
 - [x] Populate `stack_words` and `used_stack_words` from the same task stack
   metadata used by `JRT_TaskGetStackInfo()` so the benchmark snapshot is
   internally consistent and requires only one task query per report row.
-- [ ] Define whether internal tasks are included. Recommended: include the
+- [x] Define whether internal tasks are included. Recommended: include the
   timer-service task, exclude idle, and expose flags so the runner can label
   application versus internal rows.
-- [ ] Restrict reset to privileged task context. Reset counters and maxima
+- [x] Restrict reset to privileged task context. Reset counters and maxima
   atomically while preserving an active release/activation timestamp so the
   next completion cannot use a timestamp from before the reset.
 - [ ] Keep debugger-visible metadata and the record array in named globals if
