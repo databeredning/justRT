@@ -65,6 +65,20 @@ TESTS = (
         ("g_test_boot_argument",),
     ),
     TestCase(
+        "benchmark",
+        "g_test_benchmark.result",
+        (
+            "g_test_benchmark.enumeration_checked",
+            "g_test_benchmark.names_checked",
+            "g_test_benchmark.periods_checked",
+            "g_test_benchmark.reset_checked",
+            "g_test_benchmark.releases_checked",
+            "g_test_benchmark.completions_checked",
+            "g_test_benchmark.timer_service_checked",
+            "g_test_benchmark.error_code",
+        ),
+    ),
+    TestCase(
         "config_runtime",
         "g_test_config_runtime.result",
         (
