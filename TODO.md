@@ -367,12 +367,12 @@ across applications:
 ### Step 1: add a compile-time feature gate
 
 - [x] Add `JRT_ENABLE_TASK_BENCHMARK` to `JRTConfig.h`, defaulting to `0`.
-- [ ] Compile all counters, timestamps, cycle-counter setup, and public
+- [x] Compile all counters, timestamps, cycle-counter setup, and public
   benchmark APIs out when the feature is disabled.
 - [x] Add configuration validation that accepts only `0` or `1`.
 - [x] Reject benchmark enablement unless the selected target declares a
   supported cycle counter.
-- [ ] Confirm the disabled build has no task-structure growth, cycle reads, or
+- [x] Confirm the disabled build has no task-structure growth, cycle reads, or
   scheduler hot-path branches after optimization.
 
 Suggested commit: `config: add optional task benchmark feature`
@@ -430,12 +430,12 @@ typedef struct
 - [x] Keep task name, priority, and state in their existing owners. The public
   snapshot API can combine those values with the benchmark record instead of
   duplicating them.
-- [ ] Reuse `task_t.high_water_words` and the configured stack size for the
+- [x] Reuse `task_t.high_water_words` and the configured stack size for the
   basic stack benchmark. Do not add stack fields to the benchmark record or
   perform an additional stack scan.
-- [ ] Define all 32-bit counters as wrapping diagnostic counters. Timing
+- [x] Define all 32-bit counters as wrapping diagnostic counters. Timing
   differences must use unsigned subtraction so a single DWT wrap is handled.
-- [ ] State that one measured activation must be shorter than one full
+- [x] State that one measured activation must be shorter than one full
   32-bit-cycle-counter wrap; reject benchmarking at initialization if no
   supported cycle source is available.
 
@@ -454,9 +454,9 @@ Suggested commit: `kernel: add per-task benchmark records`
 - [x] Keep raw values in cycles inside the kernel. Convert to microseconds,
   milliseconds, and percentages in the host runner to avoid floating-point
   work in the target.
-- [ ] Define QEMU behavior explicitly: use DWT if the selected machine models
-  it reliably; otherwise return unavailable and test counter logic with a
-  deterministic fake cycle source in a unit profile.
+- [x] Define QEMU behavior explicitly: the real benchmark profile is rejected
+  for the unsupported Cortex-M3 target; QEMU timing support can be added later
+  with a validated DWT or deterministic fake cycle source.
 
 Suggested commit: `port: expose benchmark cycle counter`
 
@@ -500,10 +500,10 @@ Suggested commit: `kernel: account task releases and coalescing`
   SUSPENDED, calculate `now - activation_start_cycle`, update
   `max_activation_cycles`, increment `completion_count`, and clear the active
   flags.
-- [ ] Audit every task state assignment in `task.c` and route relevant
+- [x] Audit every task state assignment in `task.c` and route relevant
   transitions through common helpers. Document exclusions such as fatal stop
   and kernel shutdown.
-- [ ] Ensure timestamp reads and record updates occur inside the existing
+- [x] Ensure timestamp reads and record updates occur inside the existing
   critical section and do not introduce an additional scheduler lock.
 - [ ] Measure and record the added scheduler overhead in a dedicated test, but
   do not add that overhead measurement to the normal per-task grid.
@@ -555,7 +555,7 @@ JRT_Status_t JRT_BenchmarkReset(void);
 - [x] Restrict reset to privileged task context. Reset counters and maxima
   atomically while preserving an active release/activation timestamp so the
   next completion cannot use a timestamp from before the reset.
-- [ ] Keep debugger-visible metadata and the record array in named globals if
+- [x] Keep debugger-visible metadata and the record array in named globals if
   practical, allowing a halted debugger to inspect them even when the target
   application does not call the APIs.
 
@@ -583,7 +583,7 @@ Suggested commit: `api: expose dynamic task benchmark snapshots`
   not automatically a failure.
 - [x] Write both console output and a stable Markdown result. Keep raw cycle
   values accessible in verbose output for debugging and reproducibility.
-- [ ] Keep target details outside the benchmark parser. Supply ELF path,
+- [x] Keep target details outside the benchmark parser. Supply ELF path,
   debugger server, device/interface, runtime, and output path through command
   line options or a small target configuration.
 
@@ -617,18 +617,18 @@ Suggested commit: `test: validate kernel task benchmarking`
 
 ### Step 10: standalone integration and documentation
 
-- [ ] Keep the module self-contained behind a benchmark header and internal
+- [x] Keep the module self-contained behind a benchmark header and internal
   implementation boundary. Application code shall need only the optional task
   period configuration; it shall not call start/stop timing hooks around task
   bodies.
 - [ ] Provide a minimal example configuration with periodic, event-driven, and
   internal tasks to demonstrate dynamic enumeration and `N/A` Budget handling.
-- [ ] Document the kernel-defined activation boundaries and remove any metric
+- [x] Document the kernel-defined activation boundaries and remove any metric
   whose semantics cannot be made stable across supported task wait types.
-- [ ] Document configuration, timing semantics, overhead, counter-wrap limit,
+- [x] Document configuration, timing semantics, overhead, counter-wrap limit,
   debugger usage, snapshot API usage, and interpretation of Pending,
   Coalesced, Execution max, Budget, and Stack max.
-- [ ] Publish the generic runner independently of any product build system;
+- [x] Publish the generic runner independently of any product build system;
   board repositories may wrap it in their own make targets without changing
   the justRT benchmark module or report parser.
 

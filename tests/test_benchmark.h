@@ -14,6 +14,7 @@ typedef struct
     volatile uint32_t reset_checked;
     volatile uint32_t releases_checked;
     volatile uint32_t completions_checked;
+    volatile uint32_t coalescing_checked;
     volatile uint32_t timer_service_checked;
     volatile uint32_t error_code;
 } benchmark_test_state_t;

@@ -15,6 +15,29 @@ static void benchmark_worker(void *argument)
     }
 }
 
+static void benchmark_notification_receiver(void *argument)
+{
+    uint32_t value;
+
+    (void)argument;
+    while (1)
+    {
+        JRT_TaskNotifyTake(&value, JRT_WAIT_FOREVER);
+    }
+}
+
+static void benchmark_notification_sender(void *argument)
+{
+    (void)argument;
+    JRT_TaskDelay(25U);
+    while (1)
+    {
+        JRT_TaskNotify(4U, 1U);
+        JRT_TaskNotify(4U, 1U);
+        JRT_TaskDelay(5U);
+    }
+}
+
 static void benchmark_controller(void *argument)
 {
     JRT_BenchmarkInfo_t benchmark_info;
@@ -29,10 +52,14 @@ static void benchmark_controller(void *argument)
     {
         valid = 0U;
     }
+    else
+    {
+        g_test_benchmark.reset_checked = 1U;
+    }
     JRT_TaskDelay(20U);
     if ((JRT_BenchmarkGetInfo(&benchmark_info) != JRT_STATUS_OK)
         || (benchmark_info.enabled == 0U)
-        || (benchmark_info.task_count != 4U)
+        || (benchmark_info.task_count != 7U)
         || (benchmark_info.cycle_frequency_hz == 0U))
     {
         valid = 0U;
@@ -41,13 +68,15 @@ static void benchmark_controller(void *argument)
     {
         g_test_benchmark.enumeration_checked = 1U;
     }
-    for (index = 0U; index < 3U; index++)
+    for (index = 0U; index < 6U; index++)
     {
         if ((JRT_TaskGetName(index, &name) != JRT_STATUS_OK)
             || (name == 0U)
             || (JRT_BenchmarkGetTask(index, &task_info) != JRT_STATUS_OK)
-            || (task_info.period_cycles == 0U)
-            || (task_info.stack_words == 0U))
+            || (task_info.flags != 0U)
+            || (task_info.stack_words == 0U)
+            || ((index < 3U) && (task_info.period_cycles == 0U))
+            || ((index >= 3U) && (task_info.period_cycles != 0U)))
         {
             valid = 0U;
         }
@@ -57,7 +86,7 @@ static void benchmark_controller(void *argument)
         g_test_benchmark.names_checked = 1U;
         g_test_benchmark.periods_checked = 1U;
     }
-    if ((JRT_BenchmarkGetTask(3U, &task_info) == JRT_STATUS_OK)
+    if ((JRT_BenchmarkGetTask(6U, &task_info) != JRT_STATUS_OK)
         || (task_info.period_cycles != 0U))
     {
         valid = 0U;
@@ -77,12 +106,17 @@ static void benchmark_controller(void *argument)
     {
         valid = 0U;
     }
-    if ((JRT_BenchmarkGetInfo(0U) == JRT_STATUS_INVALID_TASK)
-        && (JRT_BenchmarkGetTask(4U, &task_info) == JRT_STATUS_INVALID_TASK))
+    if ((JRT_BenchmarkGetTask(4U, &task_info) == JRT_STATUS_OK)
+        && (task_info.coalesced_count != 0U))
     {
-        g_test_benchmark.reset_checked = 1U;
+        g_test_benchmark.coalescing_checked = 1U;
     }
     else
+    {
+        valid = 0U;
+    }
+    if ((JRT_BenchmarkGetInfo(0U) != JRT_STATUS_INVALID_TASK)
+        || (JRT_BenchmarkGetTask(7U, &task_info) != JRT_STATUS_INVALID_TASK))
     {
         valid = 0U;
     }
@@ -102,6 +136,8 @@ JRT_DECLARE_STATIC_TASK_STACK(benchmark_worker_a_stack, 128U);
 JRT_DECLARE_STATIC_TASK_STACK(benchmark_worker_b_stack, 128U);
 JRT_DECLARE_STATIC_TASK_STACK(benchmark_worker_c_stack, 128U);
 JRT_DECLARE_STATIC_TASK_STACK(benchmark_controller_stack, 128U);
+JRT_DECLARE_STATIC_TASK_STACK(benchmark_receiver_stack, 128U);
+JRT_DECLARE_STATIC_TASK_STACK(benchmark_sender_stack, 128U);
 
 static const JRT_TaskDefinition_t benchmark_tasks[] = {
     JRT_TASK_DEFINITION_WITH_PERIOD(
@@ -115,7 +151,13 @@ static const JRT_TaskDefinition_t benchmark_tasks[] = {
         1U, "benchmark-c", 0U, 5U),
     JRT_TASK_DEFINITION_WITH_PERIOD(
         benchmark_controller, 0U, benchmark_controller_stack,
-        3U, "benchmark-controller", 0U, 0U)
+        3U, "benchmark-controller", 0U, 0U),
+    JRT_TASK_DEFINITION_WITH_PERIOD(
+        benchmark_notification_receiver, 0U, benchmark_receiver_stack,
+        1U, "benchmark-receiver", 0U, 0U),
+    JRT_TASK_DEFINITION_WITH_PERIOD(
+        benchmark_notification_sender, 0U, benchmark_sender_stack,
+        4U, "benchmark-sender", 0U, 0U)
 };
 
 void test_benchmark_start(void)

@@ -37,6 +37,7 @@ make -B TEST=mutex
 make -B TEST=fpu
 make -B TEST=race
 make -B TEST=timer_service
+make -B TEST=benchmark
 make -B TEST=task_capacity
 make -B TEST=stack_guard
 make -B TEST=private_config
@@ -46,6 +47,7 @@ make -B TEST=config_runtime
 make config-test
 make qemu-release-test
 make auto-release-test
+python tools/run_benchmark.py --duration-ticks 750 --output benchmark.md
 ```
 
 `BUILD=debug` uses `-Og`; `BUILD=release` uses `-O2 -DNDEBUG`. Their objects
@@ -111,6 +113,11 @@ make qemu-test
 The Cortex-M3 target does not support `TEST=fpu`, `TEST=stack_guard`, the two
 `TEST=mpu_isolation_*` hardware profiles, or `TEST=task_suspension_mpu`. See
 [TODO.md](TODO.md) for the remaining work.
+
+Task benchmarking currently requires the S32K312 DWT cycle counter and is
+therefore rejected for the QEMU Cortex-M3 target. The benchmark profile and
+`tools/run_benchmark.py` use the S32K312 hardware runner; QEMU remains useful
+for testing the ordinary kernel regression suite.
 
 ## Repository layout
 

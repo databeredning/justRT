@@ -142,6 +142,32 @@ non-adjacent, overflowing, or overlapping stack/guard ranges. Stack sizes are
 specified in 32-bit words and must be even so the initial exception frame has
 the required 8-byte alignment.
 
+## Task Benchmarking
+
+Task benchmarking is an optional S32K312 diagnostic feature enabled with
+`JRT_ENABLE_TASK_BENCHMARK=1`. The target must declare
+`JRT_ARCH_HAS_DWT_CYCCNT=1`; the QEMU Cortex-M3 target is rejected because its
+DWT cycle-counter behavior is not part of the supported timing contract.
+
+Applications opt into period-based Budget reporting with
+`JRT_TASK_DEFINITION_WITH_PERIOD()` or
+`JRT_TASK_DEFINITION_WITH_PRIVATE_DATA_AND_PERIOD()`. Periods are expressed in
+kernel ticks. A zero period is valid and reports timing without Budget.
+
+The kernel records releases, notification coalescing, first-run latency,
+activation duration including preemption, and existing stack high-water usage.
+Records are exposed through `JRT_BenchmarkGetInfo()` and
+`JRT_BenchmarkGetTask()`. `JRT_BenchmarkReset()` is privileged task-context
+only and rebases active timestamps so post-reset measurements exclude time
+before the reset. Counters wrap at 32 bits; an activation must complete within
+one cycle-counter wrap.
+
+The benchmark initializer enables DWT tracing and cycle counting without
+clearing or reloading `DWT->CYCCNT` or changing unrelated DWT control bits.
+The generic host report is generated with
+`python tools/run_benchmark.py --duration-ticks <ticks>` and converts raw
+cycles to time on the host.
+
 The initial frame contains a saved `EXC_RETURN`, eight software-saved
 registers, and the standard eight-word Cortex-M hardware frame:
 

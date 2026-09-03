@@ -74,6 +74,7 @@ TESTS = (
             "g_test_benchmark.reset_checked",
             "g_test_benchmark.releases_checked",
             "g_test_benchmark.completions_checked",
+            "g_test_benchmark.coalescing_checked",
             "g_test_benchmark.timer_service_checked",
             "g_test_benchmark.error_code",
         ),

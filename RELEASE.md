@@ -94,6 +94,8 @@ Before treating an application image as production-ready:
   alignment. General process-style address spaces are not provided.
 - Software-timer callbacks execute serially in one privileged service task;
   a callback that fails to return prevents later callbacks from running.
+- Task benchmarking is currently supported only on S32K312 hardware with a
+  validated DWT cycle counter. QEMU rejects the real-time benchmark profile.
 - Scheduler selection and several object wait-list operations are linear in
   configured task count. Larger task limits need application-specific timing
   measurement.
@@ -113,6 +115,7 @@ make config-test
 python tools/run_qemu_tests.py --quiet-build --build release
 make auto-test
 make auto-release-test
+python tools/run_benchmark.py --duration-ticks 750 --output benchmark.md
 ```
 
 The GitHub `Release validation` workflow covers the configuration tests, both

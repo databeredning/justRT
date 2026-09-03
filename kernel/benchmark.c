@@ -10,6 +10,7 @@ static JRT_TaskBenchmarkRecord_t
 static uint32_t benchmark_cycle_counter_available KERNEL_PRIVILEGED_DATA;
 static uint32_t benchmark_task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t benchmark_cycle_frequency_hz KERNEL_PRIVILEGED_DATA;
+static uint32_t benchmark_initialized KERNEL_PRIVILEGED_DATA;
 
 static uint64_t divide_u64_u32(uint64_t numerator, uint32_t denominator)
 {
@@ -64,6 +65,7 @@ void task_benchmark_init(uint32_t task_count,
     benchmark_task_count = application_task_count + 1U;
     benchmark_cycle_frequency_hz = benchmark_cycle_counter_available
                                        ? JRT_CORE_CLOCK_HZ : 0U;
+    benchmark_initialized = 0U;
     for (index = 0U; index < task_count; index++)
     {
         clear_record(&benchmark_records[index]);
@@ -73,6 +75,7 @@ void task_benchmark_init(uint32_t task_count,
         benchmark_records[index].period_cycles =
             period_to_cycles(definitions[index].benchmark_period_ticks);
     }
+    benchmark_initialized = 1U;
 }
 
 void task_benchmark_release_locked(uint32_t task_id, int coalesced)
@@ -93,6 +96,14 @@ void task_benchmark_release_locked(uint32_t task_id, int coalesced)
     {
         record->release_cycle = arch_cycle_counter_read();
         record->release_pending = 1U;
+    }
+}
+
+void task_benchmark_coalesced_locked(uint32_t task_id)
+{
+    if (benchmark_cycle_counter_available != 0U)
+    {
+        benchmark_records[task_id].coalesced_count++;
     }
 }
 
@@ -154,6 +165,10 @@ JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info)
     {
         return JRT_STATUS_INVALID_TASK;
     }
+    if (benchmark_initialized == 0U)
+    {
+        return JRT_STATUS_NOT_INITIALIZED;
+    }
     saved_primask = arch_critical_enter();
     info->enabled = benchmark_cycle_counter_available;
     info->task_count = benchmark_task_count;
@@ -173,6 +188,10 @@ JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
     if (info == 0U)
     {
         return JRT_STATUS_INVALID_TASK;
+    }
+    if (benchmark_initialized == 0U)
+    {
+        return JRT_STATUS_NOT_INITIALIZED;
     }
     saved_primask = arch_critical_enter();
     if (task_id >= benchmark_task_count)

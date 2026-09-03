@@ -830,6 +830,10 @@ static int task_notify_common(uint32_t task_id, uint32_t value, int from_isr)
     {
         task_wait_end(&tasks[task_id], 1U, coalesced);
     }
+    else if (coalesced != 0)
+    {
+        task_benchmark_coalesced_locked(task_id);
+    }
     arch_critical_exit(saved_primask);
     arch_request_switch();
     return 1;
