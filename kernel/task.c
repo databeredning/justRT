@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "kernel.h"
+#include "benchmark.h"
 #include "timer.h"
 #include "cortex_m/port_contract.h"
 
@@ -1350,6 +1351,7 @@ JRT_Status_t JRT_KernelInit(const JRT_KernelConfig_t *config)
 
     application_task_count = config->task_count;
     task_count = configured_total_task_count;
+    task_benchmark_init(task_count, config->tasks, config->task_count);
     for (index = 0U; index < config->task_count; index++)
     {
         prepare_task(index, &config->tasks[index]);

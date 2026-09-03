@@ -300,9 +300,9 @@ deliberately small; it should answer whether a task keeps up with its releases
 and how much of its configured period it consumes, without becoming a general
 tracing system or requiring application-specific instrumentation.
 
-Current status: the feature gate is complete and task period configuration is
-in progress. Runtime benchmark storage, cycle measurement, accounting, APIs,
-reporting, and regression coverage have not started.
+Current status: the feature gate, task period metadata, and initial benchmark
+record storage are complete. Cycle-source integration, runtime accounting,
+snapshot APIs, reporting, and regression coverage remain in progress.
 
 ### First-version result
 
@@ -388,11 +388,11 @@ uint32_t benchmark_period_ticks;
 - [x] Allow applications that want Budget reporting to specify the period
   explicitly, preferably through a named initializer or an additional task
   definition macro rather than positional initialization.
-- [ ] Convert the period to cycles when the kernel initializes benchmarking:
+- [x] Convert the period to cycles when the kernel initializes benchmarking:
   `period_cycles = benchmark_period_ticks * core_clock_hz / JRT_TICK_RATE_HZ`.
-- [ ] Use 64-bit intermediate arithmetic and reject or mark unavailable any
+- [x] Use 64-bit intermediate arithmetic and reject or mark unavailable any
   period that cannot be represented safely.
-- [ ] Give the internal timer-service task a zero period initially. Its timing
+- [x] Give the internal timer-service task a zero period initially. Its timing
   may still be reported, but it has no single application scheduling slot.
 
 Suggested commit: `kernel: configure optional task benchmark periods`
@@ -419,11 +419,11 @@ typedef struct
 } JRT_TaskBenchmarkRecord_t;
 ```
 
-- [ ] Allocate `JRT_MAX_SCHEDULER_TASKS` records statically in privileged
+- [x] Allocate `JRT_MAX_SCHEDULER_TASKS` records statically in privileged
   kernel data; do not allocate memory dynamically.
-- [ ] Initialize only the active `task_count` entries during
+- [x] Initialize only the active `task_count` entries during
   `JRT_KernelInit()` and clear all timestamps and maxima deterministically.
-- [ ] Keep task name, priority, and state in their existing owners. The public
+- [x] Keep task name, priority, and state in their existing owners. The public
   snapshot API can combine those values with the benchmark record instead of
   duplicating them.
 - [ ] Reuse `task_t.high_water_words` and the configured stack size for the
