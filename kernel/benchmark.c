@@ -11,13 +11,45 @@ static uint32_t benchmark_cycle_counter_available KERNEL_PRIVILEGED_DATA;
 static uint32_t benchmark_task_count KERNEL_PRIVILEGED_DATA;
 static uint32_t benchmark_cycle_frequency_hz KERNEL_PRIVILEGED_DATA;
 
+static uint64_t divide_u64_u32(uint64_t numerator, uint32_t denominator)
+{
+    uint64_t quotient = 0U;
+    uint64_t remainder = 0U;
+    uint32_t bit;
+
+    for (bit = 64U; bit > 0U; bit--)
+    {
+        remainder = (remainder << 1U) | ((numerator >> (bit - 1U)) & 1U);
+        if (remainder >= denominator)
+        {
+            remainder -= denominator;
+            quotient |= (uint64_t)1U << (bit - 1U);
+        }
+    }
+    return quotient;
+}
+
 static uint32_t period_to_cycles(uint32_t period_ticks)
 {
     uint64_t period_cycles = (uint64_t)period_ticks
                              * (uint64_t)JRT_CORE_CLOCK_HZ;
 
-    period_cycles /= (uint64_t)JRT_TICK_RATE_HZ;
+    period_cycles = divide_u64_u32(period_cycles, JRT_TICK_RATE_HZ);
     return (period_cycles <= UINT32_MAX) ? (uint32_t)period_cycles : 0U;
+}
+
+static void clear_record(JRT_TaskBenchmarkRecord_t *record)
+{
+    record->release_count = 0U;
+    record->completion_count = 0U;
+    record->coalesced_count = 0U;
+    record->release_cycle = 0U;
+    record->activation_start_cycle = 0U;
+    record->max_release_latency_cycles = 0U;
+    record->max_activation_cycles = 0U;
+    record->period_cycles = 0U;
+    record->release_pending = 0U;
+    record->activation_active = 0U;
 }
 
 void task_benchmark_init(uint32_t task_count,
@@ -34,7 +66,7 @@ void task_benchmark_init(uint32_t task_count,
                                        ? JRT_CORE_CLOCK_HZ : 0U;
     for (index = 0U; index < task_count; index++)
     {
-        benchmark_records[index] = (JRT_TaskBenchmarkRecord_t){ 0U };
+        clear_record(&benchmark_records[index]);
     }
     for (index = 0U; index < application_task_count; index++)
     {

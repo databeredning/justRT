@@ -1,5 +1,6 @@
 #include "examples/simple.h"
 #include "tests/test_boot_and_privilege.h"
+#include "tests/test_benchmark.h"
 #include "tests/test_config_runtime.h"
 #include "tests/test_fatal_hook.h"
 #include "tests/test_fpu.h"
@@ -17,6 +18,8 @@ int main(void)
 {
 #if defined(JUSTRT_TEST_BOOT)
     test_boot_and_privilege_start();
+#elif defined(JUSTRT_TEST_BENCHMARK)
+    test_benchmark_start();
 #elif defined(JUSTRT_TEST_CONFIG_RUNTIME)
     test_config_runtime_start();
 #elif defined(JUSTRT_TEST_FATAL_HOOK) || defined(JUSTRT_TEST_FATAL_HOOK_RETURN)

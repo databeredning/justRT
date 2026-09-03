@@ -49,6 +49,11 @@ TEST ?= simple
 ifeq ($(TEST),simple)
 else ifeq ($(TEST),boot)
 CFLAGS += -DJUSTRT_TEST_BOOT=1
+else ifeq ($(TEST),benchmark)
+ifneq ($(TARGET),s32k312)
+$(error TEST=benchmark requires TARGET=s32k312)
+endif
+CFLAGS += -DJUSTRT_TEST_BENCHMARK=1 -DJRT_ENABLE_TASK_BENCHMARK=1
 else ifeq ($(TEST),config_runtime)
 CFLAGS += -DJUSTRT_TEST_CONFIG_RUNTIME=1 -DJRT_TICK_RATE_HZ=1024UL
 else ifeq ($(TEST),fatal_hook)
@@ -97,11 +102,11 @@ $(error TEST=task_suspension_mpu requires TARGET=s32k312)
 endif
 CFLAGS += -DJUSTRT_TEST_TASK_SUSPENSION_MPU=1
 else
-$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=config_runtime, TEST=fatal_hook, TEST=fatal_hook_return, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=stress, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
+$(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=benchmark, TEST=config_runtime, TEST=fatal_hook, TEST=fatal_hook_return, TEST=sync, TEST=mutex, TEST=fpu, TEST=race, TEST=stress, TEST=timer_service, TEST=task_capacity, TEST=stack_guard, TEST=private_config, TEST=mpu_isolation_read, TEST=mpu_isolation_write, TEST=task_suspension, or TEST=task_suspension_mpu)
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(OPTFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_config_runtime.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/benchmark.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_benchmark.o tests/test_config_runtime.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/benchmark.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
 $(OBJS): JRTConfig.h
 
@@ -129,6 +134,9 @@ $(OBJDIR)/main.o: main.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/tests/test_boot_and_privilege.o: tests/test_boot_and_privilege.c tests/test_boot_and_privilege.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
+	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
+
+$(OBJDIR)/tests/test_benchmark.o: tests/test_benchmark.c tests/test_benchmark.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests
 	$(CC) $(CFLAGS) -Ikernel -Itests -c $< -o $@
 
 $(OBJDIR)/tests/test_config_runtime.o: tests/test_config_runtime.c tests/test_config_runtime.h tests/test_common.h kernel/kernel.h | $(OBJDIR)/tests

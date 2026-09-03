@@ -302,8 +302,8 @@ tracing system or requiring application-specific instrumentation.
 
 Current status: the feature gate, task period metadata, and initial benchmark
 record storage, cycle-source integration, and initial runtime accounting are
-complete. Snapshot reset semantics are implemented; reporting and regression
-coverage remain in progress.
+complete. Snapshot APIs and the deterministic S32K312 regression profile are
+implemented; reporting and broader regression coverage remain in progress.
 
 ### First-version result
 
@@ -590,9 +590,9 @@ Suggested commit: `tools: report dynamic per-task benchmark results`
 
 ### Step 9: regression coverage
 
-- [ ] Add a deterministic profile with at least three application tasks using
+- [x] Add a deterministic profile with at least three application tasks using
   different periods and priorities.
-- [ ] Verify task enumeration, names, configured periods, and exclusion of
+- [x] Verify task enumeration, names, configured periods, and exclusion of
   unused static task slots.
 - [ ] Verify release and completion counts for delay, notification,
   synchronization wake, timeout, resume, and timer-service wake paths.
