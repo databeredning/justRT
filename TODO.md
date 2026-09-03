@@ -302,8 +302,9 @@ tracing system or requiring application-specific instrumentation.
 
 Current status: the feature gate, task period metadata, and initial benchmark
 record storage, cycle-source integration, and initial runtime accounting are
-complete. Snapshot APIs and the deterministic S32K312 regression profile are
-implemented; reporting and broader regression coverage remain in progress.
+complete. Snapshot APIs, the deterministic S32K312 regression profile, and a
+generic S32K312 report runner are implemented; broader regression coverage,
+documentation, and final release validation remain in progress.
 
 ### First-version result
 
@@ -562,25 +563,25 @@ Suggested commit: `api: expose dynamic task benchmark snapshots`
 
 ### Step 8: create one generic report runner
 
-- [ ] Extend the existing justRT GDB automation with a benchmark mode rather
+- [x] Extend the existing justRT GDB automation with a benchmark mode rather
   than adding an application-specific parser to the kernel repository.
-- [ ] Reset the benchmark, run for a configured duration, halt once, read
+- [x] Reset the benchmark, run for a configured duration, halt once, read
   benchmark metadata, iterate the reported task count, and resolve every task
   name dynamically.
-- [ ] Generate the compact grid defined above. Convert cycles using
+- [x] Generate the compact grid defined above. Convert cycles using
   `cycle_frequency_hz`:
   `microseconds = cycles * 1000000 / cycle_frequency_hz` and
   `milliseconds = cycles * 1000 / cycle_frequency_hz`.
-- [ ] Calculate Budget only when `period_cycles != 0`:
+- [x] Calculate Budget only when `period_cycles != 0`:
   `budget_percent = max_activation_cycles * 100 / period_cycles`.
-- [ ] Calculate Stack max when `stack_words != 0`:
+- [x] Calculate Stack max when `stack_words != 0`:
   `stack_percent = used_stack_words * 100 / stack_words`, using 64-bit
   intermediate arithmetic. Display `used_stack_words/stack_words` and the
   percentage so a small stack is not hidden by percentage rounding.
-- [ ] Mark `CHECK` for nonzero coalescing or Budget at or above 100%. Show a
+- [x] Mark `CHECK` for nonzero coalescing or Budget at or above 100%. Show a
   pending activation separately, because stopping between release and run is
   not automatically a failure.
-- [ ] Write both console output and a stable Markdown result. Keep raw cycle
+- [x] Write both console output and a stable Markdown result. Keep raw cycle
   values accessible in verbose output for debugging and reproducibility.
 - [ ] Keep target details outside the benchmark parser. Supply ELF path,
   debugger server, device/interface, runtime, and output path through command
