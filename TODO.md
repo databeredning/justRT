@@ -301,8 +301,9 @@ and how much of its configured period it consumes, without becoming a general
 tracing system or requiring application-specific instrumentation.
 
 Current status: the feature gate, task period metadata, and initial benchmark
-record storage are complete. Cycle-source integration, runtime accounting,
-snapshot APIs, reporting, and regression coverage remain in progress.
+record storage, cycle-source integration, and initial runtime accounting are
+complete. Snapshot reset semantics, reporting, and regression coverage remain
+in progress.
 
 ### First-version result
 
@@ -446,8 +447,8 @@ Suggested commit: `kernel: add per-task benchmark records`
 - [x] Preserve any existing DWT counter values and unrelated control bits:
   initialization may only OR the required enable bits and must never clear,
   reset, or reload `DWT->CYCCNT`.
-- [ ] Record the cycle frequency used for conversion in benchmark metadata.
-- [ ] Keep raw values in cycles inside the kernel. Convert to microseconds,
+- [x] Record the cycle frequency used for conversion in benchmark metadata.
+- [x] Keep raw values in cycles inside the kernel. Convert to microseconds,
   milliseconds, and percentages in the host runner to avoid floating-point
   work in the target.
 - [ ] Define QEMU behavior explicitly: use DWT if the selected machine models
@@ -479,7 +480,7 @@ task_benchmark_complete_locked(task_id, now);
   documented API semantic.
 - [x] Save `release_cycle` only for the oldest outstanding activation. A later
   coalesced release must not overwrite it and hide the true latency.
-- [ ] Saturate the derived Pending value at zero in snapshots so counter wrap
+- [x] Saturate the derived Pending value at zero in snapshots so counter wrap
   or an in-progress transition cannot produce a misleading large value.
 
 Suggested commit: `kernel: account task releases and coalescing`
@@ -537,12 +538,12 @@ JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id, JRT_TaskBenchmarkInfo_t *inf
 JRT_Status_t JRT_BenchmarkReset(void);
 ```
 
-- [ ] Make `task_count` dynamic and return entries by task ID. The runner shall
+- [x] Make `task_count` dynamic and return entries by task ID. The runner shall
   iterate from zero to `task_count - 1` and obtain names with
   `JRT_TaskGetName()` or a combined snapshot API.
-- [ ] Copy a snapshot inside one short critical section. Never expose a
+- [x] Copy a snapshot inside one short critical section. Never expose a
   writable pointer to kernel-owned records.
-- [ ] Populate `stack_words` and `used_stack_words` from the same task stack
+- [x] Populate `stack_words` and `used_stack_words` from the same task stack
   metadata used by `JRT_TaskGetStackInfo()` so the benchmark snapshot is
   internally consistent and requires only one task query per report row.
 - [ ] Define whether internal tasks are included. Recommended: include the

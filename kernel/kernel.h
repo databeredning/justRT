@@ -241,6 +241,28 @@ typedef struct
 	uint32_t current_sp;
 } JRT_TaskStackInfo_t;
 
+#if JRT_ENABLE_TASK_BENCHMARK
+typedef struct
+{
+	uint32_t release_count;
+	uint32_t completion_count;
+	uint32_t pending_count;
+	uint32_t coalesced_count;
+	uint32_t max_release_latency_cycles;
+	uint32_t max_activation_cycles;
+	uint32_t period_cycles;
+	uint32_t stack_words;
+	uint32_t used_stack_words;
+} JRT_TaskBenchmarkInfo_t;
+
+typedef struct
+{
+	uint32_t enabled;
+	uint32_t task_count;
+	uint32_t cycle_frequency_hz;
+} JRT_BenchmarkInfo_t;
+#endif
+
 typedef enum
 {
 	TASK_WAIT_NONE = 0U,
@@ -313,6 +335,11 @@ JRT_Status_t JRT_TaskGetState(uint32_t task_id, JRT_TaskState_t *state) KERNEL_P
 JRT_Status_t JRT_TaskGetStackInfo(uint32_t task_id, JRT_TaskStackInfo_t *info) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetName(uint32_t task_id, const char **name) KERNEL_PRIVILEGED;
 JRT_Status_t JRT_TaskGetPriority(uint32_t task_id, uint32_t *priority) KERNEL_PRIVILEGED;
+#if JRT_ENABLE_TASK_BENCHMARK
+JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info) KERNEL_PRIVILEGED;
+JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
+	JRT_TaskBenchmarkInfo_t *info) KERNEL_PRIVILEGED;
+#endif
 JRT_Status_t JRT_TaskSuspend(uint32_t task_id);
 JRT_Status_t JRT_TaskResume(uint32_t task_id);
 void JRT_TaskYield(void);

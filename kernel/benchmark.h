@@ -27,6 +27,9 @@ void task_benchmark_init(uint32_t task_count,
 void task_benchmark_release_locked(uint32_t task_id, int coalesced);
 void task_benchmark_start_locked(uint32_t task_id);
 void task_benchmark_complete_locked(uint32_t task_id);
+JRT_Status_t JRT_BenchmarkGetInfo(JRT_BenchmarkInfo_t *info);
+JRT_Status_t JRT_BenchmarkGetTask(uint32_t task_id,
+                                  JRT_TaskBenchmarkInfo_t *info);
 
 #else
 
