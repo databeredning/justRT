@@ -143,8 +143,11 @@ The root Makefile selects a target with `TARGET`. A new target must provide:
 - an explicit policy for tests that require unavailable hardware features.
 
 Keep each target's objects separate so code compiled for one CPU cannot be
-silently reused for another. The current layouts are `obj/s32k312`,
-`bin/s32k312`, `obj/qemu-mps2-an385`, and `bin/qemu-mps2-an385`.
+silently reused for another. S32K312 uses `obj/<profile>/` and `bin/`; QEMU
+uses `obj/qemu-mps2-an385/<profile>/` and `bin/qemu-mps2-an385/`.
+Optimized builds add `release/` before the profile or image filename.
+Test selection lives in `tests/tests.mk`; the default example has its own
+entry point in `examples/main.c`.
 
 ## Implemented QEMU Reference Target
 

@@ -43,5 +43,7 @@ static const JRT_TaskDefinition_t benchmark_tasks[] = {
 
 The periodic task reports Budget against ten kernel ticks. The event-driven
 task reports counts and timing with Budget shown as `N/A`. Use
-`python tools/run_benchmark.py --duration-ticks 750` to produce the dynamic
+`python tools/run_benchmark.py --flash --runtime 20` to produce the dynamic
 report.
+
+See [benchmark collection](../docs/BENCHMARK.md) for prerequisites and image paths.

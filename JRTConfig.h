@@ -1,3 +1,23 @@
+/*
+ * Application configuration for justRT.
+ *
+ * This bundled file supplies defaults for the repository examples and tests;
+ * it is not a universal configuration for applications using the kernel.
+ * Each application should own its JRTConfig.h and select its clock, tick rate,
+ * task capacity, priorities, stack sizes, and optional diagnostics explicitly.
+ *
+ * Integration: copy this file into the application's configuration directory
+ * and put that directory before the justRT root in the compiler include path
+ * for ALL kernel, architecture, and application C sources. Use the same
+ * configuration consistently throughout the image. The repository Makefile
+ * uses this bundled file; an application's build must set its include order.
+ *
+ * The #ifndef defaults also allow individual compiler -D overrides. Stack
+ * defaults are example values: size application stacks from measured usage
+ * plus margin. Architecture capabilities remain the port's responsibility.
+ * See README.md (Application configuration) for integration details.
+ */
+
 #ifndef JUSTRT_CONFIG_H
 #define JUSTRT_CONFIG_H
 

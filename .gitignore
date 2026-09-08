@@ -1,3 +1,7 @@
 /bin/*
 /obj/*
 /artifacts/*
+
+/tools/justrt_benchmark_latest.md
+/benchmark.md
+__pycache__/

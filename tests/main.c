@@ -1,4 +1,3 @@
-#include "examples/simple.h"
 #include "tests/test_boot_and_privilege.h"
 #include "tests/test_benchmark.h"
 #include "tests/test_config_runtime.h"
@@ -45,7 +44,7 @@ int main(void)
 #elif defined(JUSTRT_TEST_TASK_SUSPENSION) || defined(JUSTRT_TEST_TASK_SUSPENSION_MPU)
     test_task_suspension_start();
 #else
-    simple_example_start();
+#error "Select a test profile with TEST=<name>"
 #endif
 
     return 0;

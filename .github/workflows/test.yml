@@ -1,0 +1,42 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      JUSTRT_GDB: gdb-multiarch
+      JUSTRT_MAKE: make
+      JUSTRT_QEMU: qemu-system-arm
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi gdb-multiarch qemu-system-arm
+      - name: Report tool versions
+        run: |
+          python --version
+          arm-none-eabi-gcc --version
+          qemu-system-arm --version
+          gdb-multiarch --version
+      - name: Check configurations
+        run: python tools/test_config_builds.py
+      - name: Build examples
+        run: |
+          make BUILD=release TARGET=s32k312
+          make BUILD=release TARGET=qemu-mps2-an385
+      - name: Run QEMU regressions
+        run: make qemu-test BUILD=release PYTHON=python

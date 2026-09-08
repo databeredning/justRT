@@ -126,7 +126,9 @@ do not need a custom size. `JRT_DECLARE_STATIC_TASK_STACK()` places an aligned
 `JRT_TASK_DEFINITION()` registers both with the kernel. The kernel owns the
 idle-task stack and still performs no heap allocation.
 
-Application and target-specific build settings live in `JRTConfig.h`. They
+Application-owned settings live in `JRTConfig.h`; the bundled header supplies
+example/test defaults. See [application configuration](../README.md#application-configuration)
+for selecting a custom header consistently across the build. These settings
 select the core clock, tick rate, application-task limit, default application
 stack size, idle and timer-service stack sizes, maximum task priority,
 timer-service priority, and test-hook inclusion. Kernel-owned task capacity
@@ -165,7 +167,7 @@ one cycle-counter wrap.
 The benchmark initializer enables DWT tracing and cycle counting without
 clearing or reloading `DWT->CYCCNT` or changing unrelated DWT control bits.
 The generic host report is generated with
-`python tools/run_benchmark.py --duration-ticks <ticks>` and converts raw
+`python tools/run_benchmark.py --runtime 20` and converts raw
 cycles to time on the host.
 
 The initial frame contains a saved `EXC_RETURN`, eight software-saved
@@ -411,122 +413,10 @@ directory and is reached from unprivileged tasks through the LED SVC gateway.
 
 ## Build and Validation
 
-```sh
-make -B TEST=simple
-make -B TEST=boot
-make -B TEST=fatal_hook
-make -B TEST=fatal_hook_return
-make -B TEST=sync
-make -B TEST=mutex
-make -B TEST=fpu
-make -B TEST=race
-make -B TEST=timer_service
-make -B TEST=task_capacity
-make -B TEST=private_config
-make -B TEST=stack_guard
-make -B TEST=mpu_isolation_read
-make -B TEST=mpu_isolation_write
-make -B TEST=task_suspension
-make -B TEST=task_suspension_mpu
-make -B TEST=config_runtime
-make config-test
-make qemu-release-test
-make auto-release-test
-make auto-test
-```
-
-Debug artifacts use `-Og -g3` and the existing `obj/` and `bin/` paths.
-`BUILD=release` uses `-O2 -g3 -DNDEBUG` and writes to separate `release/`
-subdirectories. Debug information remains available for automated GDB result
-and diagnostic collection; `NDEBUG` does not remove justRT fault capture or
-kernel-invariant checks. `make qemu-release-test` and
-`make auto-release-test` run the optimization-sensitive synchronization,
-extended stress/tick-wrap, timer-service, and task-suspension profiles. The
-hardware release set additionally runs the expected stack-guard and suspended
-private-data MPU faults. Release builds report ELF text, data, BSS, and total
-sizes before execution.
-
-`make auto-test` invokes `tools/run_tests.py` and builds, flashes, and runs
-the terminating boot, configuration, fatal-hook, synchronization, mutex, FPU,
-race, timer-service, task-capacity, private-configuration, stack-guard,
-MPU-isolation, and task-suspension profiles on S32K312 hardware through
-J-Link/GDB. The stack-guard, isolation, and suspension-MPU profiles pass by
-capturing and validating their expected MemManage faults. The runner
-suppresses nested build output while preserving test status and diagnostics.
-It also accepts `--quiet-build`, `--verbose`, `--timeout`, and repeated
-`--test <name>` options.
-
-Build and launch the QEMU target with:
-
-```sh
-make -B TARGET=qemu-mps2-an385 TEST=simple
-qemu-system-arm -M mps2-an385 -cpu cortex-m3 -kernel bin/qemu-mps2-an385/justrt.elf -nographic -S -gdb tcp::1234
-```
-
-QEMU starts paused at reset and listens for GDB on TCP port 1234. Select
-`QEMU: Attach justRT` in VS Code and start debugging to continue execution.
-
-To stop QEMU in `-nographic` mode, press `Ctrl+A`, release the keys, and then
-press `X`.
-
-`make qemu-test` runs the terminating `boot`, `config_runtime`, `fatal_hook`,
-`fatal_hook_return`, `sync`, `mutex`, `race`, `stress`, `timer_service`,
-`task_capacity`, `private_config`, and `task_suspension` profiles under
-QEMU/GDB and checks their results plus fault, invariant, stack, scheduler,
-MPU-transition, and tick diagnostics. The Cortex-M3 target rejects `fpu`,
-`stack_guard`, both `mpu_isolation` profiles, and `task_suspension_mpu`
-because it cannot enforce those hardware features.
-
-Tests:
-
-- `simple`: continuous board-independent task switching example.
-- `boot`: unprivileged startup, MPU, SVC LED gateway, and privilege switching.
-- `fatal_hook`: configurable fatal-hook invocation, reason propagation,
-  interrupt masking, and application-selected non-returning handoff.
-- `fatal_hook_return`: returning-hook proof that the kernel records the return
-  and remains in its interrupt-masked default halt policy.
-- `sync`: ISR semaphore, queue, event-group, and notification paths.
-- `mutex`: recursive ownership, priority inheritance, and chained waiters.
-- `fpu`: FP-to-FP and FP-to-non-FP context switches across SVC and SysTick.
-- `race`: blocking, timeout, tick-wrap, timer start/stop/restart, and wake-up
-  race coverage.
-- `stress`: fixed-seed, doubled race workloads with bounded completion under
-  optimized QEMU and S32K312 builds.
-- `timer_service`: callback scheduling, periodic accumulation, callback-side
-  timer operations, restart behavior, and polling compatibility.
-- `task_capacity`: configured task-limit acceptance, maximum-plus-one
-  rejection, full-capacity scheduling, and dynamic guard transitions.
-- `private_config`: valid private-region ownership plus invalid size,
-  alignment, range, privilege, and overlap configurations.
-- `config_runtime`: non-default tick conversion, overflow saturation, and
-  runtime rejection of task priorities above the configured ceiling.
-- `stack_guard`: S32K312 expected-fault proof that the running task's dynamic
-  guard captures an unprivileged write.
-- `mpu_isolation_read` and `mpu_isolation_write`: S32K312 expected-fault
-  proofs that tasks retain own/shared access while a context switch revokes
-  access to the outgoing task's private region.
-- `task_suspension`: self/other suspension, resume, invalid state and context,
-  saved task state, scheduler exclusion, and shared/private access behavior.
-- `task_suspension_mpu`: S32K312 expected-fault proof that another task cannot
-  access the private region belonging to a suspended task.
-
-Useful diagnostics include `g_fault_record`, `g_fault_active`,
-`g_context_switches`, `g_kernel_ticks`, `g_svc_invalid_service`, and
-`g_svc_invalid_context`. Dynamic MPU diagnostics report the currently selected
-stack guard and private-data base/size together with their update counts.
-Kernel invariant failures set
-`g_kernel_invariant_active` and record the invariant code, task, object,
-auxiliary value, and tick before stopping with interrupts masked.
-`g_stack_high_water_words` and `g_stack_high_water_task` identify the largest
-observed task-stack use. `g_critical_entries`, `g_critical_nesting`, and
-`g_critical_nesting_max` expose critical-section activity; terminating tests
-require the current nesting count to return to zero.
+See [the testing guide](../tests/README.md) for build profiles and regression commands.
 
 ## Current Limitations
 
-The supported tool baseline, configuration envelope, application integration
-checklist, residual risks, and release acceptance procedure are maintained in
-[RELEASE.md](RELEASE.md).
 
 - Static task configuration only; no task creation or deletion. Suspension is
   limited to running or ready application tasks and does not cancel waits.
@@ -543,3 +433,82 @@ checklist, residual risks, and release acceptance procedure are maintained in
   timers. `JRT_TimerDispatch()` remains as a compatibility API; calling it
   explicitly executes claimed callbacks synchronously in the calling context.
 - QEMU cannot exercise MPU isolation or floating-point context switching.
+
+## Configuration Envelope
+
+Application settings are selected in the application-owned `JRTConfig.h`.
+The checked constraints
+are summarized below; the default values are the reference values.
+
+| Setting | Default | Supported constraint |
+| --- | ---: | --- |
+| `JRT_CORE_CLOCK_HZ` | 120000000 | Nonzero, fits `uint32_t` |
+| `JRT_TICK_RATE_HZ` | 7500 | Nonzero, no greater than the core clock, produces a 24-bit SysTick reload |
+| `JRT_MAX_APPLICATION_TASKS` | 7 | Nonzero and representable with three reserved scheduler slots |
+| `JRT_DEFAULT_TASK_STACK_WORDS` | 128 | Even, no smaller than the architecture context, byte size fits `uint32_t` |
+| `JRT_IDLE_STACK_WORDS` | 128 | Same stack constraints as application stacks |
+| `JRT_TIMER_SERVICE_STACK_WORDS` | 128 | Same stack constraints as application stacks |
+| `JRT_MAX_TASK_PRIORITY` | 31 | Nonzero and fits `uint32_t` |
+| `JRT_TIMER_SERVICE_PRIORITY` | 1 | Above idle priority and no greater than the configured maximum |
+| `JRT_ENABLE_TEST_HOOKS` | 0 | Either 0 or 1; production release uses 0 |
+| `JRT_ENABLE_TASK_BENCHMARK` | 0 | Either 0 or 1; production release uses 0 |
+
+Passing compile-time checks proves that a value is representable, not that it
+is suitable for a particular application. The application must size every
+stack from measured high-water use plus interrupt and call-depth margin,
+account for the scheduler's linear scan as task capacity grows, and select a
+tick rate consistent with its latency and CPU-load budget.
+
+Release firmware uses `BUILD=release`, which selects `-O2 -g3 -DNDEBUG` and
+keeps debugger information without disabling kernel invariant, stack, fault,
+or fatal-path diagnostics.
+
+## Application Integration
+
+When integrating justRT into an application:
+
+1. Keep task definitions, stacks, queues, synchronization objects, timers,
+   and memory pools statically allocated for the lifetime expected by their
+   APIs.
+2. Give every unprivileged task only its required private aggregate. Place
+   deliberately shared objects in `JRT_TASK_UNPRIVILEGED_DATA`; never store a
+   secret in shared unprivileged memory.
+3. Confirm task priorities, timer-service priority, blocking relationships,
+   and worst-case callback work. Timer callbacks must remain bounded and must
+   not block.
+4. Measure stack high-water values under application worst-case load and add
+   explicit safety margin. Do not use the architectural minimum as an
+   application sizing recommendation.
+5. Implement `JRT_FatalErrorHook()` only if the product needs persistent
+   logging, watchdog handoff, or reset. The hook must be bounded and safe with
+   maskable interrupts disabled.
+6. Verify the target clock before starting the kernel and keep interrupt
+   priorities consistent with the execution and ISR contract in `RTOS.md`.
+7. Review all DMA and peripheral bus-master access separately; the CPU MPU
+   does not protect private task data from those agents.
+8. Build with `BUILD=release`, review the ELF size and map file, and retain the
+   matching ELF for fault diagnosis.
+
+## Residual Risks and Unsupported Features
+
+- There is no dynamic task creation or deletion. Suspension supports only
+  running and ready application tasks and does not cancel active waits.
+- Faults are fail-stop. Recovery, reset, persistent logging, and watchdog
+  policy belong to the application and platform.
+- MPU enforcement is available only on MPU-enabled targets. Privileged code,
+  DMA, and other bus masters can bypass task-private CPU access controls.
+- Each task has at most one private power-of-two region with matching base
+  alignment. General process-style address spaces are not provided.
+- Software-timer callbacks execute serially in one privileged service task;
+  a callback that fails to return prevents later callbacks from running.
+- Task benchmarking is currently supported only on S32K312 hardware with a
+  validated DWT cycle counter. QEMU rejects the real-time benchmark profile.
+- Scheduler selection and several object wait-list operations are linear in
+  configured task count. Larger task limits need application-specific timing
+  measurement.
+- QEMU does not validate S32K312 MPU behavior, floating-point context,
+  startup timing, interrupt integration, peripherals, flash programming, or
+  electrical behavior.
+- The kernel has extensive deterministic regression coverage but is not a
+  certified safety kernel and has no claimed compliance with a functional
+  safety standard.
