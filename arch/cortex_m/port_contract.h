@@ -3,22 +3,26 @@
 
 #include <stdint.h>
 
+#include "JRTConfig.h"
+
 /*
  * Cortex-M port contract.
  *
  * This header names the boundary between the portable kernel (kernel/task.c,
  * kernel/sync.c, kernel/timer.c, kernel/mempool.c) and the Cortex-M-specific
- * port (currently kernel/port_cm7.c, kernel/svc_cm7.s, kernel/fault.c).
+ * port in arch/cortex_m/ (port_cm7.c, svc_cm7.s, and fault.c).
  * Functions are added here incrementally as each piece of port behavior is
  * extracted; until a function is listed, the kernel still calls the port's
  * native name directly.
  *
  * Extracted so far:
+ *   - arch_build_initial_stack(): construct the initial task context.
+ *   - arch_disable_interrupts()/arch_halt(): fatal-path CPU operations.
  *   - arch_request_switch(): pend a context switch (PendSV).
  *   - arch_critical_enter()/arch_critical_exit(): PRIMASK-based critical
  *     sections.
  *   - arch_in_isr(): true when called from exception/interrupt context.
- *   - arch_tick_init(): configure and start the periodic tick source.
+ *   - arch_tick_init()/arch_tick_start(): configure and start the tick.
  *   - arch_yield(): request an immediate reschedule via SVC.
  *   - arch_configure_mpu(): program the static MPU map and the first task's
  *     dynamic stack guard and private-data region.
@@ -34,7 +38,7 @@
  * vectors and stay named by the vector table (Vector_Table.s); they are
  * already fully owned by the port and are not renamed here.
  *
- * kernel/fault.c (HardFault/MemManage/BusFault/UsageFault handlers and
+ * arch/cortex_m/fault.c (HardFault/MemManage/BusFault/UsageFault handlers and
  * fault_capture()) has no call sites from the portable kernel at all -- it
  * is reached only via the vector table -- so it needs no seam here. It is
  * already fully arch-owned.
@@ -47,6 +51,24 @@
 
 /* Return to Thread mode using PSP with a basic (non-FP) hardware frame. */
 #define ARCH_INITIAL_EXC_RETURN 0xFFFFFFFDU
+
+/* Cortex-M basic and optional floating-point context sizes, in words. */
+#define JRT_INITIAL_STACK_USED_WORDS 17U
+#define JRT_FP_SOFTWARE_CONTEXT_WORDS 16U
+#define JRT_FP_HARDWARE_CONTEXT_WORDS 18U
+#if JRT_ARCH_FPU_CONTEXT
+#define JRT_MINIMUM_TASK_STACK_WORDS \
+	(JRT_INITIAL_STACK_USED_WORDS + JRT_FP_SOFTWARE_CONTEXT_WORDS \
+	 + JRT_FP_HARDWARE_CONTEXT_WORDS)
+#else
+#define JRT_MINIMUM_TASK_STACK_WORDS JRT_INITIAL_STACK_USED_WORDS
+#endif
+
+/* Construct the synthetic exception frame consumed by context restore. */
+uint32_t *arch_build_initial_stack(uint32_t *stack_top, void (*entry)(void *), void *argument);
+/* Fatal-path operations: no critical-section accounting or mask restoration. */
+void arch_disable_interrupts(void);
+void arch_halt(void) __attribute__((noreturn));
 
 void arch_request_switch(void);
 uint32_t arch_critical_enter(void);

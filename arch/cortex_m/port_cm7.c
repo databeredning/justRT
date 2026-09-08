@@ -4,6 +4,54 @@
 #include "board/board.h"
 #include "cortex_m/port_contract.h"
 
+static void task_exit_trap(void)
+{
+    while (1)
+    {
+    }
+}
+
+uint32_t *arch_build_initial_stack(uint32_t *stack_top, void (*entry)(void *), void *argument)
+{
+    uint32_t *stack = stack_top;
+
+    *--stack = 0x01000000U;
+    *--stack = ((uint32_t)entry) & ~1U;
+    *--stack = ((uint32_t)task_exit_trap) | 1U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = (uint32_t)(uintptr_t)argument;
+
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+    *--stack = 0U;
+
+    /* Software-saved context: EXC_RETURN followed by r4-r11. */
+    *--stack = ARCH_INITIAL_EXC_RETURN;
+
+    return stack;
+}
+
+void arch_disable_interrupts(void)
+{
+    __asm volatile ("cpsid i" : : : "memory");
+}
+
+void arch_halt(void)
+{
+    while (1)
+    {
+        __asm volatile ("nop");
+    }
+}
+
 volatile uint32_t g_svc_invalid_service KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_svc_invalid_context KERNEL_PRIVILEGED_DATA;
 volatile uint32_t g_critical_entries KERNEL_PRIVILEGED_DATA;

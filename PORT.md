@@ -13,9 +13,8 @@ platform/<target>/ Reset startup, vectors, linker script, and board driver.
 ```
 
 Portable `kernel/*.c` code must not access CPU or board registers directly.
-The current Cortex-M exception implementation remains in historically named
-files under `kernel/`, while `arch/cortex_m/port_contract.h` defines the
-boundary that portable code calls. A new board using the same Cortex-M model
+The Cortex-M exception implementation lives under `arch/cortex_m/`, while
+`arch/cortex_m/port_contract.h` defines the boundary that portable code calls. A new board using the same Cortex-M model
 normally needs a new `platform/<target>/` and build selection, not a fork of
 the portable kernel.
 
@@ -26,6 +25,9 @@ The portable kernel uses these functions from
 
 | Function | Responsibility |
 | --- | --- |
+| `arch_build_initial_stack()` | Construct the initial Cortex-M task context; context-size constants also belong to the port contract. |
+| `arch_disable_interrupts()` | Disable interrupts for fatal handling without changing critical-section diagnostics. |
+| `arch_halt()` | Stop execution permanently if the fatal hook returns. |
 | `arch_request_switch()` | Pend the lowest-priority context-switch exception. |
 | `arch_critical_enter()` | Mask interrupts and return the previous mask state. |
 | `arch_critical_exit()` | Restore the exact state returned by critical entry. |
@@ -58,11 +60,11 @@ exception-returns. When `JRT_ARCH_FPU_CONTEXT=1`, the path also preserves
 
 The relevant implementation files are:
 
-- `kernel/port_cm7.c`: Cortex-M register access, SysTick, PendSV, SVC dispatch,
+- `arch/cortex_m/port_cm7.c`: Cortex-M register access, SysTick, PendSV, SVC dispatch,
   and optional MPU programming.
-- `kernel/svc_cm7.s`: SVC entry and shared task-context restore.
-- `kernel/svc_stubs_cm7.c`: task-facing unprivileged SVC wrappers.
-- `kernel/fault.c`: debugger-visible fault capture and fail-stop handlers.
+- `arch/cortex_m/svc_cm7.s`: SVC entry and shared task-context restore.
+- `arch/cortex_m/svc_stubs_cm7.c`: task-facing unprivileged SVC wrappers.
+- `arch/cortex_m/fault.c`: debugger-visible fault capture and fail-stop handlers.
 
 The `cm7` filenames are historical. The same code is compiled for the current
 Cortex-M3 QEMU target with FPU and MPU features disabled.

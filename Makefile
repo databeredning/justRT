@@ -106,9 +106,9 @@ $(error Unsupported TEST=$(TEST); use TEST=simple, TEST=boot, TEST=benchmark, TE
 endif
 ASFLAGS := $(CPUFLAGS) $(ARCHFLAGS) $(OPTFLAGS) -x assembler-with-cpp
 LDFLAGS := $(CPUFLAGS) -nostdlib -nostartfiles -Wl,--gc-sections -Wl,-Map=$(BINDIR)/$(PROJECT).map -T $(LINKER_SCRIPT)
-OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_benchmark.o tests/test_config_runtime.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/benchmark.o kernel/port_cm7.o kernel/svc_stubs_cm7.o kernel/svc_cm7.o kernel/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
+OBJS := $(addprefix $(OBJDIR)/,startup.o Vector_Table.o system.o main.o tests/test_boot_and_privilege.o tests/test_benchmark.o tests/test_config_runtime.o tests/test_fatal_hook.o tests/test_synchronization.o tests/test_mutex.o tests/test_race.o tests/test_timer_service.o tests/test_task_capacity.o tests/test_stack_guard.o tests/test_private_config.o tests/test_mpu_isolation.o tests/test_task_suspension.o examples/simple.o kernel/task.o kernel/benchmark.o arch/cortex_m/port_cm7.o arch/cortex_m/svc_stubs_cm7.o arch/cortex_m/svc_cm7.o arch/cortex_m/fault.o kernel/fatal.o kernel/sync.o kernel/timer.o kernel/mempool.o board/board.o) $(FPU_OBJS)
 
-$(OBJS): JRTConfig.h
+$(OBJS): JRTConfig.h arch/cortex_m/port_contract.h
 
 all: $(BINDIR)/$(PROJECT).elf $(BINDIR)/$(PROJECT).bin $(BINDIR)/$(PROJECT).hex
 
@@ -187,16 +187,16 @@ $(OBJDIR)/kernel/task.o: kernel/task.c kernel/kernel.h | $(OBJDIR)/kernel
 $(OBJDIR)/kernel/benchmark.o: kernel/benchmark.c kernel/benchmark.h kernel/kernel.h | $(OBJDIR)/kernel
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
-$(OBJDIR)/kernel/port_cm7.o: kernel/port_cm7.c kernel/kernel.h | $(OBJDIR)/kernel
+$(OBJDIR)/arch/cortex_m/port_cm7.o: arch/cortex_m/port_cm7.c kernel/kernel.h | $(OBJDIR)/arch/cortex_m
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
-$(OBJDIR)/kernel/svc_stubs_cm7.o: kernel/svc_stubs_cm7.c kernel/kernel.h | $(OBJDIR)/kernel
+$(OBJDIR)/arch/cortex_m/svc_stubs_cm7.o: arch/cortex_m/svc_stubs_cm7.c kernel/kernel.h | $(OBJDIR)/arch/cortex_m
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
-$(OBJDIR)/kernel/svc_cm7.o: kernel/svc_cm7.s | $(OBJDIR)/kernel
+$(OBJDIR)/arch/cortex_m/svc_cm7.o: arch/cortex_m/svc_cm7.s | $(OBJDIR)/arch/cortex_m
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(OBJDIR)/kernel/fault.o: kernel/fault.c kernel/kernel.h | $(OBJDIR)/kernel
+$(OBJDIR)/arch/cortex_m/fault.o: arch/cortex_m/fault.c kernel/kernel.h | $(OBJDIR)/arch/cortex_m
 	$(CC) $(CFLAGS) -Ikernel -c $< -o $@
 
 $(OBJDIR)/kernel/fatal.o: kernel/fatal.c kernel/kernel.h | $(OBJDIR)/kernel
@@ -214,7 +214,7 @@ $(OBJDIR)/kernel/mempool.o: kernel/mempool.c kernel/mempool.h kernel/kernel.h | 
 $(OBJDIR)/board/board.o: $(PLATFORM_DIR)/board/board.c $(PLATFORM_DIR)/board/board.h | $(OBJDIR)/board
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/examples $(OBJDIR)/tests $(OBJDIR)/board $(BINDIR):
+$(OBJDIR) $(OBJDIR)/kernel $(OBJDIR)/arch/cortex_m $(OBJDIR)/examples $(OBJDIR)/tests $(OBJDIR)/board $(BINDIR):
 	mkdir -p $@
 
 clean:

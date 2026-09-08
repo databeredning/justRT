@@ -10,11 +10,11 @@ MSP, SysTick provides timekeeping, and PendSV performs context switching.
 ## Source Layout
 
 - `kernel/`: portable scheduler, synchronization, timers, and memory pools.
-- `arch/cortex_m/`: architecture contract.
-- `kernel/port_cm7.c`: shared Cortex-M port, optional MPU, SVC dispatch,
+- `arch/cortex_m/`: architecture contract, initial task context, and CPU fault handling.
+- `arch/cortex_m/port_cm7.c`: shared Cortex-M port, optional MPU, SVC dispatch,
   SysTick, and PendSV. The historical filename is retained.
-- `kernel/svc_cm7.s`: SVC exception handler and context restore helper.
-- `kernel/svc_stubs_cm7.c`: unprivileged SVC wrappers.
+- `arch/cortex_m/svc_cm7.s`: SVC exception handler and context restore helper.
+- `arch/cortex_m/svc_stubs_cm7.c`: unprivileged SVC wrappers.
 - `platform/s32k312/`: startup, vectors, linker script, and board driver.
 - `platform/qemu_mps2_an385/`: QEMU startup, vectors, linker script, and board
   driver.

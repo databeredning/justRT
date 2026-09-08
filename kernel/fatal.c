@@ -13,14 +13,11 @@ void __attribute__((weak)) JRT_FatalErrorHook(JRT_FatalReason_t reason)
 
 void kernel_fatal(JRT_FatalReason_t reason)
 {
-    __asm volatile ("cpsid i" : : : "memory");
+    arch_disable_interrupts();
     g_fatal_reason = (uint32_t)reason;
     g_fatal_active = 1U;
     JRT_FatalErrorHook(reason);
     g_fatal_hook_returned = 1U;
 
-    while (1)
-    {
-        __asm volatile ("nop");
-    }
+    arch_halt();
 }

@@ -432,41 +432,6 @@ void task_restore_priority(uint32_t task_id)
     arch_critical_exit(saved_primask);
 }
 
-static void task_exit_trap(void)
-{
-    while (1)
-    {
-    }
-}
-
-static uint32_t *build_initial_stack(uint32_t *stack_top, JRT_TaskEntry_t entry, void *argument)
-{
-    uint32_t *stack = stack_top;
-
-    *--stack = 0x01000000U;
-    *--stack = ((uint32_t)entry) & ~1U;
-    *--stack = ((uint32_t)task_exit_trap) | 1U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = (uint32_t)(uintptr_t)argument;
-
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-    *--stack = 0U;
-
-    /* Software-saved context: EXC_RETURN followed by r4-r11. */
-    *--stack = ARCH_INITIAL_EXC_RETURN;
-
-    return stack;
-}
-
 static void fill_stack(uint32_t *stack_bottom, uint32_t *stack_top)
 {
     uint32_t *word;
@@ -602,8 +567,8 @@ static void prepare_task(uint32_t index, const JRT_TaskDefinition_t *definition)
     fill_stack(stack_bottom, stack_top);
     tasks[index].stack_bottom = stack_bottom;
     tasks[index].stack_top = stack_top;
-    tasks[index].sp = build_initial_stack(stack_top, definition->entry,
-                                          definition->argument);
+    tasks[index].sp = arch_build_initial_stack(
+        stack_top, definition->entry, definition->argument);
     tasks[index].state = JRT_TASK_STATE_READY;
     tasks[index].minimum_sp = tasks[index].sp;
     tasks[index].high_water_words = JRT_INITIAL_STACK_USED_WORDS;
@@ -627,7 +592,7 @@ static void prepare_idle_task(void)
     tasks[idle_index].stack_bottom = &idle_task_storage.stack[0];
     tasks[idle_index].stack_top =
         &idle_task_storage.stack[JRT_IDLE_STACK_WORDS];
-    tasks[idle_index].sp = build_initial_stack(
+    tasks[idle_index].sp = arch_build_initial_stack(
         tasks[idle_index].stack_top, idle_body, 0U);
     tasks[idle_index].state = JRT_TASK_STATE_READY;
     tasks[idle_index].minimum_sp = tasks[idle_index].sp;
@@ -653,7 +618,7 @@ static void prepare_timer_service_task(uint32_t index)
     task->stack_bottom = &timer_service_task_storage.stack[0];
     task->stack_top =
         &timer_service_task_storage.stack[JRT_TIMER_SERVICE_STACK_WORDS];
-    task->sp = build_initial_stack(task->stack_top, timer_service_body, 0U);
+    task->sp = arch_build_initial_stack(task->stack_top, timer_service_body, 0U);
     task->minimum_sp = task->sp;
     task->high_water_words = JRT_INITIAL_STACK_USED_WORDS;
     task->entry = timer_service_body;

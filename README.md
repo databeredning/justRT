@@ -121,9 +121,8 @@ for testing the ordinary kernel regression suite.
 
 ## Repository layout
 
-- `kernel/` — scheduler, synchronization, timers, memory pools, and Cortex-M
-  exception implementation.
-- `arch/cortex_m/` — architecture contract used by the portable kernel.
+- `kernel/` — scheduler, synchronization, timers, memory pools, and fatal policy.
+- `arch/cortex_m/` — architecture contract, task context, exceptions, and CPU fault handling.
 - `platform/s32k312/` — S32K312 startup, memory layout, vectors, and board
   support.
 - `platform/qemu_mps2_an385/` — QEMU Cortex-M3 startup, memory layout, vectors,
